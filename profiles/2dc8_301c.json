@@ -81,5 +81,6 @@
         "rt": {
             "byte": 8
         }
-    }
+    },
+    "layout": "xbox"
 }

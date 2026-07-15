@@ -1,4 +1,4 @@
 @echo off
-title Universal Remapper & XInput from DInput Wrapper
+title "Universal Remapper & XInput from DInput Wrapper"
 echo Starting UR-XD...
-python main.py
+python src/main.py

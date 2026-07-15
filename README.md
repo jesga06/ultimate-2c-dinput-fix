@@ -21,8 +21,10 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
 - **Visual GUI Configuration:** A simple, dark-mode visual interface to easily map buttons without manual file editing.
 - **Universal Profiling:** Generate custom controller layout profiles (`profiles/`) for any generic HID controller using the interactive calibration tool. Includes a default profile for the 8BitDo Ultimate 2C.
 - **Background System Tray Operation:** Quietly sits in your system tray and hides the command prompt window.
-- **Full Button Remapping & Block:** Map *any* controller button (standard or extra paddle) to keyboard or mouse outputs; standard buttons are blocked from XInput when remapped to prevent double inputs.
+- **Full Button Remapping & Block:** Map *any* controller button (standard or extra paddle) to *any combination of* keyboard or mouse outputs; standard buttons are blocked from XInput when remapped to prevent double inputs. (Default config sets L4-R4 as Mouse4-Mouse 5, respectively. Home/Guide is set as ALT+UP)
+- **Smart Reconnection:** Recover connection automatically if your physical controller gets disconnected, actively scanning for 20 seconds before closing safely.
 - **Live Reloading:** Your mapping changes are applied instantly in the background without needing to restart the app.
+- **And Much More!** Check out the full list of features in the [Features List](featurelist.md).
 
 ## Requirements
 - Python 3
@@ -50,7 +52,7 @@ If your controller doesn't have a profile generated yet:
 To start intercepting inputs in the background:
 1. Run the **`run_wrapper.bat`** script (or run `python main.py` in PowerShell).
 2. The command prompt window will hide automatically.
-3. A circular white and blue icon will appear in your **System Tray**.
+3. A circular white and purple icon will appear in your **System Tray**.
 
 ### Step 4: Map Your Buttons
 1. Right-click the system tray icon and select **Open Config**.
@@ -82,6 +84,28 @@ l4 = mouse4
 r4 = keyboard:f13
 ```
 
+## Troubleshooting
+
+- **No Virtual Controller Appears:** Ensure you have the [ViGEmBus](https://github.com/nefarius/ViGEmBus) driver installed and that it is functioning correctly.
+- **Controller Not Detected by the App:** Make sure you have run the **`calibrate.bat`** script first to generate a profile for your specific controller.
+- **Changes in GUI Aren't Applying:** Ensure that **`run_wrapper.bat`** (the background daemon) is actively running in your system tray. The GUI only modifies the settings; the daemon actually applies them.
+- **Double Inputs in Games:** If you remap a standard button (like 'A'), the app blocks the original 'A' press from reaching the game to prevent double inputs. If you are still seeing double inputs, verify the background daemon is running and Steam Input is not interfering.
+- **Calibration Tool Fails Due to Two Axes Moving:** Some controllers report movement on two separate axes simultaneously when squeezing a single trigger (due to hardware quirks). The calibration tool expects isolated movement. If this happens to you, the tool may misidentify the trigger axis. You may need to manually edit the resulting `profiles/` JSON file or use a different controller.
+- **Tool doesn't work:**
+   - Check whether you're actually using the Virtual Gamepad exposed by this tool, not your physical controller. The Virtual Gamepad will appear in Windows Device Settings as "Virtual Gamepad".
+   - Check if you correctly installed the required dependencies with `pip install -r requirements.txt`.
+   - Check if the daemon is actually running by looking for the system tray icon.
+- **Still Facing Issues?** If you encounter an issue you cannot resolve, please use the **`calibrate_debug.bat`** or **`run_wrapper_debug.bat`** scripts to run the tools in debug mode. This will generate a verbose `calibration.log` or `wrapper.log` file in the same directory. Please open an issue on GitHub and attach these log files to help me fix the problem!
+
+
+## LICENSE
+
+This project is licensed under the PolyForm Noncommercial License 1.0.0.
+
+You are free to use, modify and redistribute this software for noncommercial purposes under the terms of the license.
+
+Commercial use is not permitted without explicit permission from the copyright holder.
+
 ## EXTRAS
 
 ### AI NOTICE: 
@@ -92,8 +116,9 @@ No, the clanker did not do the fun part (the actual reverse engineering behind t
 No, I don't feel bad about it.
 
 ### NOTES:
-No, this tool does not disable the hardware L4/R4 remapping. I have no idea how to disable that. It does let you completely disable or remap the home button to something else though, so there's that!
-
+- No, this tool does not disable the hardware L4/R4 remapping. I have no idea how to disable that. 
+   - It does let you completely disable or remap the home button to something else though, so there's that!
+- It also does not let you remap special controller buttons like "turbo", a profile/mode switch, pairing button, the one you'd use to remap extra buttons, etc.
 ### (maybe) TO-DOs:
 * [x] let all keys be remapped
 * [x] rescan config.ini on changes instead of on startup
@@ -101,13 +126,13 @@ No, this tool does not disable the hardware L4/R4 remapping. I have no idea how 
 * [x] test whether this could work on other controllers and what would need to be done to adapt it (added the new calibration wizard to test this - VID and PID is not hardcoded in anymore!)
 * [ ] bundle all of this up into a standalone `.exe` executable for those who just want to use the damn thing they paid for
 
-### TIMELINE OF EVENTS THAT LED TO THIS PROJECT COMING TO LIFE:
+### (fun) TIMELINE OF EVENTS THAT LED TO THIS PROJECT COMING TO LIFE:
 
 Stumbled upon a [reddit post](https://www.reddit.com/r/Controller/comments/1hu5faa/guide_for_8bitdo_ultimate_2c_wireless_controller/) with some tips about the 8BitDo Ultimate 2 controller family. Noticed that my controller could be used in Xinput or Dinput modes. Decided to test it out. 
 
 Noticed that for some godforsaken reason the triggers didn't use analog polling when the controller was set to Dinput. Got pissed.
 
-Used [this HID Descriptor Tool](https://usb.org/document-library/hid-descriptor-tool) to find out the VID and PID.
+Used [this USBView Tool](https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/usbview) to find out the VID and PID.
 
 Used [this CLI tool](https://github.com/todbot/hidapitester) to read raw input to determine whether it was a firmware issue (the controller actually just wouldn't send analog data) or if it was Windows being Windows. 
 

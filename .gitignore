@@ -1,2 +1,6 @@
 venv/
 __pycache__/
+status.json
+flake8*
+technical_timeline.md
+*.log
