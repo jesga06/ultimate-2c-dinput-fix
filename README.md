@@ -1,4 +1,12 @@
 # Universal Remapper & XInput from DInput Wrapper & Fixer
+
+<p align="center">
+  <img width="800" height="436" alt="test tool showcase" src="https://github.com/user-attachments/assets/a74b972a-b1af-4ca4-8a08-198873898827"/><br>
+  <sub>test tool showcase</sub>
+</p>
+
+
+
 Basically tries to fix DInput gamepads broken by bad descriptors.
 
 A lightweight utility that fixes incorrect DirectInput (DInput) behaviors—like broken analog triggers—on various Windows controllers (e.g., 8BitDo Ultimate 2C) and adds support for custom back paddles, converting them into standard XInput controllers with fully customizable mouse/keyboard mapping.
