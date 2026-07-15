@@ -3,20 +3,29 @@ import time
 import threading
 
 class HIDReader:
-    def __init__(self, vid=0x2DC8, pid=0x301C):
+    def __init__(self, vid=None, pid=None, device=None):
         self.vid = vid
         self.pid = pid
-        self.device = None
+        self.device = device
         self.callback = None
         self._running = False
 
+    @staticmethod
+    def get_all_devices():
+        return hid.find_all_hid_devices()
+
     def connect(self):
-        devices = hid.HidDeviceFilter(vendor_id=self.vid, product_id=self.pid).get_devices()
-        if not devices:
-            print(f"Device VID:{self.vid:04X} PID:{self.pid:04X} not found.")
-            return False
+        if not self.device:
+            if self.vid and self.pid:
+                devices = hid.HidDeviceFilter(vendor_id=self.vid, product_id=self.pid).get_devices()
+                if not devices:
+                    print(f"Device VID:{self.vid:04X} PID:{self.pid:04X} not found.")
+                    return False
+                self.device = devices[0]
+            else:
+                print("No device provided and no VID/PID specified.")
+                return False
         
-        self.device = devices[0]
         try:
             self.device.open()
             print(f"Connected to {self.device.product_name}")

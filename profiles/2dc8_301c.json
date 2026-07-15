@@ -1,0 +1,85 @@
+{
+    "name": "8BitDo Ultimate 2C Wireless Controller",
+    "vid": "2DC8",
+    "pid": "301C",
+    "buttons": {
+        "a": {
+            "byte": 1,
+            "mask": 1
+        },
+        "b": {
+            "byte": 1,
+            "mask": 2
+        },
+        "x": {
+            "byte": 1,
+            "mask": 8
+        },
+        "y": {
+            "byte": 1,
+            "mask": 16
+        },
+        "lb": {
+            "byte": 1,
+            "mask": 64
+        },
+        "rb": {
+            "byte": 1,
+            "mask": 128
+        },
+        "select": {
+            "byte": 2,
+            "mask": 4
+        },
+        "start": {
+            "byte": 2,
+            "mask": 8
+        },
+        "home": {
+            "byte": 2,
+            "mask": 16
+        },
+        "l3": {
+            "byte": 2,
+            "mask": 32
+        },
+        "r3": {
+            "byte": 2,
+            "mask": 64
+        },
+        "dpad": {
+            "byte": 3,
+            "type": "hat"
+        }
+    },
+    "extra_buttons": {
+        "l4": {
+            "byte": 1,
+            "mask": 4
+        },
+        "r4": {
+            "byte": 1,
+            "mask": 32
+        }
+    },
+    "axes": {
+        "lx": {
+            "byte": 4
+        },
+        "ly": {
+            "byte": 5
+        },
+        "rx": {
+            "byte": 6
+        },
+        "ry": {
+            "byte": 7
+        },
+        "lt": {
+            "byte": 9
+        },
+        "rt": {
+            "byte": 8
+        }
+    }
+}

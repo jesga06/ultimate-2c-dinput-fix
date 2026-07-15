@@ -1,4 +1,7 @@
-from dataclasses import dataclass
+import json
+import os
+from dataclasses import dataclass, field
+from typing import Dict, Any
 
 @dataclass
 class ControllerState:
@@ -8,8 +11,6 @@ class ControllerState:
     y: bool = False
     lb: bool = False
     rb: bool = False
-    l4: bool = False
-    r4: bool = False
     
     select: bool = False
     start: bool = False
@@ -32,52 +33,60 @@ class ControllerState:
     # Triggers (0-255)
     lt: int = 0
     rt: int = 0
+    
+    # Dynamic extra buttons
+    extra_buttons: Dict[str, bool] = field(default_factory=dict)
 
 class Decoder:
-    @staticmethod
-    def decode(data) -> ControllerState:
+    def __init__(self, profile_path: str):
+        self.profile = {}
+        self.extra_buttons_config = {}
+        if os.path.exists(profile_path):
+            try:
+                with open(profile_path, 'r') as f:
+                    self.profile = json.load(f)
+                    self.extra_buttons_config = self.profile.get('extra_buttons', {})
+            except json.JSONDecodeError as e:
+                print(f"Error: Profile {profile_path} is not valid JSON: {e}")
+            except Exception as e:
+                print(f"Error loading profile {profile_path}: {e}")
+        else:
+            print(f"Warning: Profile {profile_path} not found. Inputs will be ignored.")
+
+    def decode(self, data) -> ControllerState:
         state = ControllerState()
         
-        # Ensure we have enough data
+        # Ensure we have enough data (min 10 bytes for standard)
         if len(data) < 10:
             return state
             
-        b2 = data[1]
-        state.a = bool(b2 & (1 << 0))
-        state.b = bool(b2 & (1 << 1))
-        state.l4 = bool(b2 & (1 << 2))
-        state.x = bool(b2 & (1 << 3))
-        state.y = bool(b2 & (1 << 4))
-        state.r4 = bool(b2 & (1 << 5))
-        state.lb = bool(b2 & (1 << 6))
-        state.rb = bool(b2 & (1 << 7))
+        buttons = self.profile.get('buttons', {})
         
-        b3 = data[2]
-        state.select = bool(b3 & (1 << 2))
-        state.start = bool(b3 & (1 << 3))
-        state.home = bool(b3 & (1 << 4))
-        state.l3 = bool(b3 & (1 << 5))
-        state.r3 = bool(b3 & (1 << 6))
-        
-        b4 = data[3]
-        hat = b4 & 0x0F
-        
-        # Hat switch values:
-        # 0: Up, 1: Up-Right, 2: Right, 3: Down-Right
-        # 4: Down, 5: Down-Left, 6: Left, 7: Up-Left, 15: Center
-        state.dpad_up = hat in (7, 0, 1)
-        state.dpad_right = hat in (1, 2, 3)
-        state.dpad_down = hat in (3, 4, 5)
-        state.dpad_left = hat in (5, 6, 7)
-        
-        # Based on initial findings, stick centers might be slightly off.
-        # But we'll pass them raw and map them in the virtual pad.
-        state.rx = data[4]
-        state.ry = data[5]
-        state.lx = data[6]
-        state.ly = data[7]
-        
-        state.rt = data[8]
-        state.lt = data[9]
-        
+        # Standard buttons
+        for btn_name in ['a', 'b', 'x', 'y', 'lb', 'rb', 'select', 'start', 'home', 'l3', 'r3']:
+            cfg = buttons.get(btn_name)
+            if cfg and cfg['byte'] < len(data):
+                setattr(state, btn_name, bool(data[cfg['byte']] & cfg['mask']))
+                
+        # D-pad (assuming hat switch for now)
+        dpad_cfg = buttons.get('dpad')
+        if dpad_cfg and dpad_cfg.get('type') == 'hat' and dpad_cfg['byte'] < len(data):
+            hat = data[dpad_cfg['byte']] & 0x0F
+            state.dpad_up = hat in (7, 0, 1)
+            state.dpad_right = hat in (1, 2, 3)
+            state.dpad_down = hat in (3, 4, 5)
+            state.dpad_left = hat in (5, 6, 7)
+            
+        # Extra buttons dynamically decoded
+        for extra_name, cfg in self.extra_buttons_config.items():
+            if cfg['byte'] < len(data):
+                state.extra_buttons[extra_name] = bool(data[cfg['byte']] & cfg['mask'])
+                
+        # Axes
+        axes = self.profile.get('axes', {})
+        for axis_name in ['lx', 'ly', 'rx', 'ry', 'lt', 'rt']:
+            cfg = axes.get(axis_name)
+            if cfg and cfg['byte'] < len(data):
+                setattr(state, axis_name, data[cfg['byte']])
+                
         return state

@@ -1,22 +1,65 @@
-# 8BitDo Ultimate 2C DInput Fix
+# Universal Remapper & XInput from DInput Wrapper & Fixer... UR-XD Wrapper?
+Basically tries to fix DInput gamepads broken by bad descriptors.
 
-A wrapper that fixes the broken DInput mode of the 8BitDo Ultimate 2C Wireless Controller (2.4GHz) on Windows, restoring analog triggers and preserving the extra rear buttons.
+A lightweight utility that fixes incorrect DirectInput (DInput) behaviors—like broken analog triggers—on various Windows controllers (e.g., 8BitDo Ultimate 2C) and adds support for custom back paddles, converting them into standard XInput controllers with fully customizable mouse/keyboard mapping.
 
-The controller natively sends analog trigger data in its HID reports, but its HID descriptor incorrectly describes the reports, causing Windows and games to interpret the analog trigger values incorrectly. This application reads the raw USB HID reports, correctly parses the analog triggers and extra buttons, and exposes a Virtual Xbox 360 controller using `vgamepad` (ViGEmBus). It even lets you remap the extra buttons!
+Some controllers expose perfectly valid input data but advertise incorrect HID descriptors, causing Windows and games to interpret inputs incorrectly. UR-XD bypasses the incomplete/wrong descriptor data, correctly parses the analog triggers and extra buttons, and exposes the fixed gamepad as a Virtual Xbox 360 controller using `vgamepad` (ViGEmBus). It even lets you remap the extra buttons!
+
+For a detailed list of recent updates, architectural changes, and bug fixes, see the [CHANGELOG.md](CHANGELOG.md).
+
+### Supported today
+
+- ✅ 8BitDo Ultimate 2C Wireless 2.4 GHz (literally what this whole project was built to fix)
+
+### Potentially compatible
+
+- ⚠️ Any HID controller whose descriptor does not match its reports
+- ⚠️ Requires one-time calibration
 
 ## Features
-- **Analog Triggers:** Restores the missing analog functionality for LT and RT. (You paid for analog, hall effect triggers and you're getting them analog, hall effect triggers!)
-- **Extra Buttons (L4/R4):** Lets you remap the extra rear buttons to keyboard or mouse actions. (configurable in `config.ini`)
-- **Works like you were using XInput:** All other buttons are fully mapped properly into XInput standards. No need to use SteamInput!
+- **Analog Triggers Fix:** Restores missing analog polling on controllers with broken DInput configurations (e.g. Hall Effect triggers that Windows treats as digital. You paid for analog triggers and you're getting them analog triggers!).
+- **Visual GUI Configuration:** A simple, dark-mode visual interface to easily map buttons without manual file editing.
+- **Universal Profiling:** Generate custom controller layout profiles (`profiles/`) for any generic HID controller using the interactive calibration tool. Includes a default profile for the 8BitDo Ultimate 2C.
+- **Background System Tray Operation:** Quietly sits in your system tray and hides the command prompt window.
+- **Full Button Remapping & Block:** Map *any* controller button (standard or extra paddle) to keyboard or mouse outputs; standard buttons are blocked from XInput when remapped to prevent double inputs.
+- **Live Reloading:** Your mapping changes are applied instantly in the background without needing to restart the app.
 
 ## Requirements
 - Python 3
 - [ViGEmBus](https://github.com/nefarius/ViGEmBus) driver installed.
 - Required pip packages (see `requirements.txt`)
 
-## Configuration & Button Mapping
+## Setup & Tutorial
 
-You can customize the mappings for the extra buttons (L4 and R4) in `config.ini`. This uses the `pynput` library to simulate mouse and keyboard events.
+### Step 1: Install Requirements
+1. Install [Python 3.13](https://www.python.org/downloads/release/python-31314/) or higher.
+2. Install the [ViGEmBus](https://github.com/nefarius/ViGEmBus) driver.
+3. Install Python dependencies (run on PowerShell or CMD):
+   ```powershell
+   pip install -r requirements.txt
+   ```
+
+### Step 2: Calibrate Your Controller (One-time Setup)
+If your controller doesn't have a profile generated yet:
+1. Turn on your controller and run the **`calibrate.bat`** script (or run `python calibration.py` in PowerShell, be sure to **navigate to the scripts' folder** first!).
+2. Press any button or move a joystick on the controller you want to use. The tool will auto-detect it. You can also select it manually by typing the number of the device in the prompt.
+3. Follow the step-by-step CLI prompts (e.g., press A, push Left Stick Up, etc.) to baseline and map your device.
+4. Once finished, a custom JSON profile will be saved in the `profiles/` directory.
+
+### Step 3: Run the Background Daemon
+To start intercepting inputs in the background:
+1. Run the **`run_wrapper.bat`** script (or run `python main.py` in PowerShell).
+2. The command prompt window will hide automatically.
+3. A circular white and blue icon will appear in your **System Tray**.
+
+### Step 4: Map Your Buttons
+1. Right-click the system tray icon and select **Open Config**.
+2. This opens the Configuration GUI window.
+3. Go to the **Remapping** tab, type your desired mappings (e.g., `keyboard:space` or `mouse4`) next to the controller buttons, and press Enter.
+4. The background daemon will pick up your changes within 5 seconds!
+
+## Configuration Details
+If you prefer editing configuration manually, you can customize the mappings for the extra buttons in `config.ini`. This uses the `pynput` library to simulate mouse and keyboard events.
 
 ### Mouse Mapping
 You can map to mouse buttons. The defaults are the forward and backward buttons on standard gaming mice:
@@ -26,7 +69,8 @@ You can map to mouse buttons. The defaults are the forward and backward buttons 
 ### Keyboard Mapping
 You can also map to keyboard keys by prefixing the value with `keyboard:`.
 - Letters/Numbers: `keyboard:a`, `keyboard:1`
-- EXAMPLE: Special Keys (must match pynput `Key` enum names): `keyboard:space`, `keyboard:enter`, `keyboard:f13`, `keyboard:shift`
+- Special Keys (must match pynput `Key` enum names): `keyboard:space`, `keyboard:enter`, `keyboard:f13`, `keyboard:shift`
+- **Key Combos:** You can chain multiple keys together with a `+` symbol (e.g. `keyboard:shift+o` or `keyboard:ctrl+alt+delete`). They will be pressed sequentially and released in reverse order.
 
 Example `config.ini`:
 ```ini
@@ -38,13 +82,6 @@ l4 = mouse4
 r4 = keyboard:f13
 ```
 
-## Running the Application
-Simply run the script after installing the requirements:
-```powershell
-python main.py
-```
-Leave the console window open. Windows will detect a new Xbox 360 controller, and your analog triggers will function in all their analog glory.
-
 ## EXTRAS
 
 ### AI NOTICE: 
@@ -55,32 +92,29 @@ No, the clanker did not do the fun part (the actual reverse engineering behind t
 No, I don't feel bad about it.
 
 ### NOTES:
-Not sure whether or not this would work with other controllers that have similar issues. The VID and PID values are hardcoded in, but if you have a controller that has similar issues, just... well, open an issue!
-
-I might make it so the program reads those IDs from file together with the remapping options and even write a small tutorial on how to find your controllers' IDs to use this tool on them!
-
-And no, this tool does not disable the hardware L4/R4 remapping. I have no idea how to disable that. It does let you completely disable or remap the home button to something else though, so there's that!
-
+No, this tool does not disable the hardware L4/R4 remapping. I have no idea how to disable that. It does let you completely disable or remap the home button to something else though, so there's that!
 
 ### (maybe) TO-DOs:
-* bundle all of this up into an executable for those who just want to use the damn thing they paid for
-* let all keys be remapped?
-* rescan config.ini on changes instead of on startup
-* make the cmd minimize itself or just close to tray (and not exit, obviously)
-* test whether this could work on other controllers and what would need to be done to adapt it
+* [x] let all keys be remapped
+* [x] rescan config.ini on changes instead of on startup
+* [x] make the cmd minimize itself or just close to tray (did this and ended up adding a GUI too cause why not)
+* [x] test whether this could work on other controllers and what would need to be done to adapt it (added the new calibration wizard to test this - VID and PID is not hardcoded in anymore!)
+* [ ] bundle all of this up into a standalone `.exe` executable for those who just want to use the damn thing they paid for
 
-### TIMELINE OF EVENTS:
+### TIMELINE OF EVENTS THAT LED TO THIS PROJECT COMING TO LIFE:
 
-Stumbled upon a [reddit post](https://www.reddit.com/r/Controller/comments/1hu5faa/guide_for_8bitdo_ultimate_2c_wireless_controller/) with some tips about the Ultimate 2 family. Noticed that my controller could be used in Xinput or Dinput modes. Decided to test it out. 
+Stumbled upon a [reddit post](https://www.reddit.com/r/Controller/comments/1hu5faa/guide_for_8bitdo_ultimate_2c_wireless_controller/) with some tips about the 8BitDo Ultimate 2 controller family. Noticed that my controller could be used in Xinput or Dinput modes. Decided to test it out. 
 
 Noticed that for some godforsaken reason the triggers didn't use analog polling when the controller was set to Dinput. Got pissed.
 
 Used [this HID Descriptor Tool](https://usb.org/document-library/hid-descriptor-tool) to find out the VID and PID.
 
-Used [this CLI tool](https://github.com/todbot/hidapitester) to read raw input to determine whether it was a firmware issue (the controller actually just wouldn't send analog data) or if it was windows being windows. 
+Used [this CLI tool](https://github.com/todbot/hidapitester) to read raw input to determine whether it was a firmware issue (the controller actually just wouldn't send analog data) or if it was Windows being Windows. 
 
-Noticed the controller was actually sending analog data. "Windows being windows" theory didn't make sense because no tool correctly reported analog input. 
+Noticed the controller was actually sending analog data. "Windows being Windows" theory didn't make sense because no tool correctly reported analog input. 
 
-Decided to take a look into the descriptor to figure out how the values were being mapped. Found out the 8BitDo engineers are lazier than I am. Got even more pissed. 
+Decided to take a look into the descriptor to figure out how the values were being mapped. Found out the 8BitDo engineers are lazier than I am (The descriptors didn't properly map to what the controller actually outputs). Got even more pissed. 
 
 Wrote a proof of concept script. Concept was proven. Wrote a prompt. AI pumped this out faster than anyone could have. Learned basic black-box reverse engineering in the process. Not pissed anymore.
+
+Ended up feature-creeping this to the point where the name of this repository was outdated within hours of creation.

@@ -11,8 +11,27 @@ class VirtualPad:
             raise
             
         self.home_mapping = 'guide'
-        if config and config.has_section('extra_buttons'):
-            self.home_mapping = config.get('extra_buttons', 'home', fallback='guide').lower()
+        self.blocked_buttons = set()
+        if config:
+            self.reload_config(config)
+            
+    def reload_config(self, config):
+        self.home_mapping = 'guide'
+        self.blocked_buttons.clear()
+        
+        if config.has_section('extra_buttons'):
+            for key, val in config.items('extra_buttons'):
+                key_lower = key.lower()
+                val_lower = val.lower()
+                if key_lower == 'home':
+                    self.home_mapping = val_lower
+                
+                # If a standard button is mapped to something other than itself (or guide for home),
+                # we block it from being pressed on the virtual gamepad
+                # Wait, 'home' mapped to 'guide' means it acts as the guide button. 
+                # If 'a' is mapped to 'keyboard:space', it should be blocked.
+                if key_lower in ['a', 'b', 'x', 'y', 'lb', 'rb', 'select', 'start', 'l3', 'r3', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']:
+                    self.blocked_buttons.add(key_lower)
         
     def _map_axis(self, value: int, invert: bool = False) -> int:
         # Invert the 0-255 range first if needed
@@ -39,8 +58,6 @@ class VirtualPad:
         self.gamepad.right_trigger(value=state.rt)
         
         # Sticks
-        # Typical DInput Y-axis: 0 is Up, 255 is Down
-        # XInput expects positive for Up, negative for Down
         lx_val = self._map_axis(state.lx, invert=False)
         ly_val = self._map_axis(state.ly, invert=True)
         rx_val = self._map_axis(state.rx, invert=False)
@@ -49,52 +66,42 @@ class VirtualPad:
         self.gamepad.left_joystick(x_value=lx_val, y_value=ly_val)
         self.gamepad.right_joystick(x_value=rx_val, y_value=ry_val)
         
+        # Helper to conditionally press buttons
+        def handle_btn(btn_name, is_pressed, vg_btn):
+            if btn_name in self.blocked_buttons:
+                self.gamepad.release_button(button=vg_btn)
+                return
+            if is_pressed:
+                self.gamepad.press_button(button=vg_btn)
+            else:
+                self.gamepad.release_button(button=vg_btn)
+
         # Buttons
-        if state.a: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
+        handle_btn('a', state.a, vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
+        handle_btn('b', state.b, vg.XUSB_BUTTON.XUSB_GAMEPAD_B)
+        handle_btn('x', state.x, vg.XUSB_BUTTON.XUSB_GAMEPAD_X)
+        handle_btn('y', state.y, vg.XUSB_BUTTON.XUSB_GAMEPAD_Y)
+        handle_btn('lb', state.lb, vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
+        handle_btn('rb', state.rb, vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER)
+        handle_btn('select', state.select, vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK)
+        handle_btn('start', state.start, vg.XUSB_BUTTON.XUSB_GAMEPAD_START)
         
-        if state.b: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_B)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_B)
-        
-        if state.x: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_X)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_X)
-        
-        if state.y: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_Y)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_Y)
-        
-        if state.lb: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER)
-        
-        if state.rb: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER)
-        
-        if state.select: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK)
-        
-        if state.start: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_START)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_START)
-        
+        # Home button logic is special since it defaults to guide mapping
         if self.home_mapping == 'guide':
-            if state.home: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
-            else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
+            if state.home: 
+                self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
+            else: 
+                self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
+        else:
+            self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
         
-        if state.l3: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB)
-        
-        if state.r3: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB)
+        handle_btn('l3', state.l3, vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB)
+        handle_btn('r3', state.r3, vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB)
         
         # D-Pad
-        if state.dpad_up: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP)
-        
-        if state.dpad_down: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN)
-        
-        if state.dpad_left: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT)
-        
-        if state.dpad_right: self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT)
-        else: self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT)
+        handle_btn('dpad_up', state.dpad_up, vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP)
+        handle_btn('dpad_down', state.dpad_down, vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN)
+        handle_btn('dpad_left', state.dpad_left, vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT)
+        handle_btn('dpad_right', state.dpad_right, vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT)
         
         self.gamepad.update()
