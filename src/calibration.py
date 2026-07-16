@@ -8,9 +8,12 @@ import os
 import json
 import time
 import sys
+if sys.version_info[:2] not in ((3, 13), (3, 14)):
+    print("WARNING: This script requires Python 3.13.x or 3.14.x. Other versions may fail to compile/load hidapi.")
 import argparse
+import threading
 from logger_setup import setup_logger
-from hid_reader import HIDReader
+from hid_reader import HIDReader, HIDReport, RawHIDReport
 from decoder import Decoder
 
 logger = None
@@ -18,6 +21,10 @@ logger = None
 # Enable Virtual Terminal Processing (ANSI escape codes) on Windows
 if os.name == 'nt':
     os.system("")
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 
 def cls():
@@ -37,15 +44,14 @@ class Calibrator:
     def __init__(self):
         self.device = None
         self.reader = None
-        self.raw_data = []
-        self.base_data = []
+        self.latest_reports = {} # { report_id: HIDReport }
+        self.baselines = {} # { report_id: data }
         self.profile = {
             "name": "Custom Profile",
             "vid": "",
             "pid": "",
-            "buttons": {},
-            "extra_buttons": {},
-            "axes": {}
+            "has_report_id": True,
+            "reports": {}
         }
 
         self.layout = 'xbox'
@@ -53,8 +59,17 @@ class Calibrator:
             import configparser
             config = configparser.ConfigParser()
             config.read('config.ini')
-            if config.has_option('settings', 'layout'):
-                self.layout = config.get('settings', 'layout')
+            if config.has_section('controller') and config.has_option('controller', 'last_profile'):
+                last_profile = config.get('controller', 'last_profile')
+                if os.path.exists(last_profile):
+                    try:
+                        import json
+                        with open(last_profile, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        if 'layout' in data:
+                            self.layout = data['layout']
+                    except:
+                        pass
 
     def get_layout_labels(self):
         if self.layout == 'playstation':
@@ -84,141 +99,211 @@ class Calibrator:
             return {'a': 'A', 'b': 'B', 'x': 'X', 'y': 'Y', 'lb': 'LB', 'rb': 'RB', 'lt': 'LT',
                     'rt': 'RT', 'l3': 'LS', 'r3': 'RS', 'select': 'SELECT', 'start': 'START'}
 
-    def _data_handler(self, data):
-        self.raw_data = list(data)
+    def _data_handler(self, report: HIDReport):
+        self.latest_reports[str(report.report_id)] = report
 
-    def scan_devices(self):
+    def scan_devices(self, test_only=False):
+        print("\n==================================================================")
+        print("NOTICE: Please ensure your controller is set to DInput mode (not XInput).")
+        print("If you just switched modes, select the option to rescan devices.")
+        print("==================================================================\n")
         print("Scanning for HID devices...")
-        try:
-            devices = HIDReader.get_all_devices()
-        except Exception as e:
-            print(f"Error scanning for devices: {e}")
-            return False
-
-        unique_devices = []
-        seen = set()
-        for d in devices:
-            ident = f"{d.vendor_id:04X}:{d.product_id:04X}"
-            if ident not in seen:
-                seen.add(ident)
-                unique_devices.append(d)
-
-        if not unique_devices:
-            print("No HID devices found.")
-            return False
-
-        # Try to open devices to listen for auto-detection
-        baselines = {}
-        detected_device = [None]
-
-        def make_handler(dev):
-            def handler(data):
-                if detected_device[0] is not None:
-                    return
-                # Save baseline on first packet
-                if dev not in baselines:
-                    baselines[dev] = list(data)
-                    return
-                # Check for input activity
-                base = baselines[dev]
-                if len(data) != len(base):
-                    return
-                for idx in range(len(data)):
-                    diff = abs(data[idx] - base[idx])
-                    if diff > 15:  # threshold for button press or joystick movement
-                        detected_device[0] = dev
-                        break
-            return handler
-
-        opened_devices = []
-        for d in unique_devices:
+        if logger: logger.info("Scanning for HID devices...")
+        
+        while True:
             try:
-                d.open()
-                d.set_raw_data_handler(make_handler(d))
-                opened_devices.append(d)
-            except Exception:
-                # System devices (keyboard/mouse) usually fail to open (Access
-                # Denied), which is good
-                pass
+                devices = HIDReader.get_all_devices()
+            except Exception as e:
+                print(f"Error scanning for devices: {e}")
+                if logger: logger.error(f"Error scanning for devices: {e}")
+                return False
 
-        print("\nSelect a device to calibrate:")
-        for i, d in enumerate(unique_devices):
-            status = " (Listening for input...)" if d in opened_devices else " (Manual selection only)"
-            print(
-                f"[{i}] VID:{d.vendor_id:04X} PID:{d.product_id:04X} - {d.product_name}{status}")
+            unique_devices = {}
+            for d in devices:
+                vid = d.get('vendor_id', 0)
+                pid = d.get('product_id', 0)
+                ident = f"{vid:04X}:{pid:04X}"
+                if ident not in unique_devices:
+                    unique_devices[ident] = {
+                        'vid': vid,
+                        'pid': pid,
+                        'name': d.get('product_string', 'Unknown'),
+                        'interfaces': []
+                    }
+                unique_devices[ident]['interfaces'].append(d)
 
-        print(
-            "\n--> PRESS ANY BUTTON OR MOVE A STICK on your controller to auto-detect it.")
-        print("--> OR type the choice number below and press ENTER.")
-        print("--> Press 'q' then ENTER to quit.")
-        print("Choice: ", end="")
-        sys.stdout.flush()
+            if not unique_devices:
+                print("No HID devices found. Press Enter to rescan or 'q' to quit.")
+                choice = input("Choice: ").strip().lower()
+                if choice == 'q': return False
+                continue
 
-        self.device = None
-        import msvcrt
-        typed_input = ""
+            dev_list = list(unique_devices.values())
+            print("\nSelect your controller:")
+            for i, d in enumerate(dev_list):
+                print(f"[{i}] VID:{d['vid']:04X} PID:{d['pid']:04X} - {d['name']}")
+            print(f"[{len(dev_list)}] Rescan for devices")
+            print("Choice (or 'q' to quit): ", end="")
+            sys.stdout.flush()
 
-        while self.device is None:
-            if detected_device[0] is not None:
-                self.device = detected_device[0]
-                print(
-                    f"\nAuto-detected: VID:{
-                        self.device.vendor_id:04X} PID:{
-                        self.device.product_id:04X} - {
-                        self.device.product_name}")
-                break
+            import msvcrt
+            typed_input = ""
+            selected_group = None
+            while selected_group is None:
+                if msvcrt.kbhit():
+                    char = msvcrt.getwche()
+                    if char == '\r':
+                        if typed_input == 'q': return False
+                        try:
+                            choice = int(typed_input)
+                            if choice == len(dev_list):
+                                break # Rescan
+                            elif 0 <= choice < len(dev_list):
+                                selected_group = dev_list[choice]
+                            else:
+                                print("\nInvalid choice. Try again.")
+                                typed_input = ""
+                        except ValueError:
+                            print("\nInvalid input. Try again.")
+                            typed_input = ""
+                    else:
+                        typed_input += char
+                time.sleep(0.01)
 
-            if msvcrt.kbhit():
-                char = msvcrt.getwch()
-                if char == '\r':  # ENTER
-                    val = typed_input.strip().lower()
-                    typed_input = ""
-                    print()
-                    if val == 'q':
-                        print("Quitting calibration.")
-                        break
-                    try:
-                        choice = int(val)
-                        if 0 <= choice < len(unique_devices):
-                            self.device = unique_devices[choice]
-                            break
-                        else:
-                            print(
-                                f"Invalid choice. Please enter a number between 0 and {
-                                    len(unique_devices) - 1}.")
-                            print("Choice: ", end="")
-                            sys.stdout.flush()
-                    except ValueError:
-                        print("Invalid input. Please enter a valid number or 'q'.")
-                        print("Choice: ", end="")
-                        sys.stdout.flush()
-                elif char in ('\b', '\x08'):  # Backspace
-                    if len(typed_input) > 0:
-                        typed_input = typed_input[:-1]
-                        sys.stdout.write('\b \b')
-                        sys.stdout.flush()
-                elif char.isalnum() or char in (' ', '-', '_'):
-                    typed_input += char
-                    sys.stdout.write(char)
-                    sys.stdout.flush()
+            if selected_group is None:
+                continue # Rescanning
 
-            time.sleep(0.01)
+            def make_handler(iface_num):
+                def handler(report: RawHIDReport):
+                    if not self.profile.get("has_report_id", True):
+                        report.report_id = 0
+                    if iface_num not in self.latest_reports:
+                        self.latest_reports[iface_num] = {}
+                    self.latest_reports[iface_num][str(report.report_id)] = report
+                return handler
 
-        # Close all opened listener devices
-        for d in opened_devices:
-            try:
-                if d.is_opened():
-                    d.close()
-            except Exception:
-                pass
+            self.latest_reports = {}
 
-        if not self.device:
-            return False
+            if test_only:
+                profile_path = f"profiles/{selected_group['vid']:04X}_{selected_group['pid']:04X}.json".lower()
+                if not os.path.exists(profile_path):
+                    print(f"\nError: No profile found for this device at {profile_path}.")
+                    print("Please run the standard calibration first.")
+                    return False
+                with open(profile_path, 'r') as f:
+                    self.profile = json.load(f)
+                active_interfaces = set(self.profile.get("interfaces", []))
+                
+                self.device = selected_group
+                self.readers = []
+                for d in selected_group['interfaces']:
+                    iface_num = d.get('interface_number', -1)
+                    if iface_num in active_interfaces:
+                        try:
+                            reader = HIDReader(device_path=d['path'], auto_reconnect=False, interface_number=iface_num)
+                            if reader.connect():
+                                reader.set_callback(make_handler(iface_num))
+                                import threading
+                                t = threading.Thread(target=reader.start, daemon=True)
+                                t.start()
+                                self.readers.append((iface_num, reader))
+                        except Exception:
+                            pass
+                return True
 
-        self.profile["vid"] = f"{self.device.vendor_id:04X}"
-        self.profile["pid"] = f"{self.device.product_id:04X}"
-        self.profile["name"] = self.device.product_name or "Unknown Device"
-        return True
+            opened_readers = []
+            
+            self.baselines = {}
+            for d in selected_group['interfaces']:
+                iface_num = d.get('interface_number', -1)
+                try:
+                    reader = HIDReader(device_path=d['path'], auto_reconnect=False, interface_number=iface_num)
+                    if reader.connect():
+                        reader.set_callback(make_handler(iface_num))
+                        import threading
+                        t = threading.Thread(target=reader.start, daemon=True)
+                        t.start()
+                        opened_readers.append((iface_num, reader, d))
+                except Exception:
+                    pass
+
+            print("\n--- Stage 1: Interface Discovery ---")
+            print("WARNING: Once the discovery timer starts, you must interact with all inputs.")
+            print("Please prepare to press EVERY button at least once, press triggers to their full extent,")
+            print("and move the sticks in all directions.")
+            input("Press ENTER to start the 15-second discovery window...")
+            print("\nDiscovery timer started! Go, interact with all inputs!")
+            
+            start_time = time.time()
+            active_interfaces = set()
+            
+            time.sleep(1.0)
+            initial_baselines = {}
+            for iface, reps in self.latest_reports.items():
+                initial_baselines[iface] = {}
+                for r_id, r in reps.items():
+                    initial_baselines[iface][r_id] = list(r.data)
+            
+            while time.time() - start_time < 15.0:
+                if msvcrt.kbhit() and msvcrt.getwch() == '\r':
+                    break
+                
+                for iface, reps in self.latest_reports.items():
+                    if iface in active_interfaces: continue
+                    for r_id, r in reps.items():
+                        if iface in initial_baselines and r_id in initial_baselines[iface]:
+                            base = initial_baselines[iface][r_id]
+                            curr = list(r.data)
+                            if len(curr) == len(base):
+                                for i in range(len(curr)):
+                                    if abs(curr[i] - base[i]) > 10:
+                                        active_interfaces.add(iface)
+                                        break
+                time.sleep(0.01)
+
+            print("\nDiscovery complete.")
+            if not active_interfaces:
+                print("No activity detected on any interface.")
+                print("\n--- Stage 2: Manual Interface Selection ---")
+                print("Please select which interfaces to enable for this controller.")
+                for i, (iface_num, r, d) in enumerate(opened_readers):
+                    print(f"[{i}] Interface: {iface_num} | Usage Page: {d.get('usage_page', 'N/A')} | Usage: {d.get('usage', 'N/A')}")
+                
+                print("Enter comma-separated choices (e.g. 0,1) or 'q' to quit: ")
+                choices = input("Choices: ").strip().lower()
+                if choices == 'q':
+                    for _, r, _ in opened_readers: r.stop()
+                    return False
+                
+                try:
+                    selected_indices = [int(x.strip()) for x in choices.split(',') if x.strip()]
+                    for idx in selected_indices:
+                        if 0 <= idx < len(opened_readers):
+                            active_interfaces.add(opened_readers[idx][0])
+                except Exception:
+                    pass
+
+            if not active_interfaces:
+                print("No interfaces selected. Quitting.")
+                for _, r, _ in opened_readers: r.stop()
+                return False
+
+            print(f"\nActive interfaces selected: {list(active_interfaces)}")
+            if logger: logger.info(f"Active interfaces selected: {list(active_interfaces)}")
+            
+            self.readers = []
+            for iface_num, r, d in opened_readers:
+                if iface_num in active_interfaces:
+                    self.readers.append((iface_num, r))
+                else:
+                    r.stop()
+                    
+            self.device = selected_group # for compatibility
+            self.profile["vid"] = f"{selected_group['vid']:04X}"
+            self.profile["pid"] = f"{selected_group['pid']:04X}"
+            self.profile["name"] = selected_group['name']
+            self.profile["interfaces"] = list(active_interfaces)
+            return True
 
     def _wait_for_input(self, prompt, is_axis=False):
         # Wait for the user to press a button and release it, detecting the
@@ -237,60 +322,24 @@ class Calibrator:
         pass
 
     def run(self, test_only=False):
-        if not self.scan_devices():
+        if not test_only:
+            print("\n==================================================================")
+            print("NOTICE: Please disable any 'no dead-zone' (raw/instant) joystick")
+            print("configurations on your controller before starting calibration.")
+            print("Immensely increased joystick sensitivity may disrupt calibration.")
+            print("==================================================================\n")
+        if not self.scan_devices(test_only=test_only):
             return
 
         if test_only:
-            profile_path = f"profiles/{
-                self.device.vendor_id:04X}_{
-                self.device.product_id:04X}.json".lower()
-            if not os.path.exists(profile_path):
-                print(
-                    f"\nError: No profile found for this device at {profile_path}.")
-                print("Please run the standard calibration first.")
-                return
-
-            with open(profile_path, 'r') as f:
-                self.profile = json.load(f)
-
+            profile_path = f"profiles/{self.device.get('vid', 0):04X}_{self.device.get('pid', 0):04X}.json".lower()
             if "layout" in self.profile:
                 self.layout = self.profile["layout"]
-
-            self.reader = HIDReader(device=self.device)
-            if not self.reader.connect():
-                print("Error: Failed to connect to controller.")
-                return
-
-            def _data_handler(data):
-                self.raw_data = data
-                if logger:
-                    current_time = time.time()
-                    if not hasattr(self, '_last_log_time'):
-                        self._last_log_time = 0
-                    if current_time - self._last_log_time >= 0.5:
-                        logger.debug(
-                            f"RAW: {' | '.join(f'{x:02X}' for x in data)}")
-                        self._last_log_time = current_time
-
-            self.reader.set_callback(_data_handler)
-            import threading
-            t = threading.Thread(target=self.reader.start, daemon=True)
-            t.start()
-
-            print("\nWaiting for initial data from the controller...")
-            start_time = time.time()
-            while not self.raw_data:
-                if time.time() - start_time > 10.0:
-                    print(
-                        "\nError: No data received within 10 seconds. Make sure the controller is turned on and connected.")
-                    self.reader.stop()
-                    return
-                time.sleep(0.1)
 
             try:
                 self.test_mode(profile_path=profile_path)
             finally:
-                self.reader.stop()
+                for _, r in self.readers: r.stop()
             return
 
         # Prompt for visual layout
@@ -307,63 +356,36 @@ class Calibrator:
         layout_map = {"1": "xbox", "2": "playstation", "3": "nintendo"}
         self.layout = layout_map[layout_choice]
         self.profile["layout"] = self.layout
-
-        self.reader = HIDReader(device=self.device)
-        if not self.reader.connect():
-            print("Error: Failed to connect to controller.")
-            return
-        # Check for user input gracefully
-
-        def _data_handler(data):
-            self.raw_data = data
-            if logger:
-                # Log raw data periodically
-                current_time = time.time()
-                if not hasattr(self, '_last_log_time'):
-                    self._last_log_time = 0
-                if current_time - self._last_log_time >= 0.5:
-                    logger.debug(
-                        f"RAW: {' | '.join(f'{x:02X}' for x in data)}")
-                    self._last_log_time = current_time
-
-        self.reader.set_callback(_data_handler)
-
-        # Start reading thread
-        import threading
-        t = threading.Thread(target=self.reader.start, daemon=True)
-        t.start()
-
-        # Wait for first report
-        print("\nWaiting for initial data from the controller...")
-        print("Please press a button or move a stick to wake it up if needed.")
-
-        start_time = time.time()
-        while not self.raw_data:
-            if time.time() - start_time > 10.0:
-                print(
-                    "\nError: No data received within 10 seconds. Make sure the controller is turned on and connected.")
-                self.reader.stop()
-                return
-            time.sleep(0.1)
-
-        self.base_data = list(self.raw_data)
+        print("\nDoes your controller constantly stream Gyroscope/Motion data?")
+        print("[1] NO (Standard gamepads, or Gyro is disabled in D-Input mode) - RECOMMENDED")
+        print("[2] YES (DualSense, Switch Pro, etc.)")
+        report_choice = ""
+        while report_choice not in ["1", "2"]:
+            report_choice = input("Choice [1-2] (default 1): ").strip()
+            if not report_choice:
+                report_choice = "1"
+        self.profile["has_report_id"] = (report_choice == "2")
 
         print("\n--- Calibration Started ---")
+        if logger: logger.info(f"Calibration Started for VID:{self.profile['vid']} PID:{self.profile['pid']} Layout:{self.layout}")
         print("Please DO NOT touch the controller for 2 seconds while we establish a baseline...")
-        time.sleep(2)
-        self.base_data = list(self.raw_data)
+        
+        # Gather baselines over 2 seconds
+        end_time = time.time() + 2.0
+        while time.time() < end_time:
+            for iface, reps in self.latest_reports.items():
+                if iface not in self.baselines:
+                    self.baselines[iface] = {}
+                for rep_id, rep in reps.items():
+                    self.baselines[iface][rep_id] = list(rep.data)
+            time.sleep(0.01)
 
         try:
             self._calibrate_loop()
         finally:
-            self.reader.stop()
+            for _, r in self.readers: r.stop()
 
     def _calibrate_loop(self):
-        # We will do a simpler approach:
-        # For each button, record base state. Wait until a byte changes significantly.
-        # For buttons, we look for a bit change.
-        # For axes, we look for an amplitude change.
-
         labels = self.get_layout_labels()
 
         steps = [
@@ -376,182 +398,377 @@ class Calibrator:
             ("select", "buttons", f"Press the '{labels['select']}' button"),
             ("start", "buttons", f"Press the '{labels['start']}' button"),
             ("home", "buttons", "Press the Home/Guide button"),
-            ("l3", "buttons", f"Press the Left Stick button ({labels['l3']})"),
-            ("r3", "buttons",
-             f"Press the Right Stick button ({labels['r3']})"),
             ("lx", "axes", "Move the Left Stick RIGHT"),
             ("ly", "axes", "Move the Left Stick UP"),
             ("rx", "axes", "Move the Right Stick RIGHT"),
             ("ry", "axes", "Move the Right Stick UP"),
-            ("lt", "axes", f"Press the Left Trigger ({labels['lt']})"),
-            ("rt", "axes", f"Press the Right Trigger ({labels['rt']})"),
+            ("l3", "stick_clicks", f"Press the Left Stick button ({labels['l3']}) 3 TIMES"),
+            ("r3", "stick_clicks", f"Press the Right Stick button ({labels['r3']}) 3 TIMES"),
+            ("lt", "triggers", f"Press the Left Trigger ({labels['lt']})"),
+            ("rt", "triggers", f"Press the Right Trigger ({labels['rt']})"),
             ("dpad", "hat", "Press the D-Pad UP (Assuming standard Hat switch)")
         ]
 
         # Extra buttons
         num_extras = -1
         while num_extras < 0:
-            user_input = input(
-                "\nHow many extra buttons (Not counting Home/Guide. e.g., L4, R4) does this controller have? (or 'q' to quit): ").strip().lower()
-            if user_input == 'q':
-                print("Quitting calibration.")
-                return
-            try:
-                num_extras = int(user_input)
-                if num_extras < 0:
-                    print("Please enter a positive number or 0.")
-            except ValueError:
-                print("Invalid input. Please enter a valid number or 'q'.")
+            user_input = input("\nHow many extra buttons (e.g., L4, R4) does this controller have? (or 'q' to quit): ").strip().lower()
+            if user_input == 'q': return
+            try: num_extras = int(user_input)
+            except ValueError: pass
 
         for i in range(num_extras):
             name = ""
             while not name:
-                name = input(
-                    f"Enter a name for extra button {
-                        i + 1} (e.g., l4, m1): ").strip().lower()
-                if not name:
-                    print("Name cannot be empty.")
-            steps.append(
-                (name, "extra_buttons", f"Press the '{name}' extra button"))
-
+                name = input(f"Enter a name for extra button {i + 1} (e.g., l4): ").strip().lower()
+            steps.append((name, "buttons", f"Press the '{name}' extra button"))
 
         i = 0
         while i < len(steps):
             name, cat, prompt = steps[i]
+            if hasattr(self, "click_counts"): del self.click_counts
+            if hasattr(self, "byte_history"): del self.byte_history
+            if hasattr(self, "button_byte_history"): del self.button_byte_history
 
             print(f"\n[{i + 1}/{len(steps)}] {prompt}")
-            print("To skip, press ENTER on your keyboard. To undo, PRESS 'u'.")
+            print("To skip, PRESS 's' on your keyboard. To undo, PRESS 'u'.")
 
-            # Update base data
             time.sleep(0.5)
-            self.base_data = list(self.raw_data)
-
-            if not self.base_data:
-                print("No data received from controller. Make sure it's awake.")
-                time.sleep(1)
-                continue
+            for iface, reps in self.latest_reports.items():
+                if iface not in self.baselines: self.baselines[iface] = {}
+                for rep_id, rep in reps.items():
+                    self.baselines[iface][rep_id] = list(rep.data)
 
             done = False
             undo = False
 
             import msvcrt
+            while msvcrt.kbhit(): msvcrt.getwch()
+            
+            trigger_samples = []
+            trigger_start = 0
+            analog_fail_count = 0
+
+            click_states = []
+            last_click_time = 0
 
             while not done:
-                # Check for keyboard input
                 if msvcrt.kbhit():
-                    char = msvcrt.getwche()
-                    if char == '\r':
+                    char = msvcrt.getwch().lower()
+                    if char == 's':
                         print("\nSkipped.")
                         done = True
                         break
-                    elif char.lower() == 'u':
+                    elif char == 'u':
                         undo = True
                         print("\nUndoing previous step.")
                         done = True
                         break
 
-                # Check controller data
-                current = list(self.raw_data)
-                if not current or len(current) != len(self.base_data):
-                    time.sleep(0.01)
-                    continue
-
                 diffs = []
-                for b_idx in range(len(current)):
-                    if current[b_idx] != self.base_data[b_idx]:
-                        diffs.append(
-                            (b_idx, current[b_idx], self.base_data[b_idx]))
+                for iface, reps in list(self.latest_reports.items()):
+                    for curr_report_id, latest_rep in list(reps.items()):
+                        current = list(latest_rep.data)
+                        if iface not in self.baselines or curr_report_id not in self.baselines[iface]:
+                            if iface not in self.baselines: self.baselines[iface] = {}
+                            self.baselines[iface][curr_report_id] = current
+                            continue
+
+                        base = self.baselines[iface][curr_report_id]
+                        if len(current) != len(base): continue
+
+                        for b_idx in range(len(current)):
+                            if current[b_idx] != base[b_idx]:
+                                diffs.append((iface, curr_report_id, b_idx, current[b_idx], base[b_idx]))
 
                 if diffs:
-                    if cat in ("buttons", "extra_buttons"):
-                        # Look for bit changes
+                    if cat == "stick_clicks":
+                        if not hasattr(self, "click_counts"):
+                            self.click_counts = {}
+                            self.byte_history = {}
+                            self.last_click_time = 0
+
+                        for iface, r_id, b_idx, curr_val, base_val in diffs:
+                            full_id = f"{iface}_{r_id}"
+                            byte_key = (full_id, b_idx)
+                            if byte_key not in self.byte_history:
+                                self.byte_history[byte_key] = {base_val}
+                            self.byte_history[byte_key].add(curr_val)
+
+                        # Exclude any byte already mapped to an axis, trigger, hat, or button
+                        known_mapped_bytes = set()
+                        for rep_id, rep_data in self.profile.get("reports", {}).items():
+                            for in_name, in_cfg in rep_data.get("inputs", {}).items():
+                                t = in_cfg.get("type")
+                                if t in ("axis", "trigger", "hat"):
+                                    known_mapped_bytes.add((rep_id, in_cfg.get("byte")))
+                                    if in_cfg.get("length", 1) == 2:
+                                        known_mapped_bytes.add((rep_id, in_cfg.get("byte")+1))
+
+                        for iface, r_id, b_idx, curr_val, base_val in diffs:
+                            full_id = f"{iface}_{r_id}"
+                            byte_key = (full_id, b_idx)
+                            if byte_key in known_mapped_bytes:
+                                continue
+                                
+                            # Filter out analog noise (unmapped axes)
+                            if len(self.byte_history[byte_key]) > 3:
+                                continue
+                            
+                            changed_bits = curr_val ^ base_val
+                            for bit in range(8):
+                                bitmask = 1 << bit
+                                if changed_bits & bitmask:
+                                    # Prevent re-mapping already known buttons
+                                    is_known = False
+                                    for rep_data in self.profile.get("reports", {}).values():
+                                        for in_cfg in rep_data.get("inputs", {}).values():
+                                            if in_cfg.get("type") == "button" and in_cfg.get("byte") == b_idx and in_cfg.get("bitmask") == bitmask:
+                                                is_known = True
+                                    if is_known: continue
+                                
+                                    click_key = (full_id, b_idx, bitmask)
+                                    if time.time() - self.last_click_time > 0.4:
+                                        if click_key not in self.click_counts:
+                                            self.click_counts[click_key] = 0
+                                        self.click_counts[click_key] += 1
+                                        self.last_click_time = time.time()
+                                        print(f"  Click {self.click_counts[click_key]}/3 detected!")
+                                        
+                                        if self.click_counts[click_key] >= 3:
+                                            if full_id not in self.profile["reports"]: self.profile["reports"][full_id] = {"inputs": {}}
+                                            self.profile["reports"][full_id]["inputs"][name] = {"type": "button", "byte": b_idx, "bitmask": bitmask}
+                                            print(f"Confirmed {name} at {full_id}, byte {b_idx}, mask {bitmask}")
+                                            if logger: logger.info(f"Confirmed {name} at {full_id}, byte {b_idx}, mask {bitmask}")
+                                            done = True
+                                            break
+
+                    elif cat == "buttons":
+                        if not hasattr(self, "button_byte_history"):
+                            self.button_byte_history = {}
+                            
                         changed_bytes = []
-                        for b_idx, curr_val, base_val in diffs:
+                        for iface, r_id, b_idx, curr_val, base_val in diffs:
+                            full_id = f"{iface}_{r_id}"
+                            byte_key = (full_id, b_idx)
+                            if byte_key not in self.button_byte_history:
+                                self.button_byte_history[byte_key] = {base_val}
+                            self.button_byte_history[byte_key].add(curr_val)
+                            
                             changed_bits = curr_val ^ base_val
                             if changed_bits != 0:
-                                changed_bytes.append((b_idx, changed_bits))
+                                changed_bytes.append((iface, r_id, b_idx, changed_bits))
 
-                        if len(changed_bytes) == 1:
-                            b_idx, mask = changed_bytes[0]
-                            # Only accept if it's a clean bit mask (power of 2) or we just take the XOR difference
-                            # Often multiple bits might toggle if it's noisy.
-                            # Let's just take the first changed bit.
-                            bit_mask = mask & -mask  # get lowest set bit
-                            self.profile[cat][name] = {
-                                "byte": b_idx, "mask": bit_mask}
-                            print(
-                                f"Detected {name} at byte {b_idx}, mask {bit_mask}")
+                        # Exclude any byte already mapped to an axis, trigger, or hat
+                        known_axis_bytes = set()
+                        for rep_id, rep_data in self.profile.get("reports", {}).items():
+                            for in_name, in_cfg in rep_data.get("inputs", {}).items():
+                                if in_cfg.get("type") in ("axis", "trigger", "hat"):
+                                    known_axis_bytes.add((rep_id, in_cfg.get("byte")))
+                                    if in_cfg.get("length", 1) == 2:
+                                        known_axis_bytes.add((rep_id, in_cfg.get("byte")+1))
+
+                        known_bits = set()
+                        for rep_id, rep_data in self.profile.get("reports", {}).items():
+                            for in_name, in_cfg in rep_data.get("inputs", {}).items():
+                                if in_cfg.get("type") == "button":
+                                    known_bits.add((rep_id, in_cfg.get("byte"), in_cfg.get("bitmask")))
+
+                        clean_changed = []
+                        for iface, r_id, b_idx, changed_bits in changed_bytes:
+                            full_id = f"{iface}_{r_id}"
+                            byte_key = (full_id, b_idx)
+                            if byte_key in known_axis_bytes:
+                                continue
+                                
+                            # Filter out unmapped axes (analog noise)
+                            if len(self.button_byte_history.get(byte_key, [])) > 3:
+                                continue
+                                
+                            for bit in range(8):
+                                bitmask = 1 << bit
+                                if changed_bits & bitmask:
+                                    if (full_id, b_idx, bitmask) not in known_bits:
+                                        clean_changed.append((full_id, b_idx, bitmask))
+
+                        if clean_changed:
+                            full_id, b_idx, bit_mask = clean_changed[0]
+                            if full_id not in self.profile["reports"]: self.profile["reports"][full_id] = {"inputs": {}}
+                            self.profile["reports"][full_id]["inputs"][name] = {"type": "button", "byte": b_idx, "bitmask": bit_mask}
+                            print(f"Detected {name} at {full_id}, byte {b_idx}, mask {bit_mask}")
+                            if logger: logger.info(f"Detected {name} at {full_id}, byte {b_idx}, mask {bit_mask}")
                             done = True
-                        elif len(changed_bytes) > 1:
-                            print(
-                                "\nMultiple buttons pressed simultaneously. Please press only one cleanly.")
-                            time.sleep(1)
-                            self.base_data = list(self.raw_data)
+                            
+                    elif cat == "triggers":
+                        if trigger_start == 0:
+                            trigger_start = time.time()
+                            print("Collecting analog data...")
+                            
+                        # Sample data
+                        for iface, reps in self.latest_reports.items():
+                            for curr_report_id, latest_rep in reps.items():
+                                full_id = f"{iface}_{curr_report_id}"
+                                trigger_samples.append((full_id, list(latest_rep.data)))
+                                
+                        if time.time() - trigger_start > 2.0:
+                            # Analyze samples
+                            unique_counts = {}
+                            base_state = {}
+                            
+                            for full_id, data in trigger_samples:
+                                if full_id not in unique_counts:
+                                    unique_counts[full_id] = [set() for _ in range(len(data))]
+                                    base_state[full_id] = data
+                                for byte_idx, val in enumerate(data):
+                                    unique_counts[full_id][byte_idx].add(val)
+                                    
+                            best_full_id = None
+                            best_byte = -1
+                            max_uniques = 0
+                            
+                            for full_id, counts in unique_counts.items():
+                                for byte_idx, u_set in enumerate(counts):
+                                    # Exclude bytes already mapped as standard buttons
+                                    is_button = False
+                                    if full_id in self.profile.get("reports", {}):
+                                        for in_name, in_cfg in self.profile["reports"][full_id].get("inputs", {}).items():
+                                            if in_cfg.get("type") == "button" and in_cfg.get("byte") == byte_idx:
+                                                is_button = True
+                                                break
+                                    if is_button: continue
+                                    
+                                    if len(u_set) > max_uniques:
+                                        max_uniques = len(u_set)
+                                        best_full_id = full_id
+                                        best_byte = byte_idx
+                                        
+                            if max_uniques > 2:
+                                if best_full_id not in self.profile["reports"]: self.profile["reports"][best_full_id] = {"inputs": {}}
+                                self.profile["reports"][best_full_id]["inputs"][name] = {"type": "trigger", "byte": best_byte, "length": 1, "center": False, "is_analog": True}
+                                print(f"Detected Analog {name} at {best_full_id}, byte {best_byte} ({max_uniques} unique states)")
+                                if logger: logger.info(f"Detected Analog {name} at {best_full_id}, byte {best_byte} ({max_uniques} unique states)")
+                                done = True
+                            else:
+                                analog_fail_count += 1
+                                if analog_fail_count > 2:
+                                    print(f"\nFalling back to digital trigger detection for {name}.")
+                                    if logger: logger.warning(f"Falling back to digital trigger detection for {name}.")
+                                    
+                                    best_amp = 0
+                                    for full_id, data in trigger_samples:
+                                        if full_id in base_state:
+                                            for byte_idx, val in enumerate(data):
+                                                is_button = False
+                                                if full_id in self.profile.get("reports", {}):
+                                                    for in_name, in_cfg in self.profile["reports"][full_id].get("inputs", {}).items():
+                                                        if in_cfg.get("type") == "button" and in_cfg.get("byte") == byte_idx:
+                                                            is_button = True
+                                                            break
+                                                if is_button: continue
+                                                
+                                                amp = abs(val - base_state[full_id][byte_idx])
+                                                if amp > best_amp:
+                                                    best_amp = amp
+                                                    best_full_id = full_id
+                                                    best_byte = byte_idx
+                                                    changed_bits = val ^ base_state[full_id][byte_idx]
+                                                    # Get highest set bit or just lowest to isolate a single button mask
+                                                    best_mask = changed_bits & -changed_bits
+                                                    
+                                    if best_amp > 0:
+                                        if best_full_id not in self.profile["reports"]: self.profile["reports"][best_full_id] = {"inputs": {}}
+                                        self.profile["reports"][best_full_id]["inputs"][name] = {"type": "button", "byte": best_byte, "bitmask": best_mask, "is_analog": False}
+                                        print(f"Detected Digital {name} at {best_full_id}, byte {best_byte}, mask {best_mask}")
+                                        if logger: logger.info(f"Detected Digital {name} at {best_full_id}, byte {best_byte}, mask {best_mask}")
+                                        done = True
+                                    else:
+                                        print("Could not detect any input. Retry.")
+                                        trigger_start = 0
+                                        trigger_samples = []
+                                        analog_fail_count = 0
+                                else:
+                                    print("\nWARNING: No analog trigger signal detected!")
+                                    print("Ensure your controller is in DInput mode, the correct interface was selected,")
+                                    print("or confirm if your controller only possesses digital triggers.")
+                                    print("Press 's' to skip or 'u' to retry.")
+                                    trigger_start = 0
+                                    trigger_samples = []
 
                     elif cat == "axes":
-                        # Look for amplitude change
-                        amplitudes = []
-                        for b_idx, curr_val, base_val in diffs:
-                            amp = abs(curr_val - base_val)
-                            if amp > 10:  # threshold for noise
-                                amplitudes.append((amp, b_idx))
+                        button_bytes = set()
+                        for rep_id, rep_data in self.profile.get("reports", {}).items():
+                            for in_name, in_cfg in rep_data.get("inputs", {}).items():
+                                if in_cfg.get("type") == "button":
+                                    button_bytes.add((rep_id, in_cfg.get("byte")))
 
-                        if amplitudes:
-                            amplitudes.sort(reverse=True)
-                            best_amp, best_idx = amplitudes[0]
-
-                            # Robustness: Check if there's cross-axis
-                            # contamination
-                            if len(amplitudes) > 1:
-                                second_amp = amplitudes[1][0]
-                                if second_amp > best_amp * 0.5:  # If the second biggest change is > 50% of the biggest
-                                    print(
-                                        "\nDetected movement on multiple axes. Please move ONLY the requested axis carefully.")
-                                    time.sleep(1.5)
-                                    self.base_data = list(self.raw_data)
-                                    continue
-
-                            self.profile[cat][name] = {"byte": best_idx}
-                            print(
-                                f"Detected {name} at byte {best_idx} (Amplitude: {best_amp})")
+                        candidates = []
+                        for iface, r_id, b_idx, curr_val, base_val in diffs:
+                            full_id = f"{iface}_{r_id}"
+                            if (full_id, b_idx) in button_bytes: continue
+                            
+                            amp8 = abs(curr_val - base_val)
+                            if amp8 > 10:
+                                candidates.append({'full_id': full_id, 'byte': b_idx, 'norm_amp': amp8 / 255.0, 'amp': amp8, 'curr': curr_val, 'base': base_val, 'type': '8bit'})
+                                
+                        if candidates:
+                            candidates.sort(reverse=True, key=lambda x: x['norm_amp'])
+                            top = candidates[0]
+                            full_id = top['full_id']
+                            best_idx = top['byte']
+                            
+                            cfg = {"type": "axis", "byte": best_idx, "length": 1, "center": True}
+                            
+                            # Signed Axis Detection
+                            base_val = top['base']
+                            if base_val < 15 or base_val > 240: cfg["signed"] = True
+                            
+                            # Inverted Axis Detection
+                            curr_val = top['curr']
+                            def get_signed_val(val):
+                                if not cfg.get("signed", False): return val
+                                return val - 256 if val >= 128 else val
+                                
+                            delta = get_signed_val(curr_val) - get_signed_val(base_val)
+                            if name in ("lx", "rx") and delta < 0: cfg["invert"] = True
+                            elif name in ("ly", "ry") and delta > 0: cfg["invert"] = True
+                                    
+                            if full_id not in self.profile["reports"]: self.profile["reports"][full_id] = {"inputs": {}}
+                            self.profile["reports"][full_id]["inputs"][name] = cfg
+                            print(f"Detected {name} at {full_id}, byte {best_idx}")
+                            if logger: logger.info(f"Detected {name} at {full_id}, byte {best_idx}")
                             done = True
 
                     elif cat == "hat":
-                        # Assuming D-Pad changes a single byte
-                        changed_bytes = [
-                            d for d in diffs if abs(
-                                d[1] - d[2]) > 0]
-                        if len(changed_bytes) == 1:
-                            b_idx = changed_bytes[0][0]
-                            self.profile["buttons"]["dpad"] = {
-                                "byte": b_idx, "type": "hat"}
-                            print(f"Detected D-Pad hat at byte {b_idx}")
+                        clean_hat_bytes = [d for d in diffs if ((d[4] & 0x0F) > 7) and ((d[3] & 0x0F) <= 7)]
+                        if len(clean_hat_bytes) == 1:
+                            iface, curr_report_id, b_idx, _, _ = clean_hat_bytes[0]
+                            full_id = f"{iface}_{curr_report_id}"
+                            if full_id not in self.profile["reports"]: self.profile["reports"][full_id] = {"inputs": {}}
+                            self.profile["reports"][full_id]["inputs"]["dpad"] = {"type": "hat", "byte": b_idx}
+                            print(f"Detected D-Pad hat at {full_id}, byte {b_idx}")
+                            if logger: logger.info(f"Detected D-Pad hat at {full_id}, byte {b_idx}")
                             done = True
-                        elif len(changed_bytes) > 1:
-                            print(
-                                "\nMultiple bytes changed. Press only the D-Pad cleanly.")
-                            time.sleep(1)
-                            self.base_data = list(self.raw_data)
-
+                            
                 time.sleep(0.01)
 
             if undo:
                 if i > 0:
                     i -= 1
-                    # Remove from profile if exists
                     prev_name, prev_cat, _ = steps[i]
-                    if prev_name in self.profile[prev_cat]:
-                        del self.profile[prev_cat][prev_name]
+                    for rep_id, rep_data in self.profile["reports"].items():
+                        if "inputs" in rep_data and prev_name in rep_data["inputs"]:
+                            del rep_data["inputs"][prev_name]
                 continue
 
-            # Wait for release before next step
             print("Release the button/stick...")
             time.sleep(0.5)
-            self.base_data = list(self.raw_data)
+            for iface, reps in self.latest_reports.items():
+                if iface not in self.baselines: self.baselines[iface] = {}
+                for rep_id, rep in reps.items():
+                    self.baselines[iface][rep_id] = list(rep.data)
             i += 1
 
         self.save_profile()
-        self.test_mode()
 
     def save_profile(self):
         try:
@@ -562,10 +779,100 @@ class Calibrator:
             with open(filename, 'w') as f:
                 json.dump(self.profile, f, indent=4)
             print(f"\nProfile saved to {filename}")
+            if logger: logger.info(f"Profile saved to {filename}")
         except Exception as e:
             print(f"\nFailed to save profile: {e}")
+            if logger: logger.error(f"Failed to save profile: {e}")
 
-    def test_mode(self, profile_path=None):
+    def _calibrate_rumble(self):
+        print("\n--- Force Feedback / Vibration Setup ---")
+        print("Do you want to configure rumble for this controller?")
+        print("[1] Yes")
+        print("[2] No (Skip)")
+        
+        choice = ""
+        while choice not in ["1", "2"]:
+            choice = input("Choice (default 2): ").strip()
+            if not choice:
+                choice = "2"
+                
+        if choice == "2":
+            return
+            
+        print("\nTo configure rumble, you need the base hex payload that makes your controller vibrate.")
+        print("Enter the hex payload (e.g., 00 01 08 00 00):")
+        payload_str = input("Payload: ").strip()
+        
+        try:
+            template = [int(x, 16) for x in payload_str.replace(",", " ").split()]
+        except ValueError:
+            print("Invalid hex format. Skipping rumble setup.")
+            return
+            
+        if not template:
+            print("Empty payload. Skipping rumble setup.")
+            return
+
+        print("\nNow we will figure out which bytes control the Left (Heavy) and Right (Light) motors.")
+        print("I will send the payload repeatedly, changing one byte at a time.")
+        
+        import copy
+        left_byte = -1
+        right_byte = -1
+        
+        for i in range(len(template)):
+            if template[i] == 0:
+                print(f"\nTesting byte index {i}...")
+                test_payload = copy.deepcopy(template)
+                test_payload[i] = 255
+                
+                # Send it 3 times to make sure they feel it
+                for _ in range(3):
+                    for _, r in self.readers:
+                        try:
+                            r.device.write(test_payload)
+                        except Exception:
+                            pass
+                    time.sleep(0.3)
+                    
+                print("Did the controller vibrate?")
+                print("[1] Yes, Heavy Motor (Left)")
+                print("[2] Yes, Light Motor (Right)")
+                print("[3] Yes, Both / Unknown")
+                print("[4] No")
+                
+                res = input("Choice [1-4]: ").strip()
+                if res == "1":
+                    left_byte = i
+                elif res == "2":
+                    right_byte = i
+                elif res == "3":
+                    if left_byte == -1:
+                        left_byte = i
+                    else:
+                        right_byte = i
+                
+                # Turn it off
+                for _, r in self.readers:
+                    try:
+                        r.device.write(template)
+                    except Exception:
+                        pass
+                time.sleep(0.5)
+                
+        if left_byte != -1 or right_byte != -1:
+            self.profile["rumble"] = {
+                "template": template,
+                "left_motor_byte": left_byte,
+                "right_motor_byte": right_byte,
+                "motor_scale": 255
+            }
+            print(f"\nRumble setup complete! Left motor byte: {left_byte}, Right motor byte: {right_byte}")
+            if logger: logger.info(f"Rumble setup complete! Left: {left_byte}, Right: {right_byte}")
+        else:
+            print("\nRumble setup failed: No motor bytes identified.")
+
+    def test_mode(self, is_temp=False, profile_path=None):
         print("\n--- Test Mode ---")
         print("Press Ctrl+C to exit test mode.")
         time.sleep(1.5)
@@ -596,7 +903,18 @@ class Calibrator:
 
         try:
             while True:
-                state = decoder.decode(self.raw_data)
+                for iface, reps in list(self.latest_reports.items()):
+                    for rep in list(reps.values()):
+                        state = decoder.decode(rep)
+                for iface in self.latest_reports:
+                    self.latest_reports[iface].clear()
+                
+                if not hasattr(decoder, 'state'):
+                    # safeguard
+                    state = decoder.state if hasattr(decoder, 'state') else decoder.decode(None)
+                else:
+                    state = decoder.state
+
                 cls()
                 test_labels = self.get_test_labels()
                 print("--- LIVE TEST MODE (Ctrl+C to exit) ---")
@@ -618,11 +936,13 @@ class Calibrator:
 
                 grid_size = 5
 
-                def get_grid(x, y):
-                    x = max(0, min(255, x))
-                    y = max(0, min(255, y))
-                    cx = int(round((x / 255.0) * (grid_size - 1)))
-                    cy = int(round((y / 255.0) * (grid_size - 1)))
+                def get_grid(x_float, y_float):
+                    # x, y are -1.0 to 1.0
+                    x_float = max(-1.0, min(1.0, x_float))
+                    y_float = max(-1.0, min(1.0, y_float))
+                    cx = int(round(((x_float + 1.0) / 2.0) * (grid_size - 1)))
+                    # y is inverted on screen vs joystick usually, but let's just display it
+                    cy = int(round(((y_float + 1.0) / 2.0) * (grid_size - 1)))
 
                     lines = []
                     for row in range(grid_size):
@@ -637,9 +957,10 @@ class Calibrator:
                         lines.append(line.rstrip())
                     return lines
 
-                def get_trigger(val):
-                    val = max(0, min(255, val))
-                    h = int(round((val / 255.0) * grid_size))
+                def get_trigger(val_float):
+                    # val is 0.0 to 1.0
+                    val_float = max(0.0, min(1.0, val_float))
+                    h = int(round(val_float * grid_size))
                     lines = []
                     for row in range(grid_size):
                         if (grid_size - 1 - row) < h:
@@ -658,12 +979,12 @@ class Calibrator:
 
                 print(
                     f"Left Stick (LX:{
-                        state.lx:3d}, LY:{
-                        state.ly:3d})   Right Stick (RX:{
-                        state.rx:3d}, RY:{
-                        state.ry:3d})   {lt_name}:{
-                        state.lt:3d}   {rt_name}:{
-                            state.rt:3d}")
+                        state.lx:5.2f}, LY:{
+                        state.ly:5.2f})   Right Stick (RX:{
+                        state.rx:5.2f}, RY:{
+                        state.ry:5.2f})   {lt_name}:{
+                        state.lt:4.2f}   {rt_name}:{
+                            state.rt:4.2f}")
                 for i in range(grid_size):
                     print(
                         f"  {
@@ -672,11 +993,13 @@ class Calibrator:
                             lt_bar[i]}        {
                             rt_bar[i]}")
 
-                if state.extra_buttons:
-                    print("\nExtra Buttons:")
-                    for name, val in state.extra_buttons.items():
-                        print(
-                            f"{name.upper()}: {'[X]' if val else '[ ]'}", end="  ")
+                if state.extra_inputs:
+                    print("\nExtra Inputs:")
+                    for name, val in state.extra_inputs.items():
+                        if isinstance(val, bool):
+                            print(f"{name.upper()}: {'[X]' if val else '[ ]'}", end="  ")
+                        else:
+                            print(f"{name.upper()}: {val}", end="  ")
                 print("\n\033[J", end="")  # Clear remainder of screen below
                 sys.stdout.flush()
                 time.sleep(0.05)
@@ -686,6 +1009,61 @@ class Calibrator:
             if is_temp and os.path.exists(profile_path):
                 os.remove(profile_path)
             print("\nExiting Test Mode.")
+
+
+    def dump_raw_mode(self):
+        print("\n--- Raw Delta Dump Mode ---")
+        if not self.scan_devices():
+            return
+
+        # scan_devices already started self.readers and is populating self.latest_reports
+
+        print("\nWaiting for initial baseline...")
+        time.sleep(2)
+        
+        for iface, reps in self.latest_reports.items():
+            self.baselines[iface] = {}
+            for rep_id, rep in reps.items():
+                self.baselines[iface][rep_id] = list(rep.data)
+            
+        print("Baseline established. Press buttons to see delta (Ctrl+C to quit)...")
+        
+        try:
+            while True:
+                diffs = []
+                for iface, reps in list(self.latest_reports.items()):
+                    for curr_report_id, latest_rep in list(reps.items()):
+                        current = list(latest_rep.data)
+                        if iface not in self.baselines:
+                            self.baselines[iface] = {}
+                        if curr_report_id not in self.baselines[iface]:
+                            self.baselines[iface][curr_report_id] = current
+                            continue
+                        
+                        base = self.baselines[iface][curr_report_id]
+                        if len(current) != len(base):
+                            continue
+                            
+                        for b_idx in range(len(current)):
+                            if current[b_idx] != base[b_idx]:
+                                changed_bits = current[b_idx] ^ base[b_idx]
+                                diffs.append((iface, curr_report_id, b_idx, current[b_idx], base[b_idx], changed_bits))
+                            
+                if diffs:
+                    print("\n--- Input Detected ---")
+                    for iface, rep_id, b_idx, curr_val, base_val, changed_bits in diffs:
+                        print(f"IFace: {iface} | Report: {rep_id} | Byte: {b_idx:02} | Base: {base_val:02X} -> Curr: {curr_val:02X} | Mask: {changed_bits:02X} ({bin(changed_bits)})")
+                    time.sleep(0.2) # Debounce print
+                    
+                    for iface, reps in self.latest_reports.items():
+                        for rep_id, rep in reps.items():
+                            self.baselines[iface][rep_id] = list(rep.data)
+                        
+                time.sleep(0.01)
+        except KeyboardInterrupt:
+            print("\nExiting raw dump mode.")
+        finally:
+            for _, r in self.readers: r.stop()
 
 
 def select_stdin():
@@ -703,6 +1081,10 @@ if __name__ == "__main__":
         '--test-only',
         action='store_true',
         help='Skip calibration and only run the input tester')
+    parser.add_argument(
+        '--dump-raw',
+        action='store_true',
+        help='Bypass calibration and dump raw byte deltas on input')
     args = parser.parse_args()
 
     # We pass append=False so it creates a fresh log file per execution
@@ -716,4 +1098,7 @@ if __name__ == "__main__":
         logger.info("Calibration Tool started in debug mode")
 
     calibrator = Calibrator()
-    calibrator.run(test_only=args.test_only)
+    if args.dump_raw:
+        calibrator.dump_raw_mode()
+    else:
+        calibrator.run(test_only=args.test_only)

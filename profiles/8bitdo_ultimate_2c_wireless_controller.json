@@ -1,0 +1,39 @@
+{
+    "extra_buttons": {
+        "l4": "mouse4",
+        "r4": "mouse5",
+        "home": "keyboard:alt_l+up"
+    },
+    "settings": {
+        "digital_lt": "false",
+        "digital_rt": "false"
+    },
+    "block_xinput": {},
+    "analog": {
+        "deadzone": "0.0",
+        "anti_deadzone": "0.0",
+        "curve": "linear",
+        "exp_factor": "1.0"
+    },
+    "shift_layer": {
+        "mode": "hold",
+        "trigger_button": "home"
+    },
+    "analog_left": {
+        "deadzone": "0.0",
+        "anti_deadzone": "0.0",
+        "curve": "linear",
+        "exp_factor": "1.0"
+    },
+    "analog_right": {
+        "deadzone": "0.0",
+        "anti_deadzone": "0.0",
+        "curve": "linear",
+        "exp_factor": "1.0"
+    },
+    "chords": {},
+    "shift_mappings": {},
+    "shift_block_xinput": {},
+    "trigger_left": {},
+    "trigger_right": {}
+}

@@ -1,0 +1,128 @@
+{
+  "quotes": [
+    {
+      "quote": "This is vibecoded slop!!!11!1111!",
+      "author": "definitely some reddit user in the future"
+    },
+    {
+      "quote": "This is literally the best repo on GitHub rn",
+      "author": "hopefully some reddit user in the future"
+    },
+    {
+      "quote": "Oh hey look a civilian airliner.",
+      "author": "some random Phalanx CIWS"
+    },
+    {
+      "quote": "I know where I am at all times.",
+      "author": "missile"
+    },
+    {
+      "quote": "8BitDo's engineers' laziness caused my suffering.",
+      "author": "the developer"
+    },
+    {
+      "quote": "feat: developed schizophrenia after seeing how Machenike sends their HID reports.",
+      "author": "a future commit message"
+    },
+    {
+      "quote": "Human did the reverse engineering. AI did the repetitive engineering.",
+      "author": "chatgpt after being asked to write a loading screen phrase"
+    },
+    {
+      "quote": "One human. One AI. Too much feature creep.",
+      "author": "chatgpt after being asked to write another loading screen phrase"
+    },
+    {
+      "quote": "While this is loading, how about hydrating yourself?",
+      "author": "the developer"
+    },
+    {
+      "quote": "DInput insisted the triggers were digital. My stubbornness disagreed.",
+      "author": "the developer"
+    },
+    {
+      "quote": "Congratulations, you're being bypassed! Please do not resist.",
+      "author": "decoder & calibration scripts to the HID descriptor"
+    },
+    {
+      "quote": "Feature creep is just ambition without self-control.",
+      "author": "the developer"
+    },
+    {
+      "quote": "Works on my controller.",
+      "author": "happy user"
+    },
+    {
+      "quote": "Does not work on my controller.",
+      "author": "sad user"
+    },
+    {
+      "quote": "I fucking love you.",
+      "author": "the developer, after someone actually sends him the diagnostics logs."
+    },
+    {
+      "quote": "This started as just a \"make my triggers analog\" fix. Now you're probably setting up macros. Have fun.",
+      "author": "the developer"
+    },
+    {
+      "quote": "TODO: stop adding TODOs.",
+      "author": "the developer"
+    },
+    {
+      "quote": "I'll just fix one thing.",
+      "author": "famous last words before refactoring the entire codebase"
+    },
+    {
+      "quote": "While you're waiting, the feature list got longer.",
+      "author": "the developer"
+    },
+    {
+      "quote": "HID: Human-Induced Depression.",
+      "author": "the developer"
+    },
+    {
+      "quote": "He stared into the HID descriptor, what the fuckily.",
+      "author": "narrator when the developer opened USBView."
+    },
+    {
+      "quote": "The best way to guarantee job security is to write code that not even you are able to understand.",
+      "author": "the developer, regarding life pro tips."
+    },
+    {
+      "quote": "Hex editors are basically Ouija boards for power users.",
+      "author": "the developer"
+    },
+    {
+      "quote": "Bytes tell. Bytes always tell.",
+      "author": "Dexter \"Computer Science\" Morgan."
+    },
+    {
+      "quote": "git commit -m 'surely this works'",
+      "author": "the developer, moments before realizing it did not work."
+    },
+    {
+      "quote": "Segmentation fault? Why not just keep it whole?",
+      "author": "one of the developer's colleagues on the first class of Structured Programming."
+    },
+    {
+      "quote": "Temporary solutions are just permanent fixes with an identity crisis.",
+      "author": "the developer"
+    },
+    {
+      "quote": "USB: Universal Source of Bullshit.",
+      "author": "the developer"
+    },
+    {
+      "quote": "The descriptor is more of a suggestion.",
+      "author": "the developer, regarding HID descriptors."
+    },
+    {
+      "quote": "Originally 300 lines of code.",
+      "author": "the developer"
+    },
+    {
+      "quote": "The 'U' in the name now really makes sense",
+      "author": "developer's friend after he made his controller work"
+    }
+  ]
+}

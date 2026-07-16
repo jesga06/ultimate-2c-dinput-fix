@@ -4,3 +4,6 @@ status.json
 flake8*
 technical_timeline.md
 *.log
+.agents
+diagnostics_logs/
+workspace_ideas/
