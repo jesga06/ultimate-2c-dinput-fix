@@ -1953,7 +1953,9 @@ class App(ctk.CTk):
         acc, inv = get_accent_colors()
         
         if circ_mode != "disabled":
-            canvas.create_oval(cx - cx, cy - cy, cx + cx, cy + cy, outline=inv, width=2)
+            import customtkinter as ctk
+            circ_color = "white" if ctk.get_appearance_mode() == "Dark" else "black"
+            canvas.create_oval(cx - cx, cy - cy, cx + cx, cy + cy, outline=circ_color, width=2)
         
         # Raw position (inverse dot)
         rx_px = cx + (raw_x * cx)
