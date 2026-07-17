@@ -123,6 +123,9 @@ This is a major architectural release (v2.0.0) that breaks backward compatibilit
 - **Tuning Tab Expansion:** Renamed "Analog Tuning" to "Tuning" to reflect broader capabilities.
 - **Trigger Sensitivity:** Added sensitivity sliders for analog triggers in the new Tuning tab.
 - **Digital Triggers Relocated:** Moved the Digital Trigger Mode toggle from the Remapping tab to the Tuning tab for better organization alongside sensitivity controls.
+- **Circularity Calibration:** Added a circularity calibration module in the Tuning tab to mathematically correct and enforce perfect circular outputs for analog sticks.
+- **Dynamic Shift-Key Selection:** The shift-key selection dropdown in the GUI now dynamically populates based on the specific device profile instead of using hardcoded buttons.
+- **Specific Key Remapping Info:** Added an informational box to the Remapping tab to clarify specific key mappings.
 
 ### ⚙️ Under-the-Hood Changes
 - **Cython `hidapi` Backend:** Completely removed `pywinusb` dependencies and migrated to `hidapi`. This bypasses Windows' aggressive HID descriptor truncation issues, allowing the wrapper to access extra buttons on any byte offset (e.g. byte 11).
@@ -173,3 +176,7 @@ This is a major architectural release (v2.0.0) that breaks backward compatibilit
 - **Strict Profile Interface Binding:** The daemon now explicitly restricts `hidapi` polling solely to the HID interfaces defined in the controller profile, cleanly ignoring auxiliary endpoints.
 - **Multi-Reader Concurrency:** The daemon now loops through and spawns concurrent background threads for all matched HID readers simultaneously.
 - **Profile Metadata Enhancement:** Profiles now explicitly store `"is_analog"` metadata for triggers (True for analog, False for digital fallbacks) to clearly indicate whether the hardware itself streams analog data.
+- **GUI Lagginess Fix:** Applied a bandage fix to alleviate severe lagginess in the Graphical User Interface.
+- **Silent Boot Argument:** Added a `--boot` argument to `main.py` which allows the wrapper daemon to start silently on boot (e.g. for Windows startup) without automatically opening the GUI.
+- **Documentation Organization:** Restructured project documentation and added technical timelines for developers (and curious people).
+- **Digital Trigger Fallback Detection:** Upgraded the calibration wizard's digital trigger fallback detection to intelligently isolate bitmasks and cross-reference unique byte states, making it far more accurate at detecting non-analog triggers.

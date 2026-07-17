@@ -4,7 +4,7 @@
 ## 🎮 Interactive Calibration Wizard (`src/calibration.py`)
 Run calibration using `calibrate.bat` or `calibrate_debug.bat` to configure and profile a new gamepad.
 * **Auto-Device Detection:** Detects and highlights physical gamepads automatically as soon as you press a button or move a stick.
-* **Guided Step-by-Step Profiling:** Walks you through mapping buttons, bump triggers, analog stick axis offsets, and the D-Pad Hat switch.
+* **Guided Step-by-Step Profiling:** Walks you through mapping buttons, bump triggers, analog stick axis offsets, and the D-Pad Hat switch. Includes robust fallback detection for digital triggers.
 * **Custom Extra Buttons:** Supports profiling a custom number of additional buttons (e.g. L4, R4, M1, M2 back paddles) with personalized names.
 * **Profile Generation:** Automatically creates a device-specific JSON profile under the `profiles/` directory named after the device's Vendor ID (VID) and Product ID (PID).
 * **Calibration-Time Visual Layout:** Choose your layout layout (Xbox, PlayStation, Nintendo) at the start of calibration. It will be stored in the device profile to customize future testing prompts.
@@ -45,9 +45,10 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
   * **Trigger Sensitivity:** Modify the sensitivity of analog triggers directly using sliders (values from 0.1 to 3.0) to fine-tune actuation limits.
   * **Digital Triggers Mode:** A "Digital Trigger Mode" checkbox forces analog trigger values to act as binary buttons (0 or 255) on the virtual pad immediately upon input.
   * **Analog Tuning Visualizer:** Displays real-time coordinate plotting with a 1.0 unit circular bounds grid and exact decimal labels for thumbsticks.
+  * **Circularity Calibrator:** A calibration module in the Tuning tab that records the maximum range of your stick and applies correction math to ensure a perfect 1.0 circular output.
 * **Live Connection Status:** Displays whether the background daemon is currently "Connected" or "Disconnected", along with the active controller's name.
 * **Chords & Macros Studio (Advanced Tab):** Record sequences of gamepad inputs and output key/mouse events, choose between toggle (press) and hold execution, with integrated stuck-key protection.
-* **Shift Layer Remapping:** Configure dynamic shift mappings and shift blocking for every button, expanding total layout mapping possibilities.
+* **Shift Layer Remapping:** Configure dynamic shift mappings and shift blocking for every button, expanding total layout mapping possibilities. Shift trigger keys dynamically adapt to your controller's profile.
 * **Transition Screen Overlay:** Smooth color-interpolated canvas fades (250ms in/out, 900ms hold) with randomized community quotes and a rotating vector loading spinner.
 
 ---
@@ -58,6 +59,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Auto-Reloading Config:** A background thread polls `config.ini` every 5 seconds and updates the active mappings on-the-fly without needing a restart.
 * **Tray Restore Utility:** The "Show Console" action uses native Windows API calls (`SW_RESTORE` + `SetForegroundWindow`) to bring the minimized CLI window back to the front immediately.
 * **Smart Reconnection Loop:** If the physical controller is disconnected, the daemon enters a connection recovery loop, scanning for a connected device with the exact same name for up to 20 seconds. It will restore the connection automatically if found, or gracefully terminate all processes (including the GUI) if the timeout expires.
+* **Silent Boot Mode:** Supports launching the daemon silently using the `--boot` argument, which suppresses the GUI from auto-opening (perfect for Windows startup integration).
 * **Composite HID Interface Support:** Captures and merges inputs from multi-interface USB devices (e.g. Machenike G5 Pro) concurrently, binding profiles to `interfaceNumber_reportId` keys.
 * **Multi-Reader Concurrency:** Spawns distinct polling threads for each active HID reader matching the target controller profile interfaces.
 * **True Radial Deadzone Math:** Computes response curves and deadzones directly on the stick vector magnitude instead of individual axes, yielding a perfectly circular range.

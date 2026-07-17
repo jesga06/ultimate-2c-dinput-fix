@@ -35,8 +35,8 @@ When you run the standard calibration again and are presented with the Auto-Disc
 The tool will now simultaneously read from all the interfaces you selected and merge their inputs into a single controller state!
 
 ## Troubleshooting Triggers
-If you receive the warning `WARNING: No analog trigger signal detected!`:
-- This means the script was unable to find a byte that smoothly ramps up in value when you press the trigger.
+If you receive the warning `WARNING: No trigger signal detected!`:
+- This means the script was unable to find a byte that smoothly ramps up in value when you press the trigger, and it also failed to detect a digital button press.
 - Make sure your controller is set to **DInput mode**. Many controllers act entirely differently in XInput mode.
-- If you have trigger stops enabled or your controller only has digital triggers (like the Nintendo Switch Pro controller), this is expected. You will just have to calibrate the trigger as a normal button if you want it to work.
+- If you have trigger stops enabled or your controller only has digital triggers (like the Nintendo Switch Pro controller), the tool should automatically detect them via the digital fallback. If it fails, press the trigger more firmly and ensure it's registering.
 - Make sure the correct interface was selected! Some controllers send the analog trigger data on Interface 1, but digital button data on Interface 0. Use the raw dump mode to verify!
