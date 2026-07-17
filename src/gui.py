@@ -645,7 +645,7 @@ class App(ctk.CTk):
 
         version_lbl = ctk.CTkLabel(
             self.tab_dashboard,
-            text="v2.1.0",
+            text="v2.2.0",
             text_color="gray50",
             font=ctk.CTkFont(size=11))
         version_lbl.pack(pady=(0, 20))
@@ -875,12 +875,30 @@ class App(ctk.CTk):
         system_buttons = ['select', 'start', 'home']
 
         # Extra dynamic buttons
-        existing_extras = []
-        standard_buttons = face_buttons + dpad_buttons + stick_buttons + system_buttons
+        existing_extras = set()
+        standard_buttons = set(face_buttons + dpad_buttons + stick_buttons + system_buttons)
+        
         if self.config.has_section('extra_buttons'):
             for k in self.config.options('extra_buttons'):
                 if k not in standard_buttons:
-                    existing_extras.append(k)
+                    existing_extras.add(k)
+                    
+        if hasattr(self, 'daemon_config') and self.daemon_config.has_section('controller'):
+            hid_map_path = self.daemon_config.get('controller', 'last_profile', fallback=None)
+            if hid_map_path and os.path.exists(hid_map_path):
+                try:
+                    import json
+                    with open(hid_map_path, 'r', encoding='utf-8') as f:
+                        map_data = json.load(f)
+                        if 'extra_buttons' in map_data:
+                            for btn_dict in map_data['extra_buttons']:
+                                name = btn_dict.get('name')
+                                if name and name not in standard_buttons:
+                                    existing_extras.add(name)
+                except Exception:
+                    pass
+
+        existing_extras = sorted(list(existing_extras))
 
         # Populate quadrants
         for i, btn in enumerate(face_buttons):
