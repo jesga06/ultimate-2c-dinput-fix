@@ -57,6 +57,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Chords & Macros Studio (Advanced Tab):** Record sequences of gamepad inputs and output key/mouse events, choose between toggle (press) and hold execution, with integrated stuck-key protection.
 * **Shift Layer Remapping:** Configure dynamic shift mappings and shift blocking for every button, expanding total layout mapping possibilities. Shift trigger keys dynamically adapt to your controller's profile.
 * **Transition Screen Overlay:** Smooth color-interpolated canvas fades (250ms in/out, 900ms hold) with randomized community quotes and a rotating vector loading spinner.
+* **Button Name Normalization:** Standardizes and forces all client-side button names to uppercase across all configurations and UI elements.
 * **Dynamic Color Legends:** Tooltips and legends automatically reference color schemes based on the active GUI theme.
 
 ---

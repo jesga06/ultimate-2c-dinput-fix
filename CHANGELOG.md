@@ -3,7 +3,6 @@
 - **Vibration Diagnostic Test:** Diagnostic tool `07_vibration_test.py` to test and identify rumble payloads.
 - **HidHide Integration (Double Input Fix)**: Automated integration with Nefarius HidHide to completely hide physical gamepads from other applications. Includes automatic executable whitelisting and dynamic cloaking that cleanly reverts its changes when the wrapper daemon closes.
 - **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and gamepad HID reverse engineering tools.
-- **Retroactive Button Name Normalization**: Standardize all button names to uppercase client-side and retroactively across configuration settings.
 - **Analog-to-Mouse & WASD Mapping:** Support for high-frequency translation of stick deflection to mouse deltas or WASD keystrokes.
 - **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
 - **Windows Startup Integration:** Registry integration to launch the wrapper daemon silently on boot.
@@ -228,6 +227,8 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Interactive Recorder Save Targets:** Added explicit "Save Standard" and "Save Shift Map" buttons inside the mapping recorder to assign inputs to standard or shift layers.
 - **Dynamic Color Legends:** tooltips now query the active interface theme (Purple, Red, Blue, etc.) to reference raw/processed indicators dynamically.
 - **Digital Trigger response Graph:** The Tuning tab now displays trigger curves in digital mode as a clean step-function based on deadzone thresholds.
+- **Tuning Graphs & Sensitivity Real-time Updates:** Bind sensitivity sliders to dynamically redraw stick and trigger graphs.
+- **Retroactive Button Name Normalization:** Standardize all button names to uppercase client-side and retroactively across configuration settings.
 - **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
 
 ### ⚙️ Under-the-Hood Changes
