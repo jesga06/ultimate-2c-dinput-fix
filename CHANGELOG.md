@@ -95,15 +95,6 @@ Here is a detailed breakdown of the latest changes, features, and improvements m
 #### 8. Configurable Xbox Guide Button Mapping
 - Allowed passing the Home button state dynamically to the virtual gamepad mapping (`home = guide`), enabling remapping of the Xbox Guide button to keyboard/mouse actions without losing standard guide functionality by default.
 
-## [2.1.0] - 2026-07-16
-### 🎮 User-Facing Changes
-- **Tuning Tab Expansion:** Renamed "Analog Tuning" to "Tuning" to reflect broader capabilities.
-- **Trigger Sensitivity:** Added sensitivity sliders for analog triggers in the new Tuning tab.
-- **Digital Triggers Relocated:** Moved the Digital Trigger Mode toggle from the Remapping tab to the Tuning tab for better organization alongside sensitivity controls.
-
-### ⚙️ Under-the-Hood Changes
-- **Profile Metadata Enhancement:** Profiles now explicitly store `"is_analog"` metadata for triggers (True for analog, False for digital fallbacks) to clearly indicate whether the hardware itself streams analog data.
-
 ## [2.0.0] - 2026-07-16
 This is a major architectural release (v2.0.0) that breaks backward compatibility with old profiles, but fundamentally transforms the wrapper into a robust, profile-driven generic HID translation framework. It swaps out the legacy `pywinusb` backend for Cython's `hidapi`, introducing a high-frequency polling daemon thread and a fully generic, metadata-driven decoder layer. Furthermore, it introduces ***EXPERIMENTAL*** robust force feedback/rumble support for power users, a comprehensive automated diagnostic suite, dark purple custom GUI themes, and significant auto-reconnection and bug-fixing refinements.
 
@@ -124,6 +115,9 @@ This is a major architectural release (v2.0.0) that breaks backward compatibilit
 - **Advanced Analog Curves & Deadzones:** Mathematical engine for radial deadzones, exponential curves, and custom visual graphs in the GUI.
 - **Action Layers & Shift Mode:** Architecture for layer-switching via modifier keys to double the available inputs.
 - **Chorded Button Combinations:** Temporal input buffer to support multi-button press mappings (e.g. LB+RB).
+- **Tuning Tab Expansion:** Renamed "Analog Tuning" to "Tuning" to reflect broader capabilities.
+- **Trigger Sensitivity:** Added sensitivity sliders for analog triggers in the new Tuning tab.
+- **Digital Triggers Relocated:** Moved the Digital Trigger Mode toggle from the Remapping tab to the Tuning tab for better organization alongside sensitivity controls.
 
 ### ⚙️ Under-the-Hood Changes
 - **Cython `hidapi` Backend:** Completely removed `pywinusb` dependencies and migrated to `hidapi`. This bypasses Windows' aggressive HID descriptor truncation issues, allowing the wrapper to access extra buttons on any byte offset (e.g. byte 11).
@@ -173,3 +167,4 @@ This is a major architectural release (v2.0.0) that breaks backward compatibilit
 - **True Radial Math Overhaul:** Fixed diagonal dot tracking and deadzone clipping by applying response curves and anti-deadzone directly to the stick's magnitude/vector instead of individual X/Y axes, guaranteeing a perfectly circular output bound.
 - **Strict Profile Interface Binding:** The daemon now explicitly restricts `hidapi` polling solely to the HID interfaces defined in the controller profile, cleanly ignoring auxiliary endpoints.
 - **Multi-Reader Concurrency:** The daemon now loops through and spawns concurrent background threads for all matched HID readers simultaneously.
+- **Profile Metadata Enhancement:** Profiles now explicitly store `"is_analog"` metadata for triggers (True for analog, False for digital fallbacks) to clearly indicate whether the hardware itself streams analog data.

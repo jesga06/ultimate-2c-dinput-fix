@@ -2,7 +2,8 @@
     "extra_buttons": {
         "m2": "mouse4",
         "m1": "mouse5",
-        "home": "keyboard:alt_l+up"
+        "fn": "",
+        "home": ""
     },
     "settings": {
         "digital_lt": "false",
@@ -40,15 +41,15 @@
     "trigger_left": {
         "deadzone": "0.0",
         "anti_deadzone": "0.0",
-        "curve": "linear",
-        "exp_factor": "1.0",
+        "curve": "exponential",
+        "exp_factor": "2.2",
         "rest_deadzone": "0.0"
     },
     "trigger_right": {
         "deadzone": "0.0",
         "anti_deadzone": "0.0",
-        "curve": "linear",
-        "exp_factor": "1.0",
+        "curve": "aggressive",
+        "exp_factor": "2.6",
         "rest_deadzone": "0.0"
     }
 }

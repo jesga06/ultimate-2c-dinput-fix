@@ -26,7 +26,8 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
 
 ## Features
 - **Analog Triggers Fix:** Restores missing analog polling on controllers with broken DInput configurations (e.g. Triggers that Windows treats as digital. You paid for analog triggers and you're getting them analog triggers!).
-- **Customizable Tuning:** Adjust stick deadzones, response curves, and trigger sensitivity dynamically via the Tuning tab to fine-tune your gameplay.
+- **Customizable Tuning:** Adjust stick and trigger deadzones, response curves, and sensitivity dynamically via the Tuning tab to fine-tune your gameplay.
+   - **Circularity Calibrator:** Calibrate circularity of analog sticks for a perfect circular output.
 - **Visual GUI Configuration:** A simple, dark-mode visual interface to easily map buttons without manual file editing.
 - **Universal Profiling:** Generate custom controller layout profiles (`profiles/`) for any generic HID controller using the interactive calibration tool.
    - **Included default profiles:**

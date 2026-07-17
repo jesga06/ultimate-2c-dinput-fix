@@ -103,7 +103,7 @@ class Calibrator:
         self.latest_reports[str(report.report_id)] = report
 
     def scan_devices(self, test_only=False):
-        print("\n==================================================================")
+        print("==================================================================")
         print("NOTICE: Please ensure your controller is set to DInput mode (not XInput).")
         print("If you just switched modes, select the option to rescan devices.")
         print("==================================================================\n")
@@ -323,7 +323,7 @@ class Calibrator:
 
     def run(self, test_only=False):
         if not test_only:
-            print("\n==================================================================")
+            print("==================================================================")
             print("NOTICE: Please disable any 'no dead-zone' (raw/instant) joystick")
             print("configurations on your controller before starting calibration.")
             print("Immensely increased joystick sensitivity may disrupt calibration.")

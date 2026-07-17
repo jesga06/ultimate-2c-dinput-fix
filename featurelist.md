@@ -45,13 +45,9 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
   * **Trigger Sensitivity:** Modify the sensitivity of analog triggers directly using sliders (values from 0.1 to 3.0) to fine-tune actuation limits.
   * **Digital Triggers Mode:** A "Digital Trigger Mode" checkbox forces analog trigger values to act as binary buttons (0 or 255) on the virtual pad immediately upon input.
   * **Analog Tuning Visualizer:** Displays real-time coordinate plotting with a 1.0 unit circular bounds grid and exact decimal labels for thumbsticks.
-* **Visual Layout Selector:**
-  * Switch between Xbox, PlayStation, and Nintendo Visual Layouts on the fly.
-  * Dynamically translates the labels in the Remapping screen (e.g. changing "A" to "Cross (✖)" or "B") so you always know what physical button you are editing.
 * **Live Connection Status:** Displays whether the background daemon is currently "Connected" or "Disconnected", along with the active controller's name.
 * **Chords & Macros Studio (Advanced Tab):** Record sequences of gamepad inputs and output key/mouse events, choose between toggle (press) and hold execution, with integrated stuck-key protection.
 * **Shift Layer Remapping:** Configure dynamic shift mappings and shift blocking for every button, expanding total layout mapping possibilities.
-* **Custom Accent Purple Theme:** Styled dark-mode GUI leveraging `#7500ab` as the primary accent across sliders, options, radio buttons, and checkboxes.
 * **Transition Screen Overlay:** Smooth color-interpolated canvas fades (250ms in/out, 900ms hold) with randomized community quotes and a rotating vector loading spinner.
 
 ---
@@ -65,7 +61,6 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Composite HID Interface Support:** Captures and merges inputs from multi-interface USB devices (e.g. Machenike G5 Pro) concurrently, binding profiles to `interfaceNumber_reportId` keys.
 * **Multi-Reader Concurrency:** Spawns distinct polling threads for each active HID reader matching the target controller profile interfaces.
 * **True Radial Deadzone Math:** Computes response curves and deadzones directly on the stick vector magnitude instead of individual axes, yielding a perfectly circular range.
-* **Synchronized Teardown:** Catching `Ctrl+C` in the daemon window gracefully terminates all GUI subprocesses, closes active HID streams, disconnects virtual controllers, and exits cleanly.
 * **Smart Reconnection Guard:** Halts reconnection attempts if a controller fails immediately (under 2 seconds) due to persistent OS-level locks.
 
 ---
@@ -97,7 +92,7 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 ---
 
 ## ⚙️ Under-the-Hood & Developer Features
-* **Cython `hidapi` Transport Backend:** Bypasses Windows' aggressive HID descriptor truncation issues by utilizing cython-based `hidapi` instead of `pywinusb`, enabling raw reads of payloads up to 1024 bytes.
+* **Cython `hidapi` Transport Backend:** Bypasses Windows' aggressive HID descriptor truncation issues by utilizing cython-based `hidapi`, enabling raw reads of payloads up to 1024 bytes.
 * **Decoupled Architecture:** Strict separation between Transport (`RawHIDReport`), Parser (`decoder.py`), and Consumers (`VirtualPad`, `Mapper`).
 * **Profile-Driven Metadata Parser:** Decodes inputs entirely dynamically by iterating over JSON configuration keys. Supports:
   - Multi-byte inputs (e.g., 16-bit little-endian values).
