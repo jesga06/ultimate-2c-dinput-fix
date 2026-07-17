@@ -1,14 +1,20 @@
-## [Planned Features]
-- **Gyroscope Support:** Native support for capturing and translating gyroscope/motion telemetry.
-- **DS4 Emulation:** Support for instantiating `vg.VDS4Gamepad()` for native PlayStation in-game prompts.
-- **Analog-to-Mouse & WASD Mapping:** Support for high-frequency translation of stick deflection to mouse deltas or WASD keystrokes.
-- **Windows Startup Integration:** Registry integration to launch the wrapper daemon silently on boot.
-- **Built-in Community Profiles:** Auto-discovery database to bypass calibration for common VID/PIDs using pre-made templates.
-- **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
+## [Planned Features (Sorted by what I want to do next)]
+- **Tuning Graphs & Sensitivity Real-time Updates**: Bind sensitivity sliders to dynamically redraw stick and trigger graphs, and update digital trigger display to draw a step-function graph using the deadzone as the threshold.
+- **Circularity Calibration & Wizard Enhancements**: Implement speed warnings, minimum 6 spins (3 CW, 3 CCW) requirement, pre-apply circularity error calculation, dynamic dark/light mode circularity circle rendering, 45º diagonal line response graphs, and a warped/asymmetric stick scaling correction algorithm.
+- **Gamepad Button Testing Dashboard**: Support a proportional, auto-scaling gamepad button layout dashboard mapping both asymmetrical (Xbox) and symmetrical (PlayStation) controllers, using a helper script-driven positioning model.
+- **Mapping Recorder Save Options**: Provide "Save Standard" and "Save Shift Map" buttons inside the interactive recording window.
+- **Complete Vibration Implementation:** Finalize the incomplete rumble code.
 - **Vibration Diagnostic Test:** Diagnostic tool `07_vibration_test.py` to test and identify rumble payloads.
-- **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and reverse engineering tools.
-- **GUI Optimization Pass**: Find out why this hot mess of a GUI is so damn laggy. 
-
+- **HidHide Integration (Double Input Fix)**: Automated integration with Nefarius HidHide to completely hide physical gamepads from other applications. Includes automatic executable whitelisting and dynamic cloaking that cleanly reverts its changes when the wrapper daemon closes.
+- **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and gamepad HID reverse engineering tools.
+- **Dynamic Color Guides**: Reference theme colors dynamically in help guides and legends rather than using hardcoded color names.
+- **Retroactive Button Name Normalization**: Standardize all button names to uppercase client-side and retroactively across configuration settings.
+- **Analog-to-Mouse & WASD Mapping:** Support for high-frequency translation of stick deflection to mouse deltas or WASD keystrokes.
+- **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
+- **Windows Startup Integration:** Registry integration to launch the wrapper daemon silently on boot.
+- **Gyroscope Support:** Native support for capturing and translating gyroscope/motion telemetry (will take a while because I don't have a controller with gyro support).
+- **DS4 Emulation:** Support for instantiating `vg.VDS4Gamepad()` for native PlayStation in-game prompts.
+- **GUI Optimization Pass**: Find out why this hot mess of a GUI is so damn laggy.
 
 ## NOTES
 This list orders updates from oldest-first to newest-last. For the most recent updates, scroll all the way down.
