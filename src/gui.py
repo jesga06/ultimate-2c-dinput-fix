@@ -399,11 +399,19 @@ class App(ctk.CTk):
         
         self.hardware_profile_path = hardware_profile_path
         self.hardware_layout = 'xbox'
+        self.extra_buttons = []
         if hardware_profile_path and os.path.exists(hardware_profile_path):
             try:
                 with open(hardware_profile_path, 'r') as f:
                     prof_data = json.load(f)
                     self.hardware_layout = prof_data.get('layout', 'xbox')
+                    
+                    standard_buttons = {'a', 'b', 'x', 'y', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home'}
+                    for r_id, r_info in prof_data.get('reports', {}).items():
+                        for name, input_info in r_info.get('inputs', {}).items():
+                            if input_info.get('type') == 'button' and name not in standard_buttons:
+                                if name not in self.extra_buttons:
+                                    self.extra_buttons.append(name)
             except:
                 pass
 
@@ -684,7 +692,12 @@ class App(ctk.CTk):
         # Extra buttons grid below
         standard_buttons = set(layout_dict.keys())
         extra_btns = []
-        if self.config.has_section('extra_buttons'):
+        for k in self.extra_buttons:
+            if k not in standard_buttons:
+                extra_btns.append(k)
+        
+        # Fallback to mapped ones in config if none found in profile
+        if not extra_btns and self.config.has_section('extra_buttons'):
             for k in self.config.options('extra_buttons'):
                 if k not in standard_buttons:
                     extra_btns.append(k)
@@ -946,25 +959,15 @@ class App(ctk.CTk):
         existing_extras = set()
         standard_buttons = set(face_buttons + dpad_buttons + stick_buttons + system_buttons)
         
+        for k in self.extra_buttons:
+            if k not in standard_buttons:
+                existing_extras.add(k)
+                
+        # Fallback to currently mapped ones in config
         if self.config.has_section('extra_buttons'):
             for k in self.config.options('extra_buttons'):
                 if k not in standard_buttons:
                     existing_extras.add(k)
-                    
-        if hasattr(self, 'daemon_config') and self.daemon_config.has_section('controller'):
-            hid_map_path = self.daemon_config.get('controller', 'last_profile', fallback=None)
-            if hid_map_path and os.path.exists(hid_map_path):
-                try:
-                    import json
-                    with open(hid_map_path, 'r', encoding='utf-8') as f:
-                        map_data = json.load(f)
-                        if 'extra_buttons' in map_data:
-                            for btn_dict in map_data['extra_buttons']:
-                                name = btn_dict.get('name')
-                                if name and name not in standard_buttons:
-                                    existing_extras.add(name)
-                except Exception:
-                    pass
 
         existing_extras = sorted(list(existing_extras))
 
