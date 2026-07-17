@@ -637,19 +637,86 @@ class App(ctk.CTk):
             hover_color="#5a0000"
         )
         self.validate_btn.pack(side="left", padx=10)
-
-        info = ctk.CTkLabel(
-            self.tab_dashboard,
-            text="The background wrapper reloads configuration automatically.",
-            text_color="gray")
-        info.pack(pady=(40, 5))
+        
+        self.layout_canvas = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
+        self.layout_canvas.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        # Load layout
+        import json, os
+        layout_path = os.path.join(os.path.dirname(__file__), "..", "resources", "button_layout.json")
+        self.button_layout_data = {}
+        if os.path.exists(layout_path):
+            try:
+                with open(layout_path, 'r') as f:
+                    self.button_layout_data = json.load(f)
+            except Exception as e:
+                print("Error loading button layout:", e)
+                
+        self.dashboard_btns = {}
+        self.layout_canvas.bind("<Configure>", self.on_dashboard_resize)
+        
+        self._build_dashboard_layout()
 
         version_lbl = ctk.CTkLabel(
             self.tab_dashboard,
             text="v2.2.0",
             text_color="gray50",
             font=ctk.CTkFont(size=11))
-        version_lbl.pack(pady=(0, 20))
+        version_lbl.pack(side="bottom", pady=(0, 20))
+
+    def _build_dashboard_layout(self):
+        # Clear existing
+        for widget in self.layout_canvas.winfo_children():
+            widget.destroy()
+        self.dashboard_btns = {}
+        
+        layout_name = self.hardware_layout
+        if layout_name not in self.button_layout_data:
+            layout_name = "xbox"
+            
+        layout_dict = self.button_layout_data.get(layout_name, {})
+        
+        for btn, pos in layout_dict.items():
+            b = ctk.CTkButton(self.layout_canvas, text=self.get_btn_display_name(btn).upper(), fg_color="#333333", hover_color="#444444")
+            b.place(relx=pos["x"], rely=pos["y"], anchor="center")
+            self.dashboard_btns[btn] = b
+            
+        # Extra buttons grid below
+        standard_buttons = set(layout_dict.keys())
+        extra_btns = []
+        if self.config.has_section('extra_buttons'):
+            for k in self.config.options('extra_buttons'):
+                if k not in standard_buttons:
+                    extra_btns.append(k)
+                    
+        self.extra_frame = ctk.CTkFrame(self.layout_canvas, fg_color="transparent")
+        self.extra_frame.place(relx=0.5, rely=0.9, anchor="center")
+        
+        for i, eb in enumerate(extra_btns):
+            b = ctk.CTkButton(self.extra_frame, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444")
+            b.grid(row=i//4, column=i%4, padx=5, pady=5)
+            self.dashboard_btns[eb] = b
+
+    def on_dashboard_resize(self, event):
+        w = event.width
+        h = event.height
+        if w < 10 or h < 10:
+            return
+            
+        # Keep buttons square/proportional and prevent overlap
+        base_size = min(w, h) * 0.12  # 12% of the smallest dimension
+        base_size = max(30, min(base_size, 80)) # clamp between 30 and 80 pixels
+        
+        font_size = max(8, int(base_size * 0.25))
+        fnt = ctk.CTkFont(size=font_size, weight="bold")
+        
+        for btn_name, btn_widget in self.dashboard_btns.items():
+            if btn_widget.winfo_parent() == str(self.layout_canvas):
+                # Standard buttons are directly in layout_canvas
+                btn_widget.configure(width=int(base_size * 1.5), height=int(base_size), font=fnt)
+            else:
+                # Extra buttons are in extra_frame
+                btn_widget.configure(width=int(base_size * 1.5), height=int(base_size * 0.8), font=fnt)
 
     def get_layout_labels(self):
         layout = self.hardware_layout
@@ -693,7 +760,7 @@ class App(ctk.CTk):
 
     def get_btn_display_name(self, btn):
         labels = self.get_layout_labels()
-        return labels.get(btn, btn.upper())
+        return labels.get(btn, btn).upper()
 
     def refresh_labels(self):
         if hasattr(self, 'label_widgets'):
@@ -1106,7 +1173,7 @@ class App(ctk.CTk):
         k_listener.start()
         m_listener.start()
 
-        def save_and_close():
+        def save_and_close(target_map="standard"):
             try:
                 k_listener.stop()
             except Exception:
@@ -1131,9 +1198,14 @@ class App(ctk.CTk):
                 val = result_var.get()
 
             if val:
-                self.entries[btn].delete(0, 'end')
-                self.entries[btn].insert(0, val)
-                self.on_mapping_changed(btn)
+                if target_map == "standard":
+                    self.entries[btn].delete(0, 'end')
+                    self.entries[btn].insert(0, val)
+                    self.on_mapping_changed(btn)
+                elif target_map == "shift":
+                    self.shift_entries[btn].delete(0, 'end')
+                    self.shift_entries[btn].insert(0, val)
+                    self.on_shift_mapping_changed(btn)
             record_win.destroy()
 
         def cancel_and_close():
@@ -1151,11 +1223,19 @@ class App(ctk.CTk):
         btn_frame = ctk.CTkFrame(record_win, fg_color="transparent")
         btn_frame.pack(pady=10)
 
-        save_btn = ctk.CTkButton(
+        save_std_btn = ctk.CTkButton(
             btn_frame,
-            text="Save",
-            command=save_and_close)
-        save_btn.pack(side="left", padx=10)
+            text="Save Standard",
+            command=lambda: save_and_close("standard"))
+        save_std_btn.pack(side="left", padx=10)
+        
+        save_shift_btn = ctk.CTkButton(
+            btn_frame,
+            text="Save Shift Map",
+            fg_color="#335533",
+            hover_color="#446644",
+            command=lambda: save_and_close("shift"))
+        save_shift_btn.pack(side="left", padx=10)
 
         cancel_btn = ctk.CTkButton(
             btn_frame,
