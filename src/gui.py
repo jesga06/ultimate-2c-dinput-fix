@@ -691,7 +691,7 @@ class App(ctk.CTk):
         for btn, pos in layout_dict.items():
             if btn in ['lt', 'rt']:
                 b = ctk.CTkFrame(self.layout_canvas, fg_color="#333333", corner_radius=6)
-                prog = ctk.CTkProgressBar(b, fg_color="transparent", progress_color=accent, corner_radius=6)
+                prog = ctk.CTkProgressBar(b, fg_color="#333333", progress_color=accent, corner_radius=6)
                 prog.place(relx=0, rely=0, relwidth=1, relheight=1)
                 prog.set(0)
                 lbl = ctk.CTkLabel(b, text=self.get_btn_display_name(btn).upper(), text_color="white")
