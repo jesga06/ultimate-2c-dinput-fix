@@ -21,12 +21,19 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
         self.center_samples_y = []
         self.bounds_data = [0.0] * 360
         self.timer = 0
+        self.last_theta = None
+        self.accum_cw = 0.0
+        self.accum_ccw = 0.0
+        self.speed_warn_timer = 0
         
         lbl_title = ctk.CTkLabel(self, text=f"Calibrating {title}", font=ctk.CTkFont(size=20, weight="bold"))
         lbl_title.pack(pady=10)
         
         self.lbl_instruct = ctk.CTkLabel(self, text="Step 1: Leave the stick at rest without touching it.\nSampling center offset...", font=ctk.CTkFont(size=14))
         self.lbl_instruct.pack(pady=5)
+        
+        self.lbl_warning = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=14, weight="bold"), text_color="red")
+        self.lbl_warning.pack()
         
         self.canvas = ctk.CTkCanvas(self, width=300, height=300, bg="#222222", highlightthickness=0)
         self.canvas.pack(pady=10)
@@ -80,11 +87,39 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
             r = math.sqrt(dx**2 + dy**2)
             if r > 0.1: # Only record if actually pushed
                 theta = int(math.degrees(math.atan2(dy, dx))) % 360
+                
+                if self.last_theta is not None:
+                    delta = (theta - self.last_theta + 180) % 360 - 180
+                    if delta > 0:
+                        self.accum_ccw += delta
+                    elif delta < 0:
+                        self.accum_cw += abs(delta)
+                        
+                    if abs(delta) > 30:
+                        self.speed_warn_timer = 60
+                        self.lbl_warning.configure(text="Too Fast! Slow down.")
+                        
+                self.last_theta = theta
+                
                 # Smear slightly to nearby angles to fill gaps
                 for i in range(-2, 3):
                     idx = (theta + i) % 360
                     if r > self.bounds_data[idx]:
                         self.bounds_data[idx] = r
+                        
+            if self.speed_warn_timer > 0:
+                self.speed_warn_timer -= 1
+                if self.speed_warn_timer == 0:
+                    self.lbl_warning.configure(text="")
+                    
+            if self.accum_cw >= 3 * 360 and self.accum_ccw >= 3 * 360:
+                if self.btn_action.cget("state") == "disabled":
+                    self.btn_action.configure(text="Finish", state="normal", command=self.finish_sweep)
+            else:
+                if self.btn_action.cget("state") == "disabled":
+                    cw_rem = max(0, 3 - int(self.accum_cw / 360))
+                    ccw_rem = max(0, 3 - int(self.accum_ccw / 360))
+                    self.btn_action.configure(text=f"Sweep {cw_rem}x CW, {ccw_rem}x CCW")
                         
             # Draw real-time
             self.canvas.delete("live")
@@ -117,7 +152,7 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
             
     def start_sweep(self):
         self.calib_state = "SWEEP"
-        self.btn_action.configure(text="Finish", command=self.finish_sweep)
+        self.btn_action.configure(text="Sweep 3x CW, 3x CCW", state="disabled")
         
     def interpolate_bounds(self):
         # Fill any zeros by interpolating between nearest non-zeros
