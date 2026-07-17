@@ -20,9 +20,10 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
 - ✅ 8BitDo Ultimate 2C Wireless 2.4 GHz (literally what this whole project was built to fix)
 - ✅ Machenike G5 Pro
 
-### Potentially compatible
+### ⚠️ Potentially compatible
 
-- ⚠️ Any HID controller whose descriptor does not match its reports. Requires one-time calibration
+- Any HID controller whose descriptor does not match its reports. Requires one-time calibration
+- Probably any HID device tbh. This project got scope-crept so much that someone could probably make this work on an eldritch horror of a USB device with tens of buttons, axis, triggers, hats...
 
 ## Features
 - **Analog Triggers Fix:** Restores missing analog polling on controllers with broken DInput configurations (e.g. Triggers that Windows treats as digital. You paid for analog triggers and you're getting them analog triggers!).
