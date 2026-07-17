@@ -185,12 +185,34 @@ class Calibrator:
             self.latest_reports = {}
 
             if test_only:
-                profile_path = f"profiles/{selected_group['vid']:04X}_{selected_group['pid']:04X}.json".lower()
+                vid = selected_group['vid']
+                pid = selected_group['pid']
+                profile_path = f"profiles/{vid:04X}_{pid:04X}.json".lower()
+                
+                if not os.path.exists(profile_path):
+                    # Check community folder as fallback
+                    db_path = os.path.join("profiles", "community", "database.json")
+                    if os.path.exists(db_path):
+                        try:
+                            with open(db_path, 'r', encoding='utf-8') as f:
+                                db = json.load(f)
+                            vid_pid_str = f"{vid:04X}:{pid:04X}".upper()
+                            for _, entry_data in db.items():
+                                if vid_pid_str in entry_data.get("aliases", []):
+                                    hid_map_filename = os.path.basename(entry_data.get("hid_map_file", ""))
+                                    comm_map = os.path.join("profiles", "community", hid_map_filename)
+                                    if os.path.exists(comm_map):
+                                        profile_path = comm_map
+                                        break
+                        except Exception:
+                            pass
+                
                 if not os.path.exists(profile_path):
                     print(f"\nError: No profile found for this device at {profile_path}.")
                     print("Please run the standard calibration first.")
                     return False
-                with open(profile_path, 'r') as f:
+                self.profile_path = profile_path
+                with open(profile_path, 'r', encoding='utf-8') as f:
                     self.profile = json.load(f)
                 active_interfaces = set(self.profile.get("interfaces", []))
                 
@@ -332,7 +354,7 @@ class Calibrator:
             return
 
         if test_only:
-            profile_path = f"profiles/{self.device.get('vid', 0):04X}_{self.device.get('pid', 0):04X}.json".lower()
+            profile_path = getattr(self, 'profile_path', f"profiles/{self.device.get('vid', 0):04X}_{self.device.get('pid', 0):04X}.json".lower())
             if "layout" in self.profile:
                 self.layout = self.profile["layout"]
 
@@ -343,7 +365,26 @@ class Calibrator:
             return
 
         remapping_targets = None
-        profile_path = f"profiles/{self.profile['vid']}_{self.profile['pid']}.json".lower()
+        profile_path = getattr(self, 'profile_path', f"profiles/{self.profile['vid']}_{self.profile['pid']}.json".lower())
+        
+        # Also check community map for regular run (to ask if they want to override)
+        if not os.path.exists(profile_path):
+            db_path = os.path.join("profiles", "community", "database.json")
+            if os.path.exists(db_path):
+                try:
+                    with open(db_path, 'r', encoding='utf-8') as f:
+                        db = json.load(f)
+                    vid_pid_str = f"{self.profile['vid']}:{self.profile['pid']}".upper()
+                    for _, entry_data in db.items():
+                        if vid_pid_str in entry_data.get("aliases", []):
+                            hid_map_filename = os.path.basename(entry_data.get("hid_map_file", ""))
+                            comm_map = os.path.join("profiles", "community", hid_map_filename)
+                            if os.path.exists(comm_map):
+                                profile_path = comm_map
+                                break
+                except Exception:
+                    pass
+
         if os.path.exists(profile_path):
             print("\nAn existing profile was found for this controller.")
             print("[1] Recalibrate Everything (Overwrite)")
