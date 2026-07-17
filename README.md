@@ -77,7 +77,7 @@ If your controller doesn't have a profile generated yet:
 
 ### Step 3: Run the Background Daemon
 To start intercepting inputs in the background:
-1. Run the **`run_wrapper.bat`** script (or run `python main.py` in PowerShell).
+1. Run the **`run_wrapper.bat`** script (or run `python main.py` in PowerShell). You can optionally pass the `--boot` argument to start it silently without opening the GUI.
 2. The command prompt window will hide automatically.
 3. A circular white and purple icon will appear in your **System Tray**.
 
