@@ -1495,6 +1495,37 @@ class App(ctk.CTk):
             def open_circ_calib():
                 CircularityCalibrationModal(self, title, section)
                 
+            def open_circ_info():
+                info_modal = ctk.CTkToplevel(self)
+                info_modal.title("Circularity Explanation")
+                info_modal.geometry("450x400")
+                info_modal.resizable(False, False)
+                info_modal.attributes("-topmost", True)
+                info_modal.focus()
+                
+                txt = ctk.CTkTextbox(info_modal, wrap="word", font=ctk.CTkFont(size=13))
+                txt.pack(fill="both", expand=True, padx=10, pady=10)
+                
+                explanation = (
+                    "What is Circularity?\n\n"
+                    "Most modern analog sticks are physically bounded by a circular gate. "
+                    "However, standard stick outputs form a square shape, which means diagonal inputs naturally exceed 1.0 (100%) distance from the center.\n\n"
+                    "What this tool does:\n"
+                    "When 'Forced Circularity' is enabled, this tool squashes the square corners of your analog stick's raw output back into a perfect circle. "
+                    "This guarantees your maximum diagonal movement is exactly 1.0.\n\n"
+                    "Before vs. After Tuning:\n"
+                    "• 'Before': Applies circularity immediately on the raw hardware input, BEFORE deadzones and response curves. (Recommended)\n"
+                    "• 'After': Applies circularity at the very end, squashing the fully processed output.\n\n"
+                    "Should you use it?\n"
+                    "Some games expect perfect circular inputs and might have weird camera acceleration if diagonals exceed 1.0. "
+                    "Other games might feel sluggish on diagonals if circularity is forced. Try it out and see what feels best!"
+                )
+                txt.insert("0.0", explanation)
+                txt.configure(state="disabled")
+
+            circ_info_btn = ctk.CTkButton(circ_frame, text="?", width=28, command=open_circ_info, fg_color="#555555")
+            circ_info_btn.pack(side="right", padx=5)
+            
             circ_btn = ctk.CTkButton(circ_frame, text="Calibrate Circularity", command=open_circ_calib, fg_color="#1f538d")
             circ_btn.pack(side="right", padx=5)
 
