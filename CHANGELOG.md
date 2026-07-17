@@ -217,3 +217,10 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Corrected GUI Configuration Reference:** Updated the dashboard's "Validate HID Map" validation query to reference `self.daemon_config` rather than `self.config` to resolve config key lookup errors.
 - **Synchronized HID Map Method Names:** Updated `gui.py`'s Profiles tab utility references to point to `validate_hid_map` and `diff_hid_maps` instead of their deprecated method names.
 - **Commit Commenting:** I actually do commented atomic commits now. Even the commit that adds this line was commented. Learned to do so the hard way.
+
+## [2.2.0] - Unreleased
+### 🎮 User-Facing Changes
+- **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
+
+### ⚙️ Under-the-Hood Changes
+- **Dynamic Extra Button Parsing:** The GUI now parses `extra_buttons` directly from the active HID map dynamically at launch, properly recognizing all supported extra buttons from downloaded community profiles instead of failing to populate them when they aren't yet mapped in the user's config file.
