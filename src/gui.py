@@ -660,6 +660,14 @@ class App(ctk.CTk):
         self.frame_sticks.grid(row=0, column=1, padx=10, pady=10, sticky="n")
         self.frame_system.grid(row=1, column=1, padx=10, pady=10, sticky="n")
 
+        # Info Guide
+        info_frame = ctk.CTkFrame(self.tab_remapping, fg_color="transparent")
+        info_frame.grid(row=2, column=0, columnspan=2, pady=(10, 20))
+        
+        info_btn = ctk.CTkButton(info_frame, text="?  Remapping Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12))
+        info_btn.pack(side="top")
+        ToolTip(info_btn, "Mapping: Use the text box to enter a keyboard key or mouse click.\n⏺: Click to record a key combination interactively.\nBlock: Prevent the original controller button from being sent to the game.\nShift Map/S. Blk: Secondary mapping when the shift trigger is held.")
+
         self.entries = {}
         self.label_widgets = {}
         self.block_checkboxes = {}
