@@ -582,6 +582,26 @@ class App(ctk.CTk):
                 weight="bold"))
         self.layout_label.pack(side="left", padx=10)
 
+        def on_validate():
+            import profile_tools
+            from tkinter import messagebox
+            # 'last_profile' in config.ini stores the path to the active HID map
+            if hasattr(self, 'config') and self.config.has_option('controller', 'last_profile'):
+                hid_map_path = self.config.get('controller', 'last_profile')
+                res = profile_tools.validate_hid_map(hid_map_path)
+                messagebox.showinfo("HID Map Validation", res)
+            else:
+                messagebox.showerror("Error", "No active HID map found.")
+
+        self.validate_btn = ctk.CTkButton(
+            layout_frame,
+            text="Validate HID Map",
+            command=on_validate,
+            fg_color="#8B0000",
+            hover_color="#5a0000"
+        )
+        self.validate_btn.pack(side="left", padx=10)
+
         info = ctk.CTkLabel(
             self.tab_dashboard,
             text="The background wrapper reloads configuration automatically.",
@@ -2417,6 +2437,28 @@ class App(ctk.CTk):
             messagebox.showinfo("Downloading", "Downloading community HID maps in background...")
             
         ctk.CTkButton(comm_frame, text="Update Community HID Maps", command=update_community_hid_maps, fg_color="#005580", hover_color="#00334d").pack(pady=(10, 10))
+
+        # Recording & Playback Frame
+        rec_frame = ctk.CTkFrame(main_frame)
+        rec_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(rec_frame, text="Input Recording & Playback", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
+        ctk.CTkLabel(rec_frame, text="Record your controller inputs and play them back perfectly.").pack()
+        
+        rec_btn_frame = ctk.CTkFrame(rec_frame, fg_color="transparent")
+        rec_btn_frame.pack(pady=10)
+        
+        def send_record_cmd(cmd):
+            try:
+                with open("record_cmd.txt", "w") as f:
+                    f.write(cmd)
+            except: pass
+            
+        ctk.CTkButton(rec_btn_frame, text="Start Recording", command=lambda: send_record_cmd("record_start"), fg_color="#8a2020", hover_color="#5a1010").pack(side="left", padx=5)
+        ctk.CTkButton(rec_btn_frame, text="Stop Recording", command=lambda: send_record_cmd("record_stop"), fg_color="#444444").pack(side="left", padx=5)
+        ctk.CTkButton(rec_btn_frame, text="Start Playback", command=lambda: send_record_cmd("play_start"), fg_color="#206a20", hover_color="#104a10").pack(side="left", padx=5)
+        ctk.CTkButton(rec_btn_frame, text="Stop Playback", command=lambda: send_record_cmd("play_stop"), fg_color="#444444").pack(side="left", padx=5)
+
         self.update_utilities_loop()
         
     def update_utilities_loop(self):

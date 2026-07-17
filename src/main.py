@@ -301,12 +301,45 @@ def main():
 
     from utilities_backend import monitor
 
+    from state_record_play import StateRecorder, StatePlayer
+    recorder = StateRecorder("recording.json")
+    player = StatePlayer("recording.json")
+    
+    last_cmd_check = 0.0
+
     def data_handler(report: RawHIDReport):
         start_t = monitor.record_poll()
-        nonlocal last_log_time
+        nonlocal last_log_time, last_cmd_check
         current_time = time.time()
+        
+        if current_time - last_cmd_check > 0.1:
+            last_cmd_check = current_time
+            if os.path.exists("record_cmd.txt"):
+                try:
+                    with open("record_cmd.txt", "r") as f:
+                        cmd = f.read().strip()
+                    os.remove("record_cmd.txt")
+                    if cmd == "record_start":
+                        recorder.start()
+                    elif cmd == "record_stop":
+                        recorder.stop()
+                    elif cmd == "play_start":
+                        player.start()
+                    elif cmd == "play_stop":
+                        player.stop()
+                except: pass
 
-        state = decoder.decode(report)
+        if player.is_playing:
+            playback_state_dict = player.get_current_state()
+            if playback_state_dict:
+                state = ControllerState(**playback_state_dict)
+            else:
+                state = decoder.decode(report)
+        else:
+            state = decoder.decode(report)
+
+        if recorder.is_recording:
+            recorder.record_event(state.__dict__)
 
         if is_debug_mode and (current_time - last_log_time) >= 0.5:
             logger.debug(f"RAW [{report.report_id:02X}]: {' | '.join(f'{x:02X}' for x in report.payload)}")
