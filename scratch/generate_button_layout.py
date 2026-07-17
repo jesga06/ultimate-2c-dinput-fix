@@ -5,10 +5,10 @@ def generate_layout():
     # Relative positions (0.0 to 1.0) on a standard Xbox-style layout canvas
     # The canvas will map these to real X/Y coordinates based on its current width/height
     layout = {
-        "dpad_up": {"x": 0.35, "y": 0.60},
-        "dpad_down": {"x": 0.35, "y": 0.70},
-        "dpad_left": {"x": 0.31, "y": 0.65},
-        "dpad_right": {"x": 0.39, "y": 0.65},
+        "dpad_up": {"x": 0.35, "y": 0.58},
+        "dpad_down": {"x": 0.35, "y": 0.72},
+        "dpad_left": {"x": 0.29, "y": 0.65},
+        "dpad_right": {"x": 0.41, "y": 0.65},
         
         "a": {"x": 0.72, "y": 0.65},
         "b": {"x": 0.80, "y": 0.55},
@@ -31,10 +31,10 @@ def generate_layout():
     
     # Standard PS layout fallback (swaps D-Pad and Left Stick)
     ps_layout = layout.copy()
-    ps_layout["dpad_up"] = {"x": 0.28, "y": 0.30}
-    ps_layout["dpad_down"] = {"x": 0.28, "y": 0.40}
-    ps_layout["dpad_left"] = {"x": 0.24, "y": 0.35}
-    ps_layout["dpad_right"] = {"x": 0.32, "y": 0.35}
+    ps_layout["dpad_up"] = {"x": 0.28, "y": 0.28}
+    ps_layout["dpad_down"] = {"x": 0.28, "y": 0.42}
+    ps_layout["dpad_left"] = {"x": 0.22, "y": 0.35}
+    ps_layout["dpad_right"] = {"x": 0.34, "y": 0.35}
     ps_layout["l3"] = {"x": 0.35, "y": 0.65}
     
     output = {

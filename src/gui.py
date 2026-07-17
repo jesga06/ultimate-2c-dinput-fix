@@ -684,10 +684,24 @@ class App(ctk.CTk):
             
         layout_dict = self.button_layout_data.get(layout_name, {})
         
+        accent = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
+        if isinstance(accent, list):
+            accent = accent[1] if ctk.get_appearance_mode() == "Dark" else accent[0]
+            
         for btn, pos in layout_dict.items():
-            b = ctk.CTkButton(self.layout_canvas, text=self.get_btn_display_name(btn).upper(), fg_color="#333333", hover_color="#444444")
-            b.place(relx=pos["x"], rely=pos["y"], anchor="center")
-            self.dashboard_btns[btn] = b
+            if btn in ['lt', 'rt']:
+                b = ctk.CTkFrame(self.layout_canvas, fg_color="#333333", corner_radius=6)
+                prog = ctk.CTkProgressBar(b, fg_color="transparent", progress_color=accent, corner_radius=6)
+                prog.place(relx=0, rely=0, relwidth=1, relheight=1)
+                prog.set(0)
+                lbl = ctk.CTkLabel(b, text=self.get_btn_display_name(btn).upper(), text_color="white")
+                lbl.place(relx=0.5, rely=0.5, anchor="center")
+                b.place(relx=pos["x"], rely=pos["y"], anchor="center")
+                self.dashboard_btns[btn] = {"frame": b, "prog": prog, "lbl": lbl}
+            else:
+                b = ctk.CTkButton(self.layout_canvas, text=self.get_btn_display_name(btn).upper(), fg_color="#333333", hover_color="#444444")
+                b.place(relx=pos["x"], rely=pos["y"], anchor="center")
+                self.dashboard_btns[btn] = b
             
         # Extra buttons grid below
         standard_buttons = set(layout_dict.keys())
@@ -724,12 +738,21 @@ class App(ctk.CTk):
         fnt = ctk.CTkFont(size=font_size, weight="bold")
         
         for btn_name, btn_widget in self.dashboard_btns.items():
-            if btn_widget.winfo_parent() == str(self.layout_canvas):
-                # Standard buttons are directly in layout_canvas
-                btn_widget.configure(width=int(base_size * 1.5), height=int(base_size), font=fnt)
+            if isinstance(btn_widget, dict):
+                widget = btn_widget["frame"]
+                lbl = btn_widget["lbl"]
+                if widget.winfo_parent() == str(self.layout_canvas):
+                    widget.configure(width=int(base_size * 1.5), height=int(base_size))
+                else:
+                    widget.configure(width=int(base_size * 1.2), height=int(base_size * 0.8))
+                lbl.configure(font=fnt)
             else:
-                # Extra buttons are in extra_frame
-                btn_widget.configure(width=int(base_size * 1.5), height=int(base_size * 0.8), font=fnt)
+                if btn_widget.winfo_parent() == str(self.layout_canvas):
+                    # Standard buttons are directly in layout_canvas
+                    btn_widget.configure(width=int(base_size * 1.5), height=int(base_size), font=fnt)
+                else:
+                    # Extra buttons
+                    btn_widget.configure(width=int(base_size * 1.2), height=int(base_size * 0.8), font=fnt)
 
     def get_layout_labels(self):
         layout = self.hardware_layout
@@ -2241,6 +2264,32 @@ class App(ctk.CTk):
             self.draw_trigger_bar(self.c_rt_pos, state.rt, out_rt)
             self.update_trigger_curve_cursor(self.c_rt_curve, state.rt, out_rt)
             
+            if hasattr(self, 'dashboard_btns'):
+                accent = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
+                if isinstance(accent, list):
+                    accent = accent[1] if ctk.get_appearance_mode() == "Dark" else accent[0]
+
+                for btn, widget in self.dashboard_btns.items():
+                    val = 0.0
+                    is_pressed = False
+                    
+                    if btn in ['lt', 'rt']:
+                        val = getattr(state, btn, 0.0)
+                        is_pressed = val > 0.0
+                    elif hasattr(state, btn):
+                        is_pressed = getattr(state, btn)
+                    elif btn in state.extra_inputs:
+                        is_pressed = state.extra_inputs[btn]
+                        
+                    if isinstance(widget, dict):
+                        widget["prog"].set(val)
+                    else:
+                        if is_pressed:
+                            widget.configure(fg_color=accent)
+                        else:
+                            base_color = "#333333" if widget.winfo_parent() == str(self.layout_canvas) else "#443333"
+                            widget.configure(fg_color=base_color)
+
         self.after(16, self.update_position_loop)
             
     def setup_advanced(self):
