@@ -1,22 +1,23 @@
 import os
 import json
 
-def validate_profile(profile_path: str) -> str:
-    if not os.path.exists(profile_path):
-        return f"Error: Profile {profile_path} not found."
+def validate_hid_map(hid_map_path: str) -> str:
+    """Validates a HID map file ({VID}_{PID}.json) for structural correctness."""
+    if not os.path.exists(hid_map_path):
+        return f"Error: HID map {hid_map_path} not found."
         
     try:
-        with open(profile_path, 'r', encoding='utf-8') as f:
+        with open(hid_map_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
     except Exception as e:
         return f"Error: Invalid JSON.\\n{e}"
         
     output = []
-    output.append(f"Validating Profile: {data.get('name', 'Unknown')}")
+    output.append(f"Validating HID map: {data.get('name', 'Unknown')} ({hid_map_path})")
     
     reports = data.get('reports', {})
     if not reports:
-        output.append("WARNING: No reports found in profile.")
+        output.append("WARNING: No reports found in HID map.")
         
     mapped_bytes = {} # (report_id, byte) -> list of (input_name, mask)
     errors = 0
@@ -26,13 +27,20 @@ def validate_profile(profile_path: str) -> str:
         inputs = rep_data.get('inputs', {})
         for in_name, cfg in inputs.items():
             b = cfg.get('byte')
-            if b is None:
-                output.append(f"ERROR: '{in_name}' missing 'byte' field.")
+            if b is None or b < 0:
+                output.append(f"ERROR: '{in_name}' missing or invalid 'byte' field.")
                 errors += 1
                 continue
                 
             length = cfg.get('length', 1)
+            if length <= 0 or length > 8:
+                output.append(f"ERROR: '{in_name}' has invalid length {length}.")
+                errors += 1
+                
             t = cfg.get('type')
+            if t not in ['button', 'axis', 'trigger', 'hat']:
+                output.append(f"WARNING: '{in_name}' has unknown type '{t}'.")
+                warnings += 1
             
             for offset in range(length):
                 b_offset = b + offset
@@ -61,9 +69,10 @@ def validate_profile(profile_path: str) -> str:
     output.append(f"\nValidation Complete: {errors} Errors, {warnings} Warnings.")
     return "\n".join(output)
 
-def diff_profiles(path1: str, path2: str) -> str:
+def diff_hid_maps(path1: str, path2: str) -> str:
+    """Compares two HID maps and reports structural differences."""
     if not os.path.exists(path1) or not os.path.exists(path2):
-        return "Error: One or both profiles not found."
+        return "Error: One or both HID maps not found."
         
     try:
         with open(path1, 'r', encoding='utf-8') as f1, open(path2, 'r', encoding='utf-8') as f2:
@@ -82,10 +91,10 @@ def diff_profiles(path1: str, path2: str) -> str:
     
     for rid in sorted(all_reports):
         if rid not in r1:
-            output.append(f"Report {rid} only in Profile 2")
+            output.append(f"Report {rid} only in HID map 2")
             continue
         if rid not in r2:
-            output.append(f"Report {rid} only in Profile 1")
+            output.append(f"Report {rid} only in HID map 1")
             continue
             
         in1 = r1[rid].get('inputs', {})
@@ -94,9 +103,9 @@ def diff_profiles(path1: str, path2: str) -> str:
         all_inputs = set(in1.keys()) | set(in2.keys())
         for in_name in sorted(all_inputs):
             if in_name not in in1:
-                output.append(f"[{rid}] '{in_name}' ADDED in Profile 2")
+                output.append(f"[{rid}] '{in_name}' ADDED in HID map 2")
             elif in_name not in in2:
-                output.append(f"[{rid}] '{in_name}' REMOVED in Profile 2")
+                output.append(f"[{rid}] '{in_name}' REMOVED in HID map 2")
             else:
                 cfg1 = in1[in_name]
                 cfg2 = in2[in_name]

@@ -44,6 +44,27 @@ def evaluate_curve(x: float, curve_type: str, power: float, custom_eq: str = "")
         p2 = 1.0 / power if power >= 1.0 else 1.0 - power
         # bezier formula: B(t) = 3(1-t)^2*t*p1 + 3(1-t)*t^2*p2 + t^3
         return 3 * ((1 - x) ** 2) * x * p1 + 3 * (1 - x) * (x ** 2) * p2 + (x ** 3)
+    elif curve == 'dotted':
+        import json
+        try:
+            dots = json.loads(custom_eq)
+            dots.sort(key=lambda d: d[0])
+            
+            if not dots:
+                return x
+            if x <= dots[0][0]:
+                return float(dots[0][1])
+            if x >= dots[-1][0]:
+                return float(dots[-1][1])
+                
+            for i in range(len(dots) - 1):
+                p1, p2 = dots[i], dots[i+1]
+                if p1[0] <= x <= p2[0]:
+                    t = (x - p1[0]) / (p2[0] - p1[0])
+                    return float(p1[1] + t * (p2[1] - p1[1]))
+            return x
+        except Exception:
+            return x
     else:
         return x
 

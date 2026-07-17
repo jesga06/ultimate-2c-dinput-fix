@@ -1,7 +1,7 @@
 """
 HID Report Decoder (decoder.py)
 This module decodes raw byte packets received from a DirectInput gamepad
-using a flexible metadata-driven profile.
+using a flexible metadata-driven HID map ({VID}_{PID}.json).
 """
 import json
 import os
@@ -58,32 +58,35 @@ class ControllerState:
 class Decoder:
     """
     Decodes raw byte buffers into a ControllerState object based on
-    a generic, metadata-driven JSON device profile.
+    a generic, metadata-driven HID map ({VID}_{PID}.json).
+    The HID map describes the physical byte layout of the controller's HID reports.
     """
 
-    def __init__(self, profile_path: str):
+    def __init__(self, hid_map_path: str):
+        # 'profile' is kept as the internal attribute name for backwards-compatibility
+        # with other code that reads self.profile; the file itself is called the HID map.
         self.profile = {}
         self.reports_config = {}
         self.has_report_ids = True
 
         self.use_length_as_id = False
 
-        if os.path.exists(profile_path):
+        if os.path.exists(hid_map_path):
             try:
-                with open(profile_path, 'r') as f:
+                with open(hid_map_path, 'r') as f:
                     self.profile = json.load(f)
                     self.reports_config = self.profile.get('reports', {})
                     self.has_report_ids = self.profile.get('has_report_id', True)
                     self.use_length_as_id = self.profile.get('use_length_as_id', False)
             except json.JSONDecodeError as e:
-                print(f"Error: Profile {profile_path} is not valid JSON: {e}")
-                logger.error(f"Error: Profile {profile_path} is not valid JSON: {e}")
+                print(f"Error: HID map {hid_map_path} is not valid JSON: {e}")
+                logger.error(f"Error: HID map {hid_map_path} is not valid JSON: {e}")
             except Exception as e:
-                print(f"Error loading profile {profile_path}: {e}")
-                logger.error(f"Error loading profile {profile_path}: {e}")
+                print(f"Error loading HID map {hid_map_path}: {e}")
+                logger.error(f"Error loading HID map {hid_map_path}: {e}")
         else:
-            print(f"Warning: Profile {profile_path} not found. Inputs will be ignored.")
-            logger.warning(f"Profile {profile_path} not found. Inputs will be ignored.")
+            print(f"Warning: HID map {hid_map_path} not found. Inputs will be ignored.")
+            logger.warning(f"HID map {hid_map_path} not found. Inputs will be ignored.")
 
         # Persistent state: fields are updated in place, retaining their state between reports
         self.state = ControllerState()

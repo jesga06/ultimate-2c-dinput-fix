@@ -1255,29 +1255,147 @@ class App(ctk.CTk):
             custom_eq_entry.pack(side="left", fill="x", expand=True, padx=5)
             custom_eq_entry.bind("<KeyRelease>", lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var))
             
+            dotted_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+            ctk.CTkLabel(dotted_frame, text="Number of Dots:", width=100, anchor="w").pack(side="left")
+            num_dots_var = ctk.IntVar(value=3)
+            
+            def update_dots_list(*args):
+                n = num_dots_var.get()
+                import json
+                try:
+                    dots = json.loads(custom_eq_var.get())
+                    if not isinstance(dots, list) or len(dots) != n:
+                        raise ValueError()
+                except:
+                    dots = [[i/(n-1), i/(n-1)] for i in range(n)]
+                    custom_eq_var.set(json.dumps(dots))
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+
+            dots_str_var = ctk.StringVar(value="3")
+            dots_menu = ctk.CTkOptionMenu(dotted_frame, values=["2", "3", "4", "5", "6", "7", "8"], variable=dots_str_var, command=lambda v: [num_dots_var.set(int(v)), update_dots_list()])
+            dots_menu.pack(side="left", fill="x", expand=True, padx=5)
+
             def on_curve_change(val):
+                custom_eq_frame.pack_forget()
+                dotted_frame.pack_forget()
                 if val == "custom":
                     custom_eq_frame.pack(fill="x", pady=5, after=row_f)
-                else:
-                    custom_eq_frame.pack_forget()
+                elif val == "dotted":
+                    dotted_frame.pack(fill="x", pady=5, after=row_f)
+                    update_dots_list()
                 self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
 
             ctk.CTkLabel(row_f, text="Curve Type:", width=90, anchor="w").pack(side="left")
-            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "custom", "cubic", "sigmoid", "bezier"], variable=curve_var, command=on_curve_change)
+            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "custom", "dotted", "cubic", "sigmoid", "bezier"], variable=curve_var, command=on_curve_change)
             curve_menu.pack(side="left", fill="x", expand=True, padx=5)
             
             if curve_var.get() == "custom":
                 custom_eq_frame.pack(fill="x", pady=5, after=row_f)
+            elif curve_var.get() == "dotted":
+                dotted_frame.pack(fill="x", pady=5, after=row_f)
+
+            active_dot = None
+            def on_canvas_press(evt):
+                if curve_var.get() != "dotted": return
+                nonlocal active_dot
+                import json
+                try:
+                    dots = json.loads(custom_eq_var.get())
+                    closest_i = -1
+                    min_d = 1000
+                    w = c_curve.winfo_width()
+                    h = c_curve.winfo_height()
+                    if w <= 1: w = 180
+                    if h <= 1: h = 180
+                    for i, d in enumerate(dots):
+                        dx = (d[0]*w) - evt.x
+                        dy = (h - d[1]*h) - evt.y
+                        dist = dx*dx + dy*dy
+                        if dist < 100:
+                            if dist < min_d:
+                                min_d = dist
+                                closest_i = i
+                    if closest_i != -1:
+                        active_dot = closest_i
+                except: pass
+
+            def on_canvas_drag(evt):
+                nonlocal active_dot
+                if curve_var.get() != "dotted" or active_dot is None: return
+                import json
+                try:
+                    dots = json.loads(custom_eq_var.get())
+                    w = c_curve.winfo_width()
+                    h = c_curve.winfo_height()
+                    if w <= 1: w = 180
+                    if h <= 1: h = 180
+                    new_x = max(0, min(1, evt.x / w))
+                    new_y = max(0, min(1, (h - evt.y) / h))
+                    if active_dot == 0: new_x = 0.0
+                    elif active_dot == len(dots)-1: new_x = 1.0
+                    if active_dot > 0:
+                        new_x = max(new_x, dots[active_dot-1][0])
+                    if active_dot < len(dots)-1:
+                        new_x = min(new_x, dots[active_dot+1][0])
+                    dots[active_dot] = [new_x, new_y]
+                    custom_eq_var.set(json.dumps(dots))
+                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+                except: pass
+
+            def on_canvas_release(evt):
+                nonlocal active_dot
+                active_dot = None
+                
+            c_curve.bind("<ButtonPress-1>", on_canvas_press)
+            c_curve.bind("<B1-Motion>", on_canvas_drag)
+            c_curve.bind("<ButtonRelease-1>", on_canvas_release)
             
             def export_math():
                 import curves
                 import tkinter as tk
+                import json
                 from tkinter import messagebox
+                
                 latex_str = curves.export_to_latex(curve_var.get(), exp_var.get(), dz_var.get(), adz_var.get(), rest_dz_var.get())
-                # Copy to clipboard
-                self.clipboard_clear()
-                self.clipboard_append(latex_str)
-                messagebox.showinfo("Exported", "LaTeX formula copied to clipboard!\n\n" + latex_str)
+                json_data = {
+                    "curve_type": curve_var.get(),
+                    "power": exp_var.get(),
+                    "deadzone": dz_var.get(),
+                    "anti_deadzone": adz_var.get(),
+                    "rest_deadzone": rest_dz_var.get(),
+                    "custom_equation": custom_eq_var.get() if curve_var.get() == "custom" else ""
+                }
+                json_str = json.dumps(json_data, indent=4)
+                
+                modal = ctk.CTkToplevel(self)
+                modal.title("Export Curve")
+                modal.geometry("400x400")
+                modal.transient(self)
+                modal.grab_set()
+                
+                ctk.CTkLabel(modal, text="LaTeX Formula:", anchor="w").pack(fill="x", padx=10, pady=(10, 0))
+                latex_txt = ctk.CTkTextbox(modal, height=80)
+                latex_txt.pack(fill="x", padx=10, pady=5)
+                latex_txt.insert("0.0", latex_str)
+                latex_txt.configure(state="disabled")
+                
+                def copy_latex():
+                    self.clipboard_clear()
+                    self.clipboard_append(latex_str)
+                    messagebox.showinfo("Exported", "LaTeX copied to clipboard!", parent=modal)
+                ctk.CTkButton(modal, text="Copy LaTeX", command=copy_latex).pack(pady=5)
+                
+                ctk.CTkLabel(modal, text="JSON Snippet:", anchor="w").pack(fill="x", padx=10, pady=(10, 0))
+                json_txt = ctk.CTkTextbox(modal, height=80)
+                json_txt.pack(fill="x", padx=10, pady=5)
+                json_txt.insert("0.0", json_str)
+                json_txt.configure(state="disabled")
+                
+                def copy_json():
+                    self.clipboard_clear()
+                    self.clipboard_append(json_str)
+                    messagebox.showinfo("Exported", "JSON copied to clipboard!", parent=modal)
+                ctk.CTkButton(modal, text="Copy JSON", command=copy_json).pack(pady=5)
                 
             export_btn = ctk.CTkButton(row_f, text="Export Math", width=80, command=export_math)
             export_btn.pack(side="right", padx=5)
@@ -1405,29 +1523,147 @@ class App(ctk.CTk):
             custom_eq_entry.pack(side="left", fill="x", expand=True, padx=5)
             custom_eq_entry.bind("<KeyRelease>", lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var))
             
+            dotted_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+            ctk.CTkLabel(dotted_frame, text="Number of Dots:", width=100, anchor="w").pack(side="left")
+            num_dots_var = ctk.IntVar(value=3)
+            
+            def update_dots_list(*args):
+                n = num_dots_var.get()
+                import json
+                try:
+                    dots = json.loads(custom_eq_var.get())
+                    if not isinstance(dots, list) or len(dots) != n:
+                        raise ValueError()
+                except:
+                    dots = [[i/(n-1), i/(n-1)] for i in range(n)]
+                    custom_eq_var.set(json.dumps(dots))
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+
+            dots_str_var = ctk.StringVar(value="3")
+            dots_menu = ctk.CTkOptionMenu(dotted_frame, values=["2", "3", "4", "5", "6", "7", "8"], variable=dots_str_var, command=lambda v: [num_dots_var.set(int(v)), update_dots_list()])
+            dots_menu.pack(side="left", fill="x", expand=True, padx=5)
+
             def on_curve_change(val):
+                custom_eq_frame.pack_forget()
+                dotted_frame.pack_forget()
                 if val == "custom":
                     custom_eq_frame.pack(fill="x", pady=5, after=row_f)
-                else:
-                    custom_eq_frame.pack_forget()
+                elif val == "dotted":
+                    dotted_frame.pack(fill="x", pady=5, after=row_f)
+                    update_dots_list()
                 self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
 
             ctk.CTkLabel(row_f, text="Curve Type:", width=90, anchor="w").pack(side="left")
-            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "custom", "cubic", "sigmoid", "bezier"], variable=curve_var, command=on_curve_change)
+            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "custom", "dotted", "cubic", "sigmoid", "bezier"], variable=curve_var, command=on_curve_change)
             curve_menu.pack(side="left", fill="x", expand=True, padx=5)
             
             if curve_var.get() == "custom":
                 custom_eq_frame.pack(fill="x", pady=5, after=row_f)
+            elif curve_var.get() == "dotted":
+                dotted_frame.pack(fill="x", pady=5, after=row_f)
+
+            active_dot = None
+            def on_canvas_press(evt):
+                if curve_var.get() != "dotted": return
+                nonlocal active_dot
+                import json
+                try:
+                    dots = json.loads(custom_eq_var.get())
+                    closest_i = -1
+                    min_d = 1000
+                    w = c_curve.winfo_width()
+                    h = c_curve.winfo_height()
+                    if w <= 1: w = 180
+                    if h <= 1: h = 180
+                    for i, d in enumerate(dots):
+                        dx = (d[0]*w) - evt.x
+                        dy = (h - d[1]*h) - evt.y
+                        dist = dx*dx + dy*dy
+                        if dist < 100:
+                            if dist < min_d:
+                                min_d = dist
+                                closest_i = i
+                    if closest_i != -1:
+                        active_dot = closest_i
+                except: pass
+
+            def on_canvas_drag(evt):
+                nonlocal active_dot
+                if curve_var.get() != "dotted" or active_dot is None: return
+                import json
+                try:
+                    dots = json.loads(custom_eq_var.get())
+                    w = c_curve.winfo_width()
+                    h = c_curve.winfo_height()
+                    if w <= 1: w = 180
+                    if h <= 1: h = 180
+                    new_x = max(0, min(1, evt.x / w))
+                    new_y = max(0, min(1, (h - evt.y) / h))
+                    if active_dot == 0: new_x = 0.0
+                    elif active_dot == len(dots)-1: new_x = 1.0
+                    if active_dot > 0:
+                        new_x = max(new_x, dots[active_dot-1][0])
+                    if active_dot < len(dots)-1:
+                        new_x = min(new_x, dots[active_dot+1][0])
+                    dots[active_dot] = [new_x, new_y]
+                    custom_eq_var.set(json.dumps(dots))
+                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+                except: pass
+
+            def on_canvas_release(evt):
+                nonlocal active_dot
+                active_dot = None
+                
+            c_curve.bind("<ButtonPress-1>", on_canvas_press)
+            c_curve.bind("<B1-Motion>", on_canvas_drag)
+            c_curve.bind("<ButtonRelease-1>", on_canvas_release)
             
             def export_math():
                 import curves
                 import tkinter as tk
+                import json
                 from tkinter import messagebox
+                
                 latex_str = curves.export_to_latex(curve_var.get(), exp_var.get(), dz_var.get(), adz_var.get(), rest_dz_var.get())
-                # Copy to clipboard
-                self.clipboard_clear()
-                self.clipboard_append(latex_str)
-                messagebox.showinfo("Exported", "LaTeX formula copied to clipboard!\n\n" + latex_str)
+                json_data = {
+                    "curve_type": curve_var.get(),
+                    "power": exp_var.get(),
+                    "deadzone": dz_var.get(),
+                    "anti_deadzone": adz_var.get(),
+                    "rest_deadzone": rest_dz_var.get(),
+                    "custom_equation": custom_eq_var.get() if curve_var.get() == "custom" else ""
+                }
+                json_str = json.dumps(json_data, indent=4)
+                
+                modal = ctk.CTkToplevel(self)
+                modal.title("Export Curve")
+                modal.geometry("400x400")
+                modal.transient(self)
+                modal.grab_set()
+                
+                ctk.CTkLabel(modal, text="LaTeX Formula:", anchor="w").pack(fill="x", padx=10, pady=(10, 0))
+                latex_txt = ctk.CTkTextbox(modal, height=80)
+                latex_txt.pack(fill="x", padx=10, pady=5)
+                latex_txt.insert("0.0", latex_str)
+                latex_txt.configure(state="disabled")
+                
+                def copy_latex():
+                    self.clipboard_clear()
+                    self.clipboard_append(latex_str)
+                    messagebox.showinfo("Exported", "LaTeX copied to clipboard!", parent=modal)
+                ctk.CTkButton(modal, text="Copy LaTeX", command=copy_latex).pack(pady=5)
+                
+                ctk.CTkLabel(modal, text="JSON Snippet:", anchor="w").pack(fill="x", padx=10, pady=(10, 0))
+                json_txt = ctk.CTkTextbox(modal, height=80)
+                json_txt.pack(fill="x", padx=10, pady=5)
+                json_txt.insert("0.0", json_str)
+                json_txt.configure(state="disabled")
+                
+                def copy_json():
+                    self.clipboard_clear()
+                    self.clipboard_append(json_str)
+                    messagebox.showinfo("Exported", "JSON copied to clipboard!", parent=modal)
+                ctk.CTkButton(modal, text="Copy JSON", command=copy_json).pack(pady=5)
                 
             export_btn = ctk.CTkButton(row_f, text="Export Math", width=80, command=export_math)
             export_btn.pack(side="right", padx=5)
@@ -1522,6 +1758,17 @@ class App(ctk.CTk):
         acc, _ = get_accent_colors()
         if points:
             canvas.create_line(points, fill=acc, width=2)
+            
+        if curve_type == "dotted":
+            import json
+            try:
+                dots = json.loads(custom_eq)
+                for i, d in enumerate(dots):
+                    x_px = d[0] * width
+                    y_px = height - (d[1] * height)
+                    canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill="white", outline="black")
+            except:
+                pass
 
     def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, custom_eq=""):
         canvas.delete("all")
@@ -1542,6 +1789,17 @@ class App(ctk.CTk):
         acc, _ = get_accent_colors()
         if points:
             canvas.create_line(points, fill=acc, width=2)
+            
+        if curve_type == "dotted":
+            import json
+            try:
+                dots = json.loads(custom_eq)
+                for i, d in enumerate(dots):
+                    x_px = d[0] * width
+                    y_px = height - (d[1] * height)
+                    canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill="white", outline="black")
+            except:
+                pass
 
     def draw_crosshair(self, canvas, raw_x, raw_y, out_x, out_y):
         canvas.delete("all")
@@ -2140,25 +2398,25 @@ class App(ctk.CTk):
         comm_frame = ctk.CTkFrame(main_frame)
         comm_frame.pack(fill="x", pady=10)
         
-        ctk.CTkLabel(comm_frame, text="Community Profiles", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
-        ctk.CTkLabel(comm_frame, text="Download the latest verified controller profiles from the community repository.").pack()
+        ctk.CTkLabel(comm_frame, text="Community HID Maps", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
+        ctk.CTkLabel(comm_frame, text="Download the latest verified hardware HID maps from the community repository.").pack()
         
-        def update_community_profiles():
+        def update_community_hid_maps():
             import community_fetcher
             from tkinter import messagebox
             import threading
             
             def fetch_thread():
-                res = community_fetcher.fetch_community_profiles()
+                res = community_fetcher.fetch_community_hid_maps()
                 if "Success" in res:
-                    messagebox.showinfo("Success", "Community profiles updated successfully!")
+                    messagebox.showinfo("Success", "Community HID maps updated successfully!")
                 else:
                     messagebox.showerror("Error", res)
             
             threading.Thread(target=fetch_thread, daemon=True).start()
-            messagebox.showinfo("Downloading", "Downloading community profiles in background...")
+            messagebox.showinfo("Downloading", "Downloading community HID maps in background...")
             
-        ctk.CTkButton(comm_frame, text="Update Community Profiles", command=update_community_profiles, fg_color="#005580", hover_color="#00334d").pack(pady=(10, 10))
+        ctk.CTkButton(comm_frame, text="Update Community HID Maps", command=update_community_hid_maps, fg_color="#005580", hover_color="#00334d").pack(pady=(10, 10))
         self.update_utilities_loop()
         
     def update_utilities_loop(self):
