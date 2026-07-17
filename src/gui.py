@@ -641,7 +641,14 @@ class App(ctk.CTk):
             self.tab_dashboard,
             text="The background wrapper reloads configuration automatically.",
             text_color="gray")
-        info.pack(pady=40)
+        info.pack(pady=(40, 5))
+
+        version_lbl = ctk.CTkLabel(
+            self.tab_dashboard,
+            text="v2.1.0",
+            text_color="gray50",
+            font=ctk.CTkFont(size=11))
+        version_lbl.pack(pady=(0, 20))
 
     def get_layout_labels(self):
         layout = self.hardware_layout
@@ -1761,10 +1768,10 @@ class App(ctk.CTk):
         self.f_rt.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
 
         # Initial draw
-        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_custom.get())
-        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_custom.get())
-        self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_custom.get())
-        self.draw_curve_trigger(self.c_rt_curve, self.rt_dz.get(), self.rt_adz.get(), self.rt_rest_dz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_custom.get())
+        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get())
+        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get())
+        self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_sens.get(), self.lt_custom.get())
+        self.draw_curve_trigger(self.c_rt_curve, self.rt_dz.get(), self.rt_adz.get(), self.rt_rest_dz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_sens.get(), self.rt_custom.get())
         
         self.update_position_loop()
 
@@ -1783,15 +1790,15 @@ class App(ctk.CTk):
         self.save_config()
         
         if section == "analog_left":
-            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), custom_eq_var.get() if custom_eq_var else "")
+            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
         elif section == "analog_right":
-            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), custom_eq_var.get() if custom_eq_var else "")
+            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
         elif section == "trigger_left":
-            self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), custom_eq_var.get() if custom_eq_var else "")
+            self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
         elif section == "trigger_right":
-            self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), custom_eq_var.get() if custom_eq_var else "")
+            self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
 
-    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, custom_eq=""):
+    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq=""):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1805,7 +1812,7 @@ class App(ctk.CTk):
         for x_px in range(width + 1):
             input_val = x_px / width
             # Pass 0 for Y so magnitude = input_val
-            out_x, _ = math_utils.process_analog_stick(input_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, 1.0, custom_eq)
+            out_x, _ = math_utils.process_analog_stick(input_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
             y_px = height - (out_x * height)
             points.append(x_px)
             points.append(y_px)
@@ -1825,7 +1832,7 @@ class App(ctk.CTk):
             except:
                 pass
 
-    def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, custom_eq=""):
+    def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq=""):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1836,7 +1843,7 @@ class App(ctk.CTk):
         points = []
         for x_px in range(width + 1):
             input_val = x_px / width
-            out_val = math_utils.process_trigger(input_val, dz, adz, curve_type, exp_factor, rest_dz, 1.0, custom_eq)
+            out_val = math_utils.process_trigger(input_val, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
             y_px = height - (out_val * height)
             points.append(x_px)
             points.append(y_px)
