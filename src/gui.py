@@ -81,7 +81,8 @@ class ToolTip:
         tw.attributes("-topmost", True)
         
         # Simple label for tooltip
-        label = ctk.CTkLabel(tw, text=self.text, justify="left", fg_color="#333333", text_color="white", corner_radius=4, padx=10, pady=5)
+        txt = self.text() if callable(self.text) else self.text
+        label = ctk.CTkLabel(tw, text=txt, justify="left", fg_color="#333333", text_color="white", corner_radius=4, padx=10, pady=5)
         label.pack(ipadx=1, ipady=1)
 
     def hidetip(self):
@@ -1244,7 +1245,27 @@ class App(ctk.CTk):
         legend_frame.grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(5, 0))
         legend_btn = ctk.CTkButton(legend_frame, text="?  Color Guide", width=110, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12))
         legend_btn.pack(side="left")
-        ToolTip(legend_btn, "Cyan = Raw controller input (what your hardware sends)\nPurple = Processed output (what the game receives\nafter deadzone, curve, and anti-deadzone settings)\n\nThe response curve graph shows the relationship between\nraw input (X axis) and processed output (Y axis).\nThe moving dot/bar tracks your live input on the curve.")
+        
+        def get_color_legend_text():
+            theme = self.daemon_config.get('UI', 'theme', fallback='purple').lower() if hasattr(self, 'daemon_config') else 'purple'
+            color_map = {
+                "purple": ("Green", "Purple"),
+                "red": ("Cyan", "Red"),
+                "blue": ("Yellow", "Blue"),
+                "green": ("Purple", "Green"),
+                "yellow": ("Blue", "Yellow"),
+                "orange": ("Light Blue", "Orange"),
+                "white": ("Black", "White" if ctk.get_appearance_mode().lower() == "dark" else "Black")
+            }
+            raw, proc = color_map.get(theme, ("Cyan", "Purple"))
+            return (f"{raw} = Raw controller input (what your hardware sends)\n"
+                    f"{proc} = Processed output (what the game receives\n"
+                    "after deadzone, curve, and anti-deadzone settings)\n\n"
+                    "The response curve graph shows the relationship between\n"
+                    "raw input (X axis) and processed output (Y axis).\n"
+                    "The moving dot/bar tracks your live input on the curve.")
+                    
+        ToolTip(legend_btn, get_color_legend_text)
 
         self.tuning_scroll.grid_rowconfigure(0, weight=0)
         self.tuning_scroll.grid_rowconfigure(1, weight=1)
