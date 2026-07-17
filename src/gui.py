@@ -742,6 +742,11 @@ class App(ctk.CTk):
                 w_trig = int(base_size * 0.8)
                 h_trig = int(base_size * 2.2)
                 widget.configure(width=w_trig, height=h_trig)
+                
+                # Draw initial text so it's visible before the first packet
+                widget.delete("all")
+                btn_text = btn_widget.get("text", "")
+                widget.create_text(w_trig/2, h_trig/2, text=btn_text, fill="white", font=("Helvetica", max(8, int(w_trig * 0.3)), "bold"))
             else:
                 if btn_widget.winfo_parent() == str(self.layout_canvas):
                     # Standard buttons are directly in layout_canvas
