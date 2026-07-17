@@ -1839,8 +1839,10 @@ class App(ctk.CTk):
         rs_sr = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
         self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get(), rs_cm, rs_sr)
         
-        self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_sens.get(), self.lt_custom.get())
-        self.draw_curve_trigger(self.c_rt_curve, self.rt_dz.get(), self.rt_adz.get(), self.rt_rest_dz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_sens.get(), self.rt_custom.get())
+        lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
+        self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_sens.get(), self.lt_custom.get(), digital=lt_dig)
+        rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
+        self.draw_curve_trigger(self.c_rt_curve, self.rt_dz.get(), self.rt_adz.get(), self.rt_rest_dz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_sens.get(), self.rt_custom.get(), digital=rt_dig)
         
         self.update_position_loop()
 
@@ -1869,9 +1871,11 @@ class App(ctk.CTk):
             show_ref = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
             self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref)
         elif section == "trigger_left":
-            self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
+            lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
+            self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=lt_dig)
         elif section == "trigger_right":
-            self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
+            rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
+            self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=rt_dig)
 
     def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", circ_mode="disabled", show_ref=True):
         canvas.delete("all")
@@ -1909,7 +1913,7 @@ class App(ctk.CTk):
             except:
                 pass
 
-    def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq=""):
+    def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", digital=False):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1920,7 +1924,10 @@ class App(ctk.CTk):
         points = []
         for x_px in range(width + 1):
             input_val = x_px / width
-            out_val = math_utils.process_trigger(input_val, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
+            if digital:
+                out_val = 1.0 if input_val > dz else 0.0
+            else:
+                out_val = math_utils.process_trigger(input_val, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
             y_px = height - (out_val * height)
             points.append(x_px)
             points.append(y_px)
@@ -2070,12 +2077,20 @@ class App(ctk.CTk):
             self.update_curve_cursor(self.c_rs_curve, min(raw_mag_r, 1.0), min(out_mag_r, 1.0))
             
             # Left Trigger
-            out_lt = math_utils.process_trigger(state.lt, self.lt_dz.get(), self.lt_adz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_rest_dz.get(), self.lt_sens.get(), self.lt_custom.get())
+            lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
+            if lt_dig:
+                out_lt = 1.0 if state.lt > self.lt_dz.get() else 0.0
+            else:
+                out_lt = math_utils.process_trigger(state.lt, self.lt_dz.get(), self.lt_adz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_rest_dz.get(), self.lt_sens.get(), self.lt_custom.get())
             self.draw_trigger_bar(self.c_lt_pos, state.lt, out_lt)
             self.update_trigger_curve_cursor(self.c_lt_curve, state.lt, out_lt)
 
             # Right Trigger
-            out_rt = math_utils.process_trigger(state.rt, self.rt_dz.get(), self.rt_adz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_rest_dz.get(), self.rt_sens.get(), self.rt_custom.get())
+            rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
+            if rt_dig:
+                out_rt = 1.0 if state.rt > self.rt_dz.get() else 0.0
+            else:
+                out_rt = math_utils.process_trigger(state.rt, self.rt_dz.get(), self.rt_adz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_rest_dz.get(), self.rt_sens.get(), self.rt_custom.get())
             self.draw_trigger_bar(self.c_rt_pos, state.rt, out_rt)
             self.update_trigger_curve_cursor(self.c_rt_curve, state.rt, out_rt)
             
