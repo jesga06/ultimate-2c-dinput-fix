@@ -124,3 +124,27 @@ def calculate_circularity_error(bounds_data: list):
         total_deviation += abs(r - 1.0)
         
     return (total_deviation / len(bounds_data)) * 100.0
+
+def apply_warped_stick_correction(x: float, y: float, threshold_pct: float):
+    """
+    Checks stick axis coordinates against a user-configurable threshold (e.g., 5-10% deviation).
+    Dynamically scales outputs on weak/asymmetric directions to hit 1.0 without hard-clipping.
+    """
+    if threshold_pct <= 0.0:
+        return x, y
+        
+    threshold_val = threshold_pct / 100.0
+    outer_max = 1.0 - threshold_val
+    
+    if outer_max <= 0:
+        return x, y
+        
+    def scale_axis(val, o_max):
+        sign = 1 if val >= 0 else -1
+        abs_val = abs(val)
+        if abs_val == 0:
+            return 0.0
+        scaled = abs_val / o_max
+        return sign * min(scaled, 1.0)
+        
+    return scale_axis(x, outer_max), scale_axis(y, outer_max)

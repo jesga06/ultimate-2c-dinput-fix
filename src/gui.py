@@ -1267,6 +1267,7 @@ class App(ctk.CTk):
             curve_var = ctk.StringVar(value=self.config.get(section, 'curve', fallback='linear'))
             exp_var = ctk.DoubleVar(value=float(self.config.get(section, 'exp_factor', fallback='2.0')))
             sens_var = ctk.DoubleVar(value=float(self.config.get(section, 'sensitivity', fallback='1.0')))
+            warp_var = ctk.DoubleVar(value=float(self.config.get(section, 'warped_stick_threshold', fallback='0.0')))
             
             update_lbl_callbacks = []
             
@@ -1290,7 +1291,7 @@ class App(ctk.CTk):
                 
                 def wrap_cmd(val):
                     update_lbl()
-                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
+                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
                     
                 slider = ctk.CTkSlider(row_f, from_=from_, to=to, number_of_steps=int((to-from_)/res), variable=var, command=wrap_cmd)
                 slider.pack(side="left", fill="x", expand=True, padx=5)
@@ -1298,6 +1299,7 @@ class App(ctk.CTk):
             make_slider("Deadzone", dz_var, 0.0, 0.5, 0.01, "Ignores small movements near the center to prevent stick drift.")
             make_slider("Anti-Deadzone", adz_var, 0.0, 0.5, 0.01, "Instantly jumps the output to this value when the deadzone is crossed.\nUseful for games with their own unchangeable built-in deadzones.")
             make_slider("Rest Deadzone", rest_dz_var, 0.0, 0.3, 0.01, "Secondary buffer after the deadzone.\nPrevents anti-deadzone from activating on controllers\nwhose sticks don't rest exactly at center.")
+            make_slider("Warp Threshold", warp_var, 0.0, 20.0, 1.0, "Scales weak stick outputs to 1.0 based on this % threshold.\nFixes asymmetric stick ranges.")
             make_slider("Curve Factor", exp_var, 0.5, 4.0, 0.1, "Intensity of the curve. >1.0 makes it steeper for exponential,\nor steeper at the start for aggressive.")
             make_slider("Sensitivity", sens_var, 0.1, 5.0, 0.05, "Multiplies the final output. Great for tweaking mouse movement.")
 
@@ -1472,9 +1474,10 @@ class App(ctk.CTk):
                 curve_var.set("linear")
                 exp_var.set(1.0)
                 sens_var.set(1.0)
+                warp_var.set(0.0)
                 for cb in update_lbl_callbacks:
                     cb()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
 
             ctk.CTkButton(btn_frame, text="Reset", command=reset).pack(side="left", padx=5, expand=True)
             
@@ -1535,17 +1538,17 @@ class App(ctk.CTk):
                     self.config.add_section(section)
                 self.config.set(section, 'show_circ_ref', 'true' if circ_ref_var.get() else 'false')
                 self.save_config()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
                 
             circ_ref_cb = ctk.CTkCheckBox(circ_frame, text="45º Line", variable=circ_ref_var, command=update_circ_ref, width=60)
             circ_ref_cb.pack(side="right", padx=5)
 
-            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, circ_mode_var, circ_ref_var
+            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, circ_mode_var, circ_ref_var, warp_var
 
-        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom, self.ls_circ_mode, self.ls_circ_ref = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
+        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom, self.ls_circ_mode, self.ls_circ_ref, self.ls_warp = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
         self.f_ls.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         
-        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom, self.rs_circ_mode, self.rs_circ_ref = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
+        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom, self.rs_circ_mode, self.rs_circ_ref, self.rs_warp = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
         self.f_rs.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         def create_trigger_frame(parent, title, btn, section):
@@ -1823,7 +1826,7 @@ class App(ctk.CTk):
         
         self.update_position_loop()
 
-    def update_analog_config(self, section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var=None, custom_eq_var=None):
+    def update_analog_config(self, section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var=None, custom_eq_var=None, warp_var=None):
         if not self.config.has_section(section):
             self.config.add_section(section)
         self.config.set(section, 'deadzone', str(round(dz_var.get(), 3)))
@@ -1835,6 +1838,8 @@ class App(ctk.CTk):
             self.config.set(section, 'sensitivity', str(round(sens_var.get(), 3)))
         if custom_eq_var is not None:
             self.config.set(section, 'custom_curve', custom_eq_var.get())
+        if warp_var is not None:
+            self.config.set(section, 'warped_stick_threshold', str(round(warp_var.get(), 3)))
         self.save_config()
         
         if section == "analog_left":
@@ -2000,8 +2005,9 @@ class App(ctk.CTk):
             ls_circ_cy = self.config.getfloat('analog_left', 'circularity_center_y', fallback=0.0)
             ls_bounds_str = self.config.get('analog_left', 'circularity_bounds', fallback='')
             ls_circ_bounds = [float(x) for x in ls_bounds_str.split(',')] if ls_bounds_str else None
+            ls_warp = self.config.getfloat('analog_left', 'warped_stick_threshold', fallback=0.0)
             
-            out_lx, out_ly = raw_lx, disp_raw_ly
+            out_lx, out_ly = math_utils.apply_warped_stick_correction(raw_lx, disp_raw_ly, ls_warp)
             
             if ls_circ_mode == 'before':
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
@@ -2025,8 +2031,9 @@ class App(ctk.CTk):
             rs_circ_cy = self.config.getfloat('analog_right', 'circularity_center_y', fallback=0.0)
             rs_bounds_str = self.config.get('analog_right', 'circularity_bounds', fallback='')
             rs_circ_bounds = [float(x) for x in rs_bounds_str.split(',')] if rs_bounds_str else None
+            rs_warp = self.config.getfloat('analog_right', 'warped_stick_threshold', fallback=0.0)
             
-            out_rx, out_ry = state.rx, disp_raw_ry
+            out_rx, out_ry = math_utils.apply_warped_stick_correction(state.rx, disp_raw_ry, rs_warp)
             
             if rs_circ_mode == 'before':
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
