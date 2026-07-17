@@ -495,7 +495,7 @@ class App(ctk.CTk):
             selected_pid = None
             profile_path = None
 
-            db_path = os.path.join("profiles", "community_devices.json")
+            db_path = os.path.join("profiles", "community", "database.json")
             for d in devices:
                 vid = d.get('vendor_id', 0)
                 pid = d.get('product_id', 0)
@@ -543,6 +543,7 @@ class App(ctk.CTk):
                 if req_iface != -1:
                     req_ifaces.append(req_iface)
 
+            # The UI handler for hid reports
             def handler(report: RawHIDReport):
                 self.current_state = self.decoder.decode(report)
 
@@ -2504,12 +2505,12 @@ class App(ctk.CTk):
             
         ctk.CTkButton(bench_frame, text="Open Live Input Inspector", command=open_graph, fg_color="#2c7a2c", hover_color="#1f591f").pack(pady=(5, 10))
         
-        # Community Profiles Frame
+        # Community HID Maps Frame
         comm_frame = ctk.CTkFrame(main_frame)
         comm_frame.pack(fill="x", pady=10)
         
         ctk.CTkLabel(comm_frame, text="Community HID Maps", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
-        ctk.CTkLabel(comm_frame, text="Download all verified hardware HID maps from the community repository.").pack()
+        ctk.CTkLabel(comm_frame, text="Download verified hardware HID maps from the community repository.").pack()
         
         def update_community_hid_maps():
             import community_fetcher
