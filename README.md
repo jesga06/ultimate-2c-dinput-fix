@@ -31,9 +31,7 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
    - **Circularity Calibrator:** Calibrate circularity of analog sticks for a perfect circular output.
 - **Visual GUI Configuration:** A simple, dark-mode visual interface to easily map buttons without manual file editing.
 - **Universal Profiling:** Generate custom controller layout profiles (`profiles/`) for any generic HID controller using the interactive calibration tool.
-   - **Included default profiles:**
-     - ✅ 8BitDo Ultimate 2C Wireless 2.4 GHz
-     - ✅ Machenike G5 Pro
+   - **Automatically downloads the community profile database on first run!**
 - **Background System Tray Operation:** Quietly sits in your system tray and hides the command prompt window.
 - **Full Button Remapping & Block:** Map *any* controller button (standard or extra paddle) to *any combination of* keyboard or mouse outputs; standard buttons are blocked from XInput when remapped to prevent double inputs
    - Cannot remap some hardware specific buttons, like Turbo.

@@ -152,6 +152,39 @@ def main():
     hid_map_path = None    # path to the {VID}_{PID}.json HID map
     device_name = "Unknown Device"
 
+    # --- Community database auto-update ---
+    # The last successful fetch time is stored in config.ini under [community] db_last_updated
+    # (Unix timestamp float). The database is refreshed if it is missing OR older than the
+    # configured interval. This check runs on every wrapper launch, but the network request
+    # only fires once per interval, independent of how many times the wrapper has been run.
+    DB_UPDATE_INTERVAL_DAYS = config.getfloat('community', 'db_update_interval_days', fallback=7.0)
+    DB_UPDATE_INTERVAL_SECS = DB_UPDATE_INTERVAL_DAYS * 86400.0
+
+    db_path = os.path.join("profiles", "community", "database.json")
+    db_last_updated = config.getfloat('community', 'db_last_updated', fallback=0.0)
+    time_since_update = time.time() - db_last_updated
+    db_needs_update = (not os.path.exists(db_path)) or (time_since_update >= DB_UPDATE_INTERVAL_SECS)
+
+    if db_needs_update:
+        reason = "not found locally" if not os.path.exists(db_path) else f"last updated {time_since_update / 86400:.1f} days ago"
+        logger.info(f"Community database {reason}. Refreshing...")
+        try:
+            import community_fetcher
+            community_fetcher.fetch_database(logger=logger)
+            # Persist the new update timestamp into config.ini
+            if not config.has_section('community'):
+                config.add_section('community')
+            config.set('community', 'db_last_updated', str(time.time()))
+            config.set('community', 'db_update_interval_days', str(DB_UPDATE_INTERVAL_DAYS))
+            with open(config_file, 'w') as f:
+                config.write(f)
+            logger.info("Community database updated successfully.")
+        except Exception as fe:
+            logger.warning(f"Could not update community database: {fe}")
+    else:
+        logger.info(f"Community database is up to date (updated {time_since_update / 86400:.1f} days ago, interval: {DB_UPDATE_INTERVAL_DAYS:.0f} days).")
+
+
     for d in devices:
         vid = d.get('vendor_id', 0)
         pid = d.get('product_id', 0)
@@ -170,7 +203,6 @@ def main():
             break
         else:
             # 2. Fall back to the community HID map database
-            db_path = os.path.join("profiles", "community", "database.json")
             if os.path.exists(db_path):
                 try:
                     with open(db_path, 'r', encoding='utf-8') as f:
@@ -178,8 +210,17 @@ def main():
                     vid_pid_str = f"{vid:04X}:{pid:04X}".upper()
                     for entry_name, entry_data in db.items():
                         if vid_pid_str in entry_data.get("aliases", []):
-                            # 'hid_map_file' is relative to profiles/community/
-                            comm_map = os.path.join("profiles", "community", entry_data.get("hid_map_file", ""))
+                            # hid_map_file is relative to the REPO root, basename goes to community dir
+                            hid_map_filename = os.path.basename(entry_data.get("hid_map_file", ""))
+                            comm_map = os.path.join("profiles", "community", hid_map_filename)
+                            if not os.path.exists(comm_map):
+                                # Map not cached yet — selectively download it now
+                                logger.info(f"Downloading community HID map for {vid_pid_str}...")
+                                try:
+                                    import community_fetcher
+                                    community_fetcher.fetch_maps_for_devices([(vid, pid)], logger=logger)
+                                except Exception as fe:
+                                    logger.warning(f"Could not auto-download community HID map: {fe}")
                             if os.path.exists(comm_map):
                                 selected_vid = vid
                                 selected_pid = pid
@@ -188,7 +229,7 @@ def main():
                                     map_data = json.load(mf)
                                     device_name = map_data.get('name', "Unknown Device") + " (Community HID Map)"
                                 break
-                except:
+                except Exception:
                     pass
         if hid_map_path:
             break

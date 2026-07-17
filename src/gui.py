@@ -365,14 +365,31 @@ class App(ctk.CTk):
         # Check if a device is connected right now
         from hid_reader import HIDReader
         devices = HIDReader.get_all_devices()
+        db_path = os.path.join("profiles", "community_devices.json")
         for d in devices:
             vid = d.get('vendor_id', 0)
             pid = d.get('product_id', 0)
             potential = f"profiles/{vid:04X}_{pid:04X}.json".lower()
+            
+            if not os.path.exists(potential) and os.path.exists(db_path):
+                try:
+                    with open(db_path, 'r', encoding='utf-8') as f:
+                        db = json.load(f)
+                    vid_pid_str = f"{vid:04X}:{pid:04X}".upper()
+                    for _, entry_data in db.items():
+                        if vid_pid_str in entry_data.get("aliases", []):
+                            hid_map_filename = os.path.basename(entry_data.get("hid_map_file", ""))
+                            comm_map = os.path.join("profiles", "community", hid_map_filename)
+                            if os.path.exists(comm_map):
+                                potential = comm_map
+                                break
+                except Exception:
+                    pass
+
             if os.path.exists(potential):
                 hardware_profile_path = potential
                 try:
-                    with open(potential, 'r') as f:
+                    with open(potential, 'r', encoding='utf-8') as f:
                         prof_data = json.load(f)
                         device_name = prof_data.get('name', device_name)
                 except:
@@ -478,10 +495,27 @@ class App(ctk.CTk):
             selected_pid = None
             profile_path = None
 
+            db_path = os.path.join("profiles", "community_devices.json")
             for d in devices:
                 vid = d.get('vendor_id', 0)
                 pid = d.get('product_id', 0)
                 potential = f"profiles/{vid:04X}_{pid:04X}.json".lower()
+                
+                if not os.path.exists(potential) and os.path.exists(db_path):
+                    try:
+                        with open(db_path, 'r', encoding='utf-8') as f:
+                            db = json.load(f)
+                        vid_pid_str = f"{vid:04X}:{pid:04X}".upper()
+                        for _, entry_data in db.items():
+                            if vid_pid_str in entry_data.get("aliases", []):
+                                hid_map_filename = os.path.basename(entry_data.get("hid_map_file", ""))
+                                comm_map = os.path.join("profiles", "community", hid_map_filename)
+                                if os.path.exists(comm_map):
+                                    potential = comm_map
+                                    break
+                    except Exception:
+                        pass
+                        
                 if os.path.exists(potential):
                     selected_vid = vid
                     selected_pid = pid
@@ -586,8 +620,8 @@ class App(ctk.CTk):
             import profile_tools
             from tkinter import messagebox
             # 'last_profile' in config.ini stores the path to the active HID map
-            if hasattr(self, 'config') and self.config.has_option('controller', 'last_profile'):
-                hid_map_path = self.config.get('controller', 'last_profile')
+            if hasattr(self, 'daemon_config') and self.daemon_config.has_option('controller', 'last_profile'):
+                hid_map_path = self.daemon_config.get('controller', 'last_profile')
                 res = profile_tools.validate_hid_map(hid_map_path)
                 messagebox.showinfo("HID Map Validation", res)
             else:
@@ -2264,6 +2298,54 @@ class App(ctk.CTk):
         opt_font = ctk.CTkOptionMenu(frame, variable=self.font_var, values=["Arial", "Consolas", "Courier New", "Segoe UI", "Tahoma"], command=self.change_font)
         opt_font.grid(row=2, column=1, padx=15, pady=10, sticky="ew")
         
+        # Community DB Update Interval
+        lbl_comm = ctk.CTkLabel(frame, text="Community DB Update Interval:")
+        lbl_comm.grid(row=3, column=0, padx=15, pady=10, sticky="w")
+
+        current_interval = str(int(self.daemon_config.getfloat('community', 'db_update_interval_days', fallback=7)))
+        self.comm_interval_var = ctk.StringVar(value=current_interval)
+        opt_comm = ctk.CTkOptionMenu(
+            frame,
+            variable=self.comm_interval_var,
+            values=["1", "3", "7", "14", "30"],
+            command=self.change_community_interval
+        )
+        opt_comm.grid(row=3, column=1, padx=15, pady=10, sticky="ew")
+
+        # Community DB last updated info + force refresh
+        comm_status_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        comm_status_frame.grid(row=4, column=0, columnspan=2, padx=15, pady=(0, 10), sticky="ew")
+
+        import time as _time
+        last_ts = self.daemon_config.getfloat('community', 'db_last_updated', fallback=0.0)
+        if last_ts > 0:
+            days_ago = (_time.time() - last_ts) / 86400.0
+            last_str = f"Last updated {days_ago:.1f} days ago"
+        else:
+            last_str = "Never updated"
+
+        self.comm_status_lbl = ctk.CTkLabel(comm_status_frame, text=last_str, text_color="gray")
+        self.comm_status_lbl.pack(side="left", padx=(0, 10))
+
+        def force_db_update():
+            import community_fetcher
+            import time as _t
+            from tkinter import messagebox
+            try:
+                community_fetcher.fetch_database()
+                now = _t.time()
+                if not self.daemon_config.has_section('community'):
+                    self.daemon_config.add_section('community')
+                self.daemon_config.set('community', 'db_last_updated', str(now))
+                with open(self.daemon_config_file, 'w') as f:
+                    self.daemon_config.write(f)
+                self.comm_status_lbl.configure(text="Updated just now")
+                messagebox.showinfo("Community DB", "Database updated successfully.")
+            except Exception as e:
+                messagebox.showerror("Community DB", f"Failed to update: {e}")
+
+        ctk.CTkButton(comm_status_frame, text="Force Update Now", command=force_db_update, width=140).pack(side="left")
+
         frame.columnconfigure(1, weight=1)
 
     def change_appearance_mode(self, new_mode):
@@ -2285,6 +2367,14 @@ class App(ctk.CTk):
         if not self.daemon_config.has_section('UI'):
             self.daemon_config.add_section('UI')
         self.daemon_config.set('UI', 'font', new_font)
+        with open(self.daemon_config_file, 'w') as f:
+            self.daemon_config.write(f)
+
+    def change_community_interval(self, new_interval_str):
+        """Save the community DB update interval (in days) to config.ini."""
+        if not self.daemon_config.has_section('community'):
+            self.daemon_config.add_section('community')
+        self.daemon_config.set('community', 'db_update_interval_days', new_interval_str)
         with open(self.daemon_config_file, 'w') as f:
             self.daemon_config.write(f)
 
@@ -2419,7 +2509,7 @@ class App(ctk.CTk):
         comm_frame.pack(fill="x", pady=10)
         
         ctk.CTkLabel(comm_frame, text="Community HID Maps", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
-        ctk.CTkLabel(comm_frame, text="Download the latest verified hardware HID maps from the community repository.").pack()
+        ctk.CTkLabel(comm_frame, text="Download all verified hardware HID maps from the community repository.").pack()
         
         def update_community_hid_maps():
             import community_fetcher
