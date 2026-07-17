@@ -6,9 +6,6 @@
 - **Built-in Community Profiles:** Auto-discovery database to bypass calibration for common VID/PIDs using pre-made templates.
 - **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
 - **Vibration Diagnostic Test:** Diagnostic tool `07_vibration_test.py` to test and identify rumble payloads.
-- **UI/Customization & Basic QoL**: Analog sensitivity slider, theme customization, and font changes.
-- **Core Profiles & Inputs**: Calibration confidence, profile validator/comparison/export, new stick/trigger curves.
-- **Utilities Tab**: Polling rate & latency monitors, built-in benchmark, generic input graph, and input inspector.
 - **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and reverse engineering tools.
 - **GUI Optimization Pass**: Find out why this hot mess of a GUI is so damn laggy. 
 
@@ -180,3 +177,24 @@ This is a major architectural release (v2.0.0) that breaks backward compatibilit
 - **Silent Boot Argument:** Added a `--boot` argument to `main.py` which allows the wrapper daemon to start silently on boot (e.g. for Windows startup) without automatically opening the GUI.
 - **Documentation Organization:** Restructured project documentation and added technical timelines for developers (and curious people).
 - **Digital Trigger Fallback Detection:** Upgraded the calibration wizard's digital trigger fallback detection to intelligently isolate bitmasks and cross-reference unique byte states, making it far more accurate at detecting non-analog triggers.
+
+## [2.1.0] - 2026-07-17
+This release introduces major UI Customizations, Utilities, and Core Profile features.
+
+### 🎮 User-Facing Changes
+- **Customization Tab:** A brand new tab enabling Light/Dark mode toggling, dynamic theme switching (White, Orange, Red, Yellow, Green, Blue, Purple), and system font selection.
+- **Profile Tab:** A centralized hub to validate your JSON configurations, generate interactive git-style profile comparisons (diffs) against system defaults, and export configurations directly.
+- **Utilities Tab:** A powerful diagnostic workspace containing real-time polling rate monitors, synthetic throughput benchmarks, live input inspection, and a dynamic hardware latency estimator.
+- **Advanced Analog Curves:** Implemented Cubic, Sigmoid, Bezier, and a Custom mathematical equation evaluator for joysticks and triggers.
+- **Custom Curve UI:** Easily enter your own mathematical response formula (e.g. `x**power`) directly in the GUI and preview its shape instantly on the graph. Includes a `[?]` helper box detailing the syntax.
+- **Trigger Sensitivity:** Analog triggers now have functional sensitivity sliders in the Tuning tab, matching the joysticks.
+- **Calibration Confidence Engine:** The calibration wizard now grades your gamepad's structural integrity (circularity, deadzone sizes, center precision) at the end of the profile generation phase.
+- **Export Math:** Quickly copy LaTeX representations of your generated response curves directly to your clipboard for sharing or graphing in Desmos.
+
+### ⚙️ Under-the-Hood Changes
+- **Dynamic Theme Interpolation:** Re-engineered GUI canvas drawing methods to automatically query the `ctk.ThemeManager.theme` for current accent colors. Automatically inverses hex codes to dynamically color raw input and processed output tracers.
+- **Python `eval` Safe Context:** Created a localized, restricted dictionary environment to safely evaluate custom user mathematical strings without exposing `__builtins__`.
+- **System Fonts Override:** Implemented a global intercept on CustomTkinter's `CTkFont` class to force all widgets to inherit the user's selected font dynamically.
+- **Matplotlib Integration:** Integrated `matplotlib.backends.backend_tkagg` into the Utilities tab to handle real-time rendering of the generic oscilloscope without bogging down the main GUI loop.
+- **Performance Fixes:** Optimized `update_position_loop` tick rates and removed expensive console standard output flushing to preserve high-frequency graphing performance.
+- **`custom_eq` Parameter Routing:** Upgraded `math_utils.process_analog_stick` and `process_trigger` to natively accept and parse string equations down into `curves.evaluate_curve`.

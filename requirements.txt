@@ -4,5 +4,4 @@ pynput
 pystray 
 Pillow 
 customtkinter
- 
- 
+matplotlib

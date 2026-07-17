@@ -1,7 +1,7 @@
 import math
 import urllib.parse
 
-def evaluate_curve(x: float, curve_type: str, power: float) -> float:
+def evaluate_curve(x: float, curve_type: str, power: float, custom_eq: str = "") -> float:
     """
     Evaluates a normalized input x [0.0, 1.0] using various advanced curves.
     """
@@ -9,6 +9,17 @@ def evaluate_curve(x: float, curve_type: str, power: float) -> float:
     
     if curve == 'linear':
         return x
+    elif curve == 'custom':
+        if not custom_eq:
+            return x
+        try:
+            safe_dict = {k: v for k, v in math.__dict__.items() if not k.startswith("__")}
+            safe_dict['x'] = x
+            safe_dict['power'] = power
+            safe_dict['p'] = power
+            return float(eval(custom_eq, {"__builtins__": None}, safe_dict))
+        except Exception:
+            return x
     elif curve in ['exponential', 'relaxed']:
         return x ** power
     elif curve == 'aggressive':

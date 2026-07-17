@@ -36,6 +36,14 @@ if not os.path.exists(theme_path):
 if os.path.exists(theme_path):
     ctk.set_default_color_theme(theme_path)
 
+_app_font = _global_config.get('UI', 'font', fallback="Arial")
+_original_font_init = ctk.CTkFont.__init__
+def _new_font_init(self, family=None, *args, **kwargs):
+    if family is None:
+        family = _app_font
+    _original_font_init(self, family=family, *args, **kwargs)
+ctk.CTkFont.__init__ = _new_font_init
+
 class ToolTip:
     def __init__(self, widget, text):
         self.widget = widget
@@ -141,6 +149,24 @@ class LoadingSpinner(tk.Canvas):
         self.itemconfig(self.arc, start=self.angle)
         self.after(20, self.rotate)
 
+def get_spinner_color(mode):
+    try:
+        colors = ctk.ThemeManager.theme['CTkButton']['fg_color']
+        return colors[0] if mode == "light" else colors[1]
+    except Exception:
+        return "#9200d6" if mode == "light" else "#7500ab"
+
+def get_accent_colors():
+    mode = ctk.get_appearance_mode().lower()
+    acc = get_spinner_color(mode)
+    try:
+        hx = acc.lstrip('#')
+        r, g, b = tuple(int(hx[i:i+2], 16) for i in (0, 2, 4))
+        inv = f"#{255-r:02x}{255-g:02x}{255-b:02x}"
+    except Exception:
+        inv = "#00D4FF"
+    return acc, inv
+
 # Color configuration for overlay transitions
 LOADING_COLORS = {
     "light": {
@@ -148,14 +174,14 @@ LOADING_COLORS = {
         "bg_end": "#d4d4d4",        # Slightly greyed out light mode bg
         "text_quote": "gray14",
         "text_quoted": "gray30",
-        "spinner": "#9200d6"
+        "spinner": get_spinner_color("light")
     },
     "dark": {
         "bg_start": "gray10",       # Main window bg in dark mode
         "bg_end": "#262626",        # Slightly greyed out dark mode bg (e.g. darker/dimmed)
         "text_quote": "gray84",
         "text_quoted": "gray60",
-        "spinner": "#7500ab"
+        "spinner": get_spinner_color("dark")
     }
 }
 
@@ -1217,10 +1243,31 @@ class App(ctk.CTk):
             row_f.pack(fill="x", pady=5)
             info_btn = ctk.CTkButton(row_f, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
             info_btn.pack(side="left", padx=(0,5))
-            ToolTip(info_btn, "Mathematical shape of the response curve.\nLinear = straight 1:1 line.\nExponential = precise at center, fast at edges.\nAggressive = fast at center, precise at edges.")
+            ToolTip(info_btn, "Mathematical shape of the response curve.\nLinear = straight 1:1 line.\nExponential = precise at center, fast at edges.\nAggressive = fast at center, precise at edges.\nCustom = evaluated python math string.\nCubic = steeper exponential.\nSigmoid = ease-in-out S-curve.\nBezier = adjustable ease curve.")
+            custom_eq_var = ctk.StringVar(value=self.config.get(section, 'custom_curve', fallback='x'))
+            
+            custom_eq_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+            info_btn_custom = ctk.CTkButton(custom_eq_frame, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
+            info_btn_custom.pack(side="left", padx=(0,5))
+            ToolTip(info_btn_custom, "Required Syntax:\n- Use 'x' as the input magnitude [0.0, 1.0].\n- Use 'power' or 'p' to reference the Curve Factor slider.\n- Use basic Python math operators (+, -, *, /, **).\n- You can use math module functions (e.g., sin(x), exp(x)).\nExample: (x**power) * sin(x)")
+            ctk.CTkLabel(custom_eq_frame, text="Custom Eq:", width=70, anchor="w").pack(side="left")
+            custom_eq_entry = ctk.CTkEntry(custom_eq_frame, textvariable=custom_eq_var)
+            custom_eq_entry.pack(side="left", fill="x", expand=True, padx=5)
+            custom_eq_entry.bind("<KeyRelease>", lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var))
+            
+            def on_curve_change(val):
+                if val == "custom":
+                    custom_eq_frame.pack(fill="x", pady=5, after=row_f)
+                else:
+                    custom_eq_frame.pack_forget()
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+
             ctk.CTkLabel(row_f, text="Curve Type:", width=90, anchor="w").pack(side="left")
-            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "cubic", "sigmoid", "bezier"], variable=curve_var, command=lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var))
+            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "custom", "cubic", "sigmoid", "bezier"], variable=curve_var, command=on_curve_change)
             curve_menu.pack(side="left", fill="x", expand=True, padx=5)
+            
+            if curve_var.get() == "custom":
+                custom_eq_frame.pack(fill="x", pady=5, after=row_f)
             
             def export_math():
                 import curves
@@ -1271,12 +1318,12 @@ class App(ctk.CTk):
             circ_btn = ctk.CTkButton(circ_frame, text="Calibrate Circularity", command=open_circ_calib, fg_color="#1f538d")
             circ_btn.pack(side="right", padx=5)
 
-            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var
+            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var
 
-        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
+        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
         self.f_ls.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         
-        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
+        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
         self.f_rs.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         def create_trigger_frame(parent, title, btn, section):
@@ -1339,16 +1386,38 @@ class App(ctk.CTk):
             make_slider("Deadzone", dz_var, 0.0, 0.5, 0.01, "Ignores small initial trigger pulls.")
             make_slider("Anti-Deadzone", adz_var, 0.0, 0.5, 0.01, "Instantly jumps the output to this value when the deadzone is crossed.")
             make_slider("Rest Deadzone", rest_dz_var, 0.0, 0.3, 0.01, "Secondary buffer after the deadzone.\nPrevents anti-deadzone from activating on\ncontrollers with trigger resting drift.")
-            make_slider("Curve Factor", exp_var, 0.5, 4.0, 0.1, "Intensity of the curve.")
-
+            make_slider("Exponent (Curve Power)", exp_var, 0.5, 5.0, 0.1)
+            make_slider("Sensitivity", sens_var, 0.1, 5.0, 0.05, "Multiplies the final output.")
+            
             row_f = ctk.CTkFrame(controls_frame, fg_color="transparent")
             row_f.pack(fill="x", pady=5)
             info_btn = ctk.CTkButton(row_f, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
             info_btn.pack(side="left", padx=(0,5))
-            ToolTip(info_btn, "Mathematical shape of the response curve.")
+            ToolTip(info_btn, "Mathematical shape of the response curve.\nLinear = straight 1:1 line.\nExponential = precise at center, fast at edges.\nAggressive = fast at center, precise at edges.\nCustom = evaluated python math string.\nCubic = steeper exponential.\nSigmoid = ease-in-out S-curve.\nBezier = adjustable ease curve.")
+            custom_eq_var = ctk.StringVar(value=self.config.get(section, 'custom_curve', fallback='x'))
+            
+            custom_eq_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+            info_btn_custom = ctk.CTkButton(custom_eq_frame, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
+            info_btn_custom.pack(side="left", padx=(0,5))
+            ToolTip(info_btn_custom, "Required Syntax:\n- Use 'x' as the input magnitude [0.0, 1.0].\n- Use 'power' or 'p' to reference the Curve Factor slider.\n- Use basic Python math operators (+, -, *, /, **).\n- You can use math module functions (e.g., sin(x), exp(x)).\nExample: (x**power) * sin(x)")
+            ctk.CTkLabel(custom_eq_frame, text="Custom Eq:", width=70, anchor="w").pack(side="left")
+            custom_eq_entry = ctk.CTkEntry(custom_eq_frame, textvariable=custom_eq_var)
+            custom_eq_entry.pack(side="left", fill="x", expand=True, padx=5)
+            custom_eq_entry.bind("<KeyRelease>", lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var))
+            
+            def on_curve_change(val):
+                if val == "custom":
+                    custom_eq_frame.pack(fill="x", pady=5, after=row_f)
+                else:
+                    custom_eq_frame.pack_forget()
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+
             ctk.CTkLabel(row_f, text="Curve Type:", width=90, anchor="w").pack(side="left")
-            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "cubic", "sigmoid", "bezier"], variable=curve_var, command=lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var))
+            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "custom", "cubic", "sigmoid", "bezier"], variable=curve_var, command=on_curve_change)
             curve_menu.pack(side="left", fill="x", expand=True, padx=5)
+            
+            if curve_var.get() == "custom":
+                custom_eq_frame.pack(fill="x", pady=5, after=row_f)
             
             def export_math():
                 import curves
@@ -1392,23 +1461,23 @@ class App(ctk.CTk):
                                      command=lambda b=btn, v=dig_var: self.on_digital_trigger_toggled(b, v))
             dig_cb.pack(side="left", padx=5)
             
-            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var
+            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var
 
-        self.f_lt, self.c_lt_curve, self.c_lt_pos, self.lt_dz, self.lt_adz, self.lt_rest_dz, self.lt_curve, self.lt_exp = create_trigger_frame(self.tuning_scroll, "Left Trigger", "lt", "trigger_left")
+        self.f_lt, self.c_lt_curve, self.c_lt_pos, self.lt_dz, self.lt_adz, self.lt_rest_dz, self.lt_curve, self.lt_exp, self.lt_sens, self.lt_custom = create_trigger_frame(self.tuning_scroll, "Left Trigger", "lt", "trigger_left")
         self.f_lt.grid(row=2, column=0, padx=10, pady=10, sticky="nsew")
 
-        self.f_rt, self.c_rt_curve, self.c_rt_pos, self.rt_dz, self.rt_adz, self.rt_rest_dz, self.rt_curve, self.rt_exp = create_trigger_frame(self.tuning_scroll, "Right Trigger", "rt", "trigger_right")
+        self.f_rt, self.c_rt_curve, self.c_rt_pos, self.rt_dz, self.rt_adz, self.rt_rest_dz, self.rt_curve, self.rt_exp, self.rt_sens, self.rt_custom = create_trigger_frame(self.tuning_scroll, "Right Trigger", "rt", "trigger_right")
         self.f_rt.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
 
         # Initial draw
-        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get())
-        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get())
-        self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get())
-        self.draw_curve_trigger(self.c_rt_curve, self.rt_dz.get(), self.rt_adz.get(), self.rt_rest_dz.get(), self.rt_curve.get(), self.rt_exp.get())
+        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_custom.get())
+        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_custom.get())
+        self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_custom.get())
+        self.draw_curve_trigger(self.c_rt_curve, self.rt_dz.get(), self.rt_adz.get(), self.rt_rest_dz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_custom.get())
         
         self.update_position_loop()
 
-    def update_analog_config(self, section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var=None):
+    def update_analog_config(self, section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var=None, custom_eq_var=None):
         if not self.config.has_section(section):
             self.config.add_section(section)
         self.config.set(section, 'deadzone', str(round(dz_var.get(), 3)))
@@ -1418,18 +1487,20 @@ class App(ctk.CTk):
         self.config.set(section, 'exp_factor', str(round(exp_var.get(), 3)))
         if sens_var is not None:
             self.config.set(section, 'sensitivity', str(round(sens_var.get(), 3)))
+        if custom_eq_var is not None:
+            self.config.set(section, 'custom_curve', custom_eq_var.get())
         self.save_config()
         
         if section == "analog_left":
-            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get())
+            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), custom_eq_var.get() if custom_eq_var else "")
         elif section == "analog_right":
-            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get())
+            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), custom_eq_var.get() if custom_eq_var else "")
         elif section == "trigger_left":
-            self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get())
+            self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), custom_eq_var.get() if custom_eq_var else "")
         elif section == "trigger_right":
-            self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get())
+            self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), custom_eq_var.get() if custom_eq_var else "")
 
-    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor):
+    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, custom_eq=""):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1443,15 +1514,16 @@ class App(ctk.CTk):
         for x_px in range(width + 1):
             input_val = x_px / width
             # Pass 0 for Y so magnitude = input_val
-            out_x, _ = math_utils.process_analog_stick(input_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, 1.0)
+            out_x, _ = math_utils.process_analog_stick(input_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, 1.0, custom_eq)
             y_px = height - (out_x * height)
             points.append(x_px)
             points.append(y_px)
             
+        acc, _ = get_accent_colors()
         if points:
-            canvas.create_line(points, fill="#AF00FA", width=2)
+            canvas.create_line(points, fill=acc, width=2)
 
-    def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor):
+    def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, custom_eq=""):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1462,13 +1534,14 @@ class App(ctk.CTk):
         points = []
         for x_px in range(width + 1):
             input_val = x_px / width
-            out_val = math_utils.process_trigger(input_val, dz, adz, curve_type, exp_factor, rest_dz)
+            out_val = math_utils.process_trigger(input_val, dz, adz, curve_type, exp_factor, rest_dz, 1.0, custom_eq)
             y_px = height - (out_val * height)
             points.append(x_px)
             points.append(y_px)
             
+        acc, _ = get_accent_colors()
         if points:
-            canvas.create_line(points, fill="#AF00FA", width=2)
+            canvas.create_line(points, fill=acc, width=2)
 
     def draw_crosshair(self, canvas, raw_x, raw_y, out_x, out_y):
         canvas.delete("all")
@@ -1480,34 +1553,38 @@ class App(ctk.CTk):
         canvas.create_line(cx, 0, cx, height, fill="#444444", dash=(2, 2))
         canvas.create_line(0, cy, width, cy, fill="#444444", dash=(2, 2))
         
-        # Raw position (cyan dot)
+        acc, inv = get_accent_colors()
+        
+        # Raw position (inverse dot)
         rx_px = cx + (raw_x * cx)
         ry_px = cy - (raw_y * cy)
-        canvas.create_oval(rx_px-4, ry_px-4, rx_px+4, ry_px+4, fill="#00D4FF", outline="")
+        canvas.create_oval(rx_px-4, ry_px-4, rx_px+4, ry_px+4, fill=inv, outline="")
         
-        # Processed position (purple crosshair)
+        # Processed position (accent crosshair)
         px_px = cx + (out_x * cx)
         py_px = cy - (out_y * cy)
-        canvas.create_oval(px_px-5, py_px-5, px_px+5, py_px+5, fill="", outline="#AF00FA", width=2)
-        canvas.create_line(cx, cy, px_px, py_px, fill="#AF00FA", dash=(2,2))
+        canvas.create_oval(px_px-5, py_px-5, px_px+5, py_px+5, fill="", outline=acc, width=2)
+        canvas.create_line(cx, cy, px_px, py_px, fill=acc, dash=(2,2))
 
     def draw_trigger_bar(self, canvas, raw_val, out_val):
         canvas.delete("all")
         width = 60
         height = 180
         
+        acc, inv = get_accent_colors()
+        
         # Side-by-side bars to prevent overlap
-        # Left bar: Raw input (cyan)
+        # Left bar: Raw input (inverted)
         canvas.create_rectangle(5, 0, 27, height, fill="#222222", outline="#444444")
         raw_h = int(raw_val * height)
         if raw_h > 0:
-            canvas.create_rectangle(5, height - raw_h, 27, height, fill="#00D4FF", outline="")
+            canvas.create_rectangle(5, height - raw_h, 27, height, fill=inv, outline="")
         
-        # Right bar: Processed output (purple)
+        # Right bar: Processed output (accent)
         canvas.create_rectangle(33, 0, 55, height, fill="#222222", outline="#444444")
         out_h = int(out_val * height)
         if out_h > 0:
-            canvas.create_rectangle(33, height - out_h, 55, height, fill="#AF00FA", outline="")
+            canvas.create_rectangle(33, height - out_h, 55, height, fill=acc, outline="")
 
     def update_curve_cursor(self, canvas, raw_magnitude, out_magnitude):
         """Overlays a cyan dot on the response curve canvas at the current input/output."""
@@ -1551,12 +1628,12 @@ class App(ctk.CTk):
             
             if ls_circ_mode == 'before':
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
-                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get())
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get(), self.ls_custom.get())
             elif ls_circ_mode == 'after':
-                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get())
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get(), self.ls_custom.get())
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
             else:
-                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get())
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get(), self.ls_custom.get())
                 
             self.draw_crosshair(self.c_ls_pos, raw_lx, disp_raw_ly, out_lx, out_ly)
             raw_mag = math.sqrt(raw_lx**2 + disp_raw_ly**2)
@@ -1576,12 +1653,12 @@ class App(ctk.CTk):
             
             if rs_circ_mode == 'before':
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
-                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get())
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get(), self.rs_custom.get())
             elif rs_circ_mode == 'after':
-                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get())
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get(), self.rs_custom.get())
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
             else:
-                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get())
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get(), self.rs_custom.get())
                 
             self.draw_crosshair(self.c_rs_pos, state.rx, disp_raw_ry, out_rx, out_ry)
             raw_mag_r = math.sqrt(state.rx**2 + disp_raw_ry**2)
@@ -1589,12 +1666,12 @@ class App(ctk.CTk):
             self.update_curve_cursor(self.c_rs_curve, min(raw_mag_r, 1.0), min(out_mag_r, 1.0))
             
             # Left Trigger
-            out_lt = math_utils.process_trigger(state.lt, self.lt_dz.get(), self.lt_adz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_rest_dz.get())
+            out_lt = math_utils.process_trigger(state.lt, self.lt_dz.get(), self.lt_adz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_rest_dz.get(), self.lt_sens.get(), self.lt_custom.get())
             self.draw_trigger_bar(self.c_lt_pos, state.lt, out_lt)
             self.update_trigger_curve_cursor(self.c_lt_curve, state.lt, out_lt)
 
             # Right Trigger
-            out_rt = math_utils.process_trigger(state.rt, self.rt_dz.get(), self.rt_adz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_rest_dz.get())
+            out_rt = math_utils.process_trigger(state.rt, self.rt_dz.get(), self.rt_adz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_rest_dz.get(), self.rt_sens.get(), self.rt_custom.get())
             self.draw_trigger_bar(self.c_rt_pos, state.rt, out_rt)
             self.update_trigger_curve_cursor(self.c_rt_curve, state.rt, out_rt)
             
@@ -2039,9 +2116,9 @@ class App(ctk.CTk):
             
             start = time.perf_counter()
             for _ in range(10000):
-                rep = RawHIDReport(0, bytes([0, 128]))
+                rep = RawHIDReport(0, bytes([0, 128]), 0.0)
                 state = d.decode(rep)
-                lx, ly = math_utils.process_analog_stick(state.lx, state.ly, 0.1, 0.1, "bezier", 2.0, 0.0)
+                lx, ly = math_utils.process_analog_stick(state.lx, state.ly, 0.1, 0.1, "bezier", 2.0, 0.0, 1.0)
             end = time.perf_counter()
             
             total_ms = (end - start) * 1000.0

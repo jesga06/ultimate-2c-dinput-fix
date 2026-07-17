@@ -105,3 +105,24 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
   - **Output Report Blaster:** `send_output_report()` wrapper utilizing `hidapi.write()` to communicate directly with physical gamepad rumble motors.
   - **Data-Driven Injection:** Dynamic replacement of intensity bytes inside a profile-configured rumble payload template.
   - **Interactive Rumble Probing:** Command-line procedure to identify rumble motor byte locations by pulsing each index (currently disabled by default).
+
+---
+
+## 🎨 UI & Customization Features
+* **Theme Manager:** Dynamically switch the entire application's color palette (White, Orange, Red, Yellow, Green, Blue, Purple) and immediately preview changes.
+* **System Font Override:** Supports overriding the default CustomTkinter font with any built-in system font (e.g. Arial, Consolas).
+* **Light/Dark Mode:** Seamless transitions between light and dark appearances dynamically applied across canvases and graphs.
+
+---
+
+## 🔬 Calibration & Profile Hub
+* **Calibration Confidence Engine:** Post-calibration, the wizard evaluates your hardware's resting exactness, deadzone thresholds, and perfect circularity, grading it as Excellent, Good, or Poor.
+* **Profile Diff/Comparison:** Instantly compare your active custom profile against the system's baseline settings using a built-in git-style split view to detect regressions.
+* **Profile Exporting:** Easily export your generated JSON configurations (with or without custom bindings) to share with others.
+
+---
+
+## 📊 Hardware Utilities & Diagnostics
+* **Latency Estimator:** Dynamically calculates the round-trip latency of the Python daemon's processing pipeline in milliseconds.
+* **Polling Rate Monitor:** Continuously measures your physical gamepad's USB polling rate, calculating 1% lows and average Hertz.
+* **Synthetic Wrapper Benchmark:** Floods the translation pipeline with artificial HID packets to measure the maximum theoretical throughput of the software without hardware bottlenecks.

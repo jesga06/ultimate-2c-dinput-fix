@@ -1,6 +1,6 @@
 import math
 
-def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0, sensitivity: float = 1.0):
+def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0, sensitivity: float = 1.0, custom_eq: str = ""):
     """
     Processes an analog stick's X and Y coordinates.
     Applies a radial inner deadzone.
@@ -32,7 +32,7 @@ def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, cu
     
     import curves
     # Apply curve to normalized magnitude
-    norm_mag = curves.evaluate_curve(norm_mag, curve_type, power)
+    norm_mag = curves.evaluate_curve(norm_mag, curve_type, power, custom_eq)
         
     # Apply anti-deadzone
     final_mag = anti_dz + norm_mag * (1.0 - anti_dz)
@@ -44,7 +44,7 @@ def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, cu
         return x * ratio * sensitivity, y * ratio * sensitivity
     return 0.0, 0.0
 
-def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0, sensitivity: float = 1.0):
+def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0, sensitivity: float = 1.0, custom_eq: str = ""):
     """
     Processes an analog trigger's 1D value [0.0, 1.0].
     Applies an inner deadzone.
@@ -71,7 +71,7 @@ def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str
     
     import curves
     # Apply curve
-    norm_val = curves.evaluate_curve(norm_val, curve_type, power)
+    norm_val = curves.evaluate_curve(norm_val, curve_type, power, custom_eq)
         
     # Apply anti-deadzone
     final_val = anti_dz + norm_val * (1.0 - anti_dz)

@@ -58,8 +58,8 @@ def validate_profile(profile_path: str) -> str:
                         errors += 1
                     button_masks |= mask
                     
-    output.append(f"\\nValidation Complete: {errors} Errors, {warnings} Warnings.")
-    return "\\n".join(output)
+    output.append(f"\nValidation Complete: {errors} Errors, {warnings} Warnings.")
+    return "\n".join(output)
 
 def diff_profiles(path1: str, path2: str) -> str:
     if not os.path.exists(path1) or not os.path.exists(path2):
@@ -113,4 +113,4 @@ def diff_profiles(path1: str, path2: str) -> str:
     if len(output) == 1:
         output.append("No differences found.")
         
-    return "\\n".join(output)
+    return "\n".join(output)
