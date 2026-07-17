@@ -690,14 +690,9 @@ class App(ctk.CTk):
             
         for btn, pos in layout_dict.items():
             if btn in ['lt', 'rt']:
-                b = ctk.CTkFrame(self.layout_canvas, fg_color="#333333", corner_radius=6)
-                prog = ctk.CTkProgressBar(b, fg_color="#333333", progress_color=accent, corner_radius=6)
-                prog.place(relx=0, rely=0, relwidth=1, relheight=1)
-                prog.set(0)
-                lbl = ctk.CTkLabel(b, text=self.get_btn_display_name(btn).upper(), text_color="white")
-                lbl.place(relx=0.5, rely=0.5, anchor="center")
+                b = ctk.CTkCanvas(self.layout_canvas, bg="#333333", highlightthickness=0)
                 b.place(relx=pos["x"], rely=pos["y"], anchor="center")
-                self.dashboard_btns[btn] = {"frame": b, "prog": prog, "lbl": lbl}
+                self.dashboard_btns[btn] = {"canvas": b}
             else:
                 b = ctk.CTkButton(self.layout_canvas, text=self.get_btn_display_name(btn).upper(), fg_color="#333333", hover_color="#444444")
                 b.place(relx=pos["x"], rely=pos["y"], anchor="center")
@@ -738,14 +733,11 @@ class App(ctk.CTk):
         fnt = ctk.CTkFont(size=font_size, weight="bold")
         
         for btn_name, btn_widget in self.dashboard_btns.items():
-            if isinstance(btn_widget, dict):
-                widget = btn_widget["frame"]
-                lbl = btn_widget["lbl"]
-                if widget.winfo_parent() == str(self.layout_canvas):
-                    widget.configure(width=int(base_size * 1.5), height=int(base_size))
-                else:
-                    widget.configure(width=int(base_size * 1.2), height=int(base_size * 0.8))
-                lbl.configure(font=fnt)
+            if isinstance(btn_widget, dict) and "canvas" in btn_widget:
+                widget = btn_widget["canvas"]
+                w_trig = int(base_size * 0.8)
+                h_trig = int(base_size * 2.2)
+                widget.configure(width=w_trig, height=h_trig)
             else:
                 if btn_widget.winfo_parent() == str(self.layout_canvas):
                     # Standard buttons are directly in layout_canvas
@@ -2281,8 +2273,19 @@ class App(ctk.CTk):
                     elif btn in state.extra_inputs:
                         is_pressed = state.extra_inputs[btn]
                         
-                    if isinstance(widget, dict):
-                        widget["prog"].set(val)
+                    if isinstance(widget, dict) and "canvas" in widget:
+                        c = widget["canvas"]
+                        c.delete("all")
+                        
+                        cw = int(c.cget("width"))
+                        ch = int(c.cget("height"))
+                        
+                        fill_h = int(val * ch)
+                        if fill_h > 0:
+                            c.create_rectangle(0, 0, cw, fill_h, fill=accent, outline="")
+                            
+                        # Draw text directly on canvas so it has true transparency
+                        c.create_text(cw/2, ch/2, text=self.get_btn_display_name(btn).upper(), fill="white", font=("Helvetica", max(8, int(cw * 0.3)), "bold"))
                     else:
                         if is_pressed:
                             widget.configure(fg_color=accent)
