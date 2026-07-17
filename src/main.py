@@ -149,45 +149,72 @@ def main():
     devices = HIDReader.get_all_devices()
     selected_vid = None
     selected_pid = None
-    profile_path = None
-    profile_name = "Unknown Device"
+    hid_map_path = None    # path to the {VID}_{PID}.json HID map
+    device_name = "Unknown Device"
 
     for d in devices:
         vid = d.get('vendor_id', 0)
         pid = d.get('product_id', 0)
-        potential_profile = f"profiles/{vid:04X}_{pid:04X}.json".lower()
-        if os.path.exists(potential_profile):
+        # 1. Try to find a local HID map for this VID/PID
+        potential_hid_map = f"profiles/{vid:04X}_{pid:04X}.json".lower()
+        if os.path.exists(potential_hid_map):
             selected_vid = vid
             selected_pid = pid
-            profile_path = potential_profile
+            hid_map_path = potential_hid_map
             try:
-                with open(profile_path, 'r') as f:
-                    prof_data = json.load(f)
-                    profile_name = prof_data.get('name', "Unknown Device")
+                with open(hid_map_path, 'r') as f:
+                    map_data = json.load(f)
+                    device_name = map_data.get('name', "Unknown Device")
             except:
                 pass
             break
+        else:
+            # 2. Fall back to the community HID map database
+            db_path = os.path.join("profiles", "community", "database.json")
+            if os.path.exists(db_path):
+                try:
+                    with open(db_path, 'r', encoding='utf-8') as f:
+                        db = json.load(f)
+                    vid_pid_str = f"{vid:04X}:{pid:04X}".upper()
+                    for entry_name, entry_data in db.items():
+                        if vid_pid_str in entry_data.get("aliases", []):
+                            # 'hid_map_file' is relative to profiles/community/
+                            comm_map = os.path.join("profiles", "community", entry_data.get("hid_map_file", ""))
+                            if os.path.exists(comm_map):
+                                selected_vid = vid
+                                selected_pid = pid
+                                hid_map_path = comm_map
+                                with open(hid_map_path, 'r', encoding='utf-8') as mf:
+                                    map_data = json.load(mf)
+                                    device_name = map_data.get('name', "Unknown Device") + " (Community HID Map)"
+                                break
+                except:
+                    pass
+        if hid_map_path:
+            break
 
-    if not profile_path:
-        logger.warning("No connected devices with a saved profile found.")
+    if not hid_map_path:
+        logger.warning("No connected devices with a saved HID map found.")
         logger.info(
-            "Please run calibration.py to generate a profile for your controller.")
+            "Please run calibration.py to generate a HID map for your controller.")
         show_console()
         time.sleep(5)
         sys.exit(1)
 
-    logger.info(f"Found matching profile: {profile_path} ({profile_name})")
+    logger.info(f"Found matching HID map: {hid_map_path} ({device_name})")
 
-    # Initialize controller config
-    sanitized_name = get_sanitized_filename(profile_name)
+    # Initialize user profile — named after the device
+    # The user profile ({device_name}.json) holds remaps, deadzones, curves, etc.
+    sanitized_name = get_sanitized_filename(device_name)
     controller_config_file = os.path.join("profiles", sanitized_name)
     controller_config = ControllerConfig(controller_config_file)
     
-    # Save last_device to global config
+    # Save last connected device info to wrapper config (config.ini)
     if not config.has_section('controller'):
         config.add_section('controller')
-    config.set('controller', 'last_device', profile_name)
-    config.set('controller', 'last_profile', profile_path)
+    config.set('controller', 'last_device', device_name)
+    # 'last_profile' key retained for backwards compatibility; now stores the HID map path
+    config.set('controller', 'last_profile', hid_map_path)
     with open(config_file, 'w') as f:
         config.write(f)
 

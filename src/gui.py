@@ -2136,6 +2136,29 @@ class App(ctk.CTk):
             
         ctk.CTkButton(bench_frame, text="Open Live Input Inspector", command=open_graph, fg_color="#2c7a2c", hover_color="#1f591f").pack(pady=(5, 10))
         
+        # Community Profiles Frame
+        comm_frame = ctk.CTkFrame(main_frame)
+        comm_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(comm_frame, text="Community Profiles", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
+        ctk.CTkLabel(comm_frame, text="Download the latest verified controller profiles from the community repository.").pack()
+        
+        def update_community_profiles():
+            import community_fetcher
+            from tkinter import messagebox
+            import threading
+            
+            def fetch_thread():
+                res = community_fetcher.fetch_community_profiles()
+                if "Success" in res:
+                    messagebox.showinfo("Success", "Community profiles updated successfully!")
+                else:
+                    messagebox.showerror("Error", res)
+            
+            threading.Thread(target=fetch_thread, daemon=True).start()
+            messagebox.showinfo("Downloading", "Downloading community profiles in background...")
+            
+        ctk.CTkButton(comm_frame, text="Update Community Profiles", command=update_community_profiles, fg_color="#005580", hover_color="#00334d").pack(pady=(10, 10))
         self.update_utilities_loop()
         
     def update_utilities_loop(self):
