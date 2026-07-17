@@ -196,6 +196,11 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Trigger Sensitivity:** Analog triggers now have functional sensitivity sliders in the Tuning tab, matching the joysticks.
 - **Calibration Confidence Engine:** The calibration wizard now grades your gamepad's structural integrity (circularity, deadzone sizes, center precision) at the end of the profile generation phase.
 - **Export Math:** Quickly copy LaTeX representations of your generated response curves directly to your clipboard for sharing or graphing in Desmos.
+- **Shift Key Bindings Fix:** Resolved an issue where shift key mappings failed to trigger. The mapping engine was corrected to read configuration settings from the proper `shift_layer` and `shift_mappings` sections instead of the incorrect `settings` and `layer_shift` sections.
+- **Terminology Refactor:** Standardized files and labels to resolve "profile" ambiguity: hardware input descriptors (`{VID}_{PID}.json`) are now **HID maps**, user preferences/remaps (`{device-name}.json`) are **user profiles**, and general program settings (`config.ini`) are **wrapper configs**.
+- **Interactive Dotted Curves:** Introduced a second type of custom response curve alongside fully custom ones, allowing users to define a set number of dots on the graph and drag them to shape the curves interactively.
+- **Selective Community Map Downloads:** Integrated the live repository (`jesga06/UR-XD-community-HID-maps`). Instead of downloading a full ZIP, the app downloads only the index (`database.json`) first, then selectively fetches only the specific HID maps matching connected controllers.
+- **Auto-Update Scheduler:** Added configuration options under UI Customization to check for community HID map updates periodically (1 to 30 days) independent of run frequency, including a status indicator and a "Force Update Now" button.
 
 ### ⚙️ Under-the-Hood Changes
 - **Dynamic Theme Interpolation:** Re-engineered GUI canvas drawing methods to automatically query the `ctk.ThemeManager.theme` for current accent colors. Automatically inverses hex codes to dynamically color raw input and processed output tracers.
@@ -204,3 +209,9 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Matplotlib Integration:** Integrated `matplotlib.backends.backend_tkagg` into the Utilities tab to handle real-time rendering of the generic oscilloscope without bogging down the main GUI loop.
 - **Performance Fixes:** Optimized `update_position_loop` tick rates and removed expensive console standard output flushing to preserve high-frequency graphing performance.
 - **`custom_eq` Parameter Routing:** Upgraded `math_utils.process_analog_stick` and `process_trigger` to natively accept and parse string equations down into `curves.evaluate_curve`.
+- **Community Fetcher API:** Rewrote `community_fetcher.py` to request individual files from the GitHub raw content network. Added `fetch_database` and `fetch_maps_for_devices` to handle the phased selective download pipeline.
+- **Persistent Update Tracking:** Added `db_last_updated` Unix timestamp and `db_update_interval_days` keys in `config.ini` under a new `[community]` section to maintain scheduling states across daemon launches.
+- **Startup Bootstrapping:** Updated `main.py` to check for and fetch the community index file automatically if missing on startup, ensuring fallback mapping works correctly on clean installs.
+- **Terminology Propagation:** Renamed validation and diagnostic modules (`validate_profile` → `validate_hid_map`, `diff_profiles` → `diff_hid_maps`) and local references throughout the codebase.
+- **Corrected GUI Configuration Reference:** Updated the dashboard's "Validate HID Map" validation query to reference `self.daemon_config` rather than `self.config` to resolve config key lookup errors.
+- **Synchronized HID Map Method Names:** Updated `gui.py`'s Profiles tab utility references to point to `validate_hid_map` and `diff_hid_maps` instead of their deprecated method names.
