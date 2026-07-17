@@ -2416,7 +2416,7 @@ class App(ctk.CTk):
         def run_validate():
             import profile_tools
             p_path = os.path.join("profiles", p1_var.get())
-            res = profile_tools.validate_profile(p_path)
+            res = profile_tools.validate_hid_map(p_path)
             output_txt.delete("0.0", "end")
             output_txt.insert("0.0", res)
             
@@ -2424,7 +2424,7 @@ class App(ctk.CTk):
             import profile_tools
             p1_path = os.path.join("profiles", p1_var.get())
             p2_path = os.path.join("profiles", p2_var.get())
-            res = profile_tools.diff_profiles(p1_path, p2_path)
+            res = profile_tools.diff_hid_maps(p1_path, p2_path)
             output_txt.delete("0.0", "end")
             output_txt.insert("0.0", res)
             

@@ -275,10 +275,10 @@ def main():
         time.sleep(5)
         sys.exit(1)
     
-    # Load profile to check for interface restriction
+    # Load HID map to check for interface restriction
     req_ifaces = []
     try:
-        with open(profile_path, 'r') as f:
+        with open(hid_map_path, 'r') as f:
             profile_data = json.load(f)
             if "interfaces" in profile_data:
                 req_ifaces = profile_data["interfaces"]
@@ -310,7 +310,7 @@ def main():
 
     write_status("Connected", connected_names[0] if connected_names else "Unknown")
 
-    decoder = Decoder(profile_path)
+    decoder = Decoder(hid_map_path)
 
     def rumble_callback(left_motor, right_motor):
         if not hasattr(decoder, "profile") or "rumble" not in decoder.profile:
