@@ -312,6 +312,9 @@ class App(ctk.CTk):
         self.title("Controller Wrapper Configuration")
         self.geometry("980x700")
 
+        self.resize_timer = None
+        self.bind("<Configure>", self.on_window_resize)
+
         self.daemon_config_file = 'config.ini'
         self.daemon_config = configparser.ConfigParser()
         if os.path.exists(self.daemon_config_file):
@@ -410,6 +413,20 @@ class App(ctk.CTk):
 
         self.update_status_loop()
         self.start_hid_polling()
+
+    def on_window_resize(self, event):
+        if event.widget == self:
+            if self.resize_timer:
+                self.after_cancel(self.resize_timer)
+            else:
+                if hasattr(self, 'tabview'):
+                    self.tabview.pack_forget()
+            self.resize_timer = self.after(150, self.execute_delayed_resize)
+
+    def execute_delayed_resize(self):
+        if hasattr(self, 'tabview'):
+            self.tabview.pack(padx=20, pady=20, fill="both", expand=True)
+        self.resize_timer = None
 
     def start_hid_polling(self):
         def poll_thread():
@@ -625,10 +642,10 @@ class App(ctk.CTk):
         self.tab_remapping.grid_rowconfigure(1, weight=1)
 
         # Create 4 quadrants using normal Frames to avoid resize lag
-        self.frame_face = ctk.CTkFrame(self.tab_remapping)
-        self.frame_dpad = ctk.CTkFrame(self.tab_remapping)
-        self.frame_sticks = ctk.CTkFrame(self.tab_remapping)
-        self.frame_system = ctk.CTkFrame(self.tab_remapping)
+        self.frame_face = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
+        self.frame_dpad = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
+        self.frame_sticks = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
+        self.frame_system = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
 
         # Labels for the frames since CTkFrame doesn't have label_text
         for f, title in [(self.frame_face, "Face Buttons"), (self.frame_dpad, "D-Pad"),
@@ -680,7 +697,7 @@ class App(ctk.CTk):
             if self.config.has_option('extra_buttons', btn):
                 current_val = self.config.get('extra_buttons', btn)
 
-            entry = ctk.CTkEntry(frame, width=90)
+            entry = ctk.CTkEntry(frame, width=90, corner_radius=0)
             entry.insert(0, current_val)
             entry.grid(row=row_idx, column=1, padx=7, pady=2)
 
@@ -690,7 +707,7 @@ class App(ctk.CTk):
 
             self.entries[btn] = entry
 
-            rec_btn = ctk.CTkButton(frame, text="⏺", width=25, command=lambda b=btn: self.start_recording(b))
+            rec_btn = ctk.CTkButton(frame, text="⏺", width=25, corner_radius=0, command=lambda b=btn: self.start_recording(b))
             rec_btn.grid(row=row_idx, column=2, padx=7, pady=2)
 
             # Checkbox for Block XInput
@@ -699,7 +716,7 @@ class App(ctk.CTk):
                 is_blocked = self.config.get('block_xinput', btn).lower() != 'false'
 
             cb_var = ctk.BooleanVar(value=is_blocked)
-            cb = ctk.CTkCheckBox(frame, text="", variable=cb_var, width=20,
+            cb = ctk.CTkCheckBox(frame, text="", variable=cb_var, width=20, corner_radius=0,
                                  command=lambda b=btn, v=cb_var: self.on_block_toggled(b, v))
             cb.grid(row=row_idx, column=3, padx=7, pady=2)
             self.block_checkboxes[btn] = cb
@@ -713,7 +730,7 @@ class App(ctk.CTk):
             if self.config.has_option('shift_mappings', btn):
                 shift_val = self.config.get('shift_mappings', btn)
 
-            s_entry = ctk.CTkEntry(frame, width=90)
+            s_entry = ctk.CTkEntry(frame, width=90, corner_radius=0)
             s_entry.insert(0, shift_val)
             s_entry.grid(row=row_idx, column=4, padx=7, pady=2)
             
@@ -727,7 +744,7 @@ class App(ctk.CTk):
                 is_s_blocked = self.config.get('shift_block_xinput', btn).lower() != 'false'
 
             scb_var = ctk.BooleanVar(value=is_s_blocked)
-            scb = ctk.CTkCheckBox(frame, text="", variable=scb_var, width=20,
+            scb = ctk.CTkCheckBox(frame, text="", variable=scb_var, width=20, corner_radius=0,
                                  command=lambda b=btn, v=scb_var: self.on_shift_block_toggled(b, v))
             scb.grid(row=row_idx, column=5, padx=7, pady=2)
             self.shift_block_checkboxes[btn] = scb
@@ -1079,7 +1096,7 @@ class App(ctk.CTk):
         self.save_config()
 
     def setup_analog_tuning(self):
-        self.tuning_scroll = ctk.CTkScrollableFrame(self.tab_analog, fg_color="transparent")
+        self.tuning_scroll = ctk.CTkScrollableFrame(self.tab_analog, fg_color="transparent", corner_radius=0)
         self.tuning_scroll.pack(fill="both", expand=True)
         
         self.tuning_scroll.grid_columnconfigure(0, weight=1)
@@ -1099,7 +1116,6 @@ class App(ctk.CTk):
         legend_btn.pack(side="left")
         ToolTip(legend_btn, "Cyan = Raw controller input (what your hardware sends)\nPurple = Processed output (what the game receives\nafter deadzone, curve, and anti-deadzone settings)\n\nThe response curve graph shows the relationship between\nraw input (X axis) and processed output (Y axis).\nThe moving dot/bar tracks your live input on the curve.")
 
-        # Shift grid rows down by 1 to make room for the legend
         self.tuning_scroll.grid_rowconfigure(0, weight=0)
         self.tuning_scroll.grid_rowconfigure(1, weight=1)
         self.tuning_scroll.grid_rowconfigure(2, weight=1)
@@ -1604,7 +1620,7 @@ class App(ctk.CTk):
         ToolTip(info_btn_chords, "Map multiple simultaneous button presses (a chord) to a macro sequence.\nExample Outputs: 'keyboard:h, wait:50, mouse:left'")
         
         self.chord_rows = []
-        self.chord_list_frame = ctk.CTkScrollableFrame(self.chords_frame, height=250)
+        self.chord_list_frame = ctk.CTkScrollableFrame(self.chords_frame, height=250, corner_radius=0)
         self.chord_list_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
         # Load chords & macros

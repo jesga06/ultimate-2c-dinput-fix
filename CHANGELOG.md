@@ -10,6 +10,7 @@
 - **Core Profiles & Inputs**: Calibration confidence, profile validator/comparison/export, new stick/trigger curves.
 - **Utilities Tab**: Polling rate & latency monitors, built-in benchmark, generic input graph, and input inspector.
 - **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and reverse engineering tools.
+- **GUI Optimization Pass**: Find out why this hot mess of a GUI is so damn laggy. 
 
 
 ## NOTES
