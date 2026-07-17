@@ -1534,8 +1534,12 @@ class App(ctk.CTk):
             circ_menu = ctk.CTkOptionMenu(circ_frame, values=["disabled", "before", "after"], variable=circ_mode_var, command=update_circ_mode)
             circ_menu.pack(side="left", fill="x", expand=True, padx=5)
             
+            def on_calib_finish():
+                circ_mode_var.set(self.config.get(section, 'circularity_mode', fallback='disabled'))
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
+
             def open_circ_calib():
-                CircularityCalibrationModal(self, title, section)
+                CircularityCalibrationModal(self, title, section, on_finish=on_calib_finish)
                 
             def open_circ_info():
                 info_modal = ctk.CTkToplevel(self)
@@ -1559,6 +1563,7 @@ class App(ctk.CTk):
                     "• 'Before': Applies circularity immediately on the raw hardware input, BEFORE deadzones and response curves. (Recommended)\n"
                     "• 'After': Applies circularity at the very end, squashing the fully processed output.\n\n"
                     "Should you use it?\n"
+                    "If your controller already has excellent native circularity (0-10% error), software calibration is redundant and unnecessary. "
                     "Some games expect perfect circular inputs and might have weird camera acceleration if diagonals exceed 1.0. "
                     "Other games might feel sluggish on diagonals if circularity is forced. Try it out and see what feels best!"
                 )
@@ -1854,11 +1859,11 @@ class App(ctk.CTk):
         # Initial draw
         ls_cm = self.config.get('analog_left', 'circularity_mode', fallback='disabled')
         ls_sr = self.config.getboolean('analog_left', 'show_circ_ref', fallback=True)
-        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get(), ls_cm, ls_sr, section="analog_left")
+        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get(), ls_cm, ls_sr, section="analog_left", warp_threshold=self.ls_warp.get())
         
         rs_cm = self.config.get('analog_right', 'circularity_mode', fallback='disabled')
         rs_sr = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
-        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get(), rs_cm, rs_sr, section="analog_right")
+        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get(), rs_cm, rs_sr, section="analog_right", warp_threshold=self.rs_warp.get())
         
         lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
         self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_sens.get(), self.lt_custom.get(), digital=lt_dig)
@@ -1886,11 +1891,13 @@ class App(ctk.CTk):
         if section == "analog_left":
             circ_mode = self.config.get('analog_left', 'circularity_mode', fallback='disabled')
             show_ref = self.config.getboolean('analog_left', 'show_circ_ref', fallback=True)
-            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_left")
+            warp = warp_var.get() if warp_var else 0.0
+            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_left", warp_threshold=warp)
         elif section == "analog_right":
             circ_mode = self.config.get('analog_right', 'circularity_mode', fallback='disabled')
             show_ref = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
-            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_right")
+            warp = warp_var.get() if warp_var else 0.0
+            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_right", warp_threshold=warp)
         elif section == "trigger_left":
             lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
             self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=lt_dig)
@@ -1898,7 +1905,7 @@ class App(ctk.CTk):
             rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
             self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=rt_dig)
 
-    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", circ_mode="disabled", show_ref=True, section=""):
+    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", circ_mode="disabled", show_ref=True, section="", warp_threshold=0.0):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1928,6 +1935,8 @@ class App(ctk.CTk):
                 in_x = input_val * 0.707106
                 in_y = input_val * 0.707106
                 
+                in_x, in_y = math_utils.apply_warped_stick_correction(in_x, in_y, warp_threshold)
+                
                 if circ_mode == 'before':
                     in_x, in_y = math_utils.apply_circularity_correction(in_x, in_y, circ_cx, circ_cy, circ_bounds)
                     out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
@@ -1947,8 +1956,8 @@ class App(ctk.CTk):
         points = []
         for x_px in range(width + 1):
             input_val = x_px / width
-            # Pass 0 for Y so magnitude = input_val
-            out_x, _ = math_utils.process_analog_stick(input_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
+            in_val, _ = math_utils.apply_warped_stick_correction(input_val, 0.0, warp_threshold)
+            out_x, _ = math_utils.process_analog_stick(in_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
             y_px = height - (out_x * height)
             points.append(x_px)
             points.append(y_px)
@@ -2091,10 +2100,10 @@ class App(ctk.CTk):
             
             out_lx, out_ly = math_utils.apply_warped_stick_correction(raw_lx, disp_raw_ly, ls_warp)
             
-            if ls_circ_mode == 'before':
+            if self.ls_circ_mode.get() == 'before':
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
                 out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get(), self.ls_custom.get())
-            elif ls_circ_mode == 'after':
+            elif self.ls_circ_mode.get() == 'after':
                 out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get(), self.ls_custom.get())
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
             else:
@@ -2117,10 +2126,10 @@ class App(ctk.CTk):
             
             out_rx, out_ry = math_utils.apply_warped_stick_correction(state.rx, disp_raw_ry, rs_warp)
             
-            if rs_circ_mode == 'before':
+            if self.rs_circ_mode.get() == 'before':
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
                 out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get(), self.rs_custom.get())
-            elif rs_circ_mode == 'after':
+            elif self.rs_circ_mode.get() == 'after':
                 out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get(), self.rs_custom.get())
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
             else:

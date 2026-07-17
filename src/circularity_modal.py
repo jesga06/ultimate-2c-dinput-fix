@@ -2,11 +2,12 @@ import math
 import customtkinter as ctk
 
 class CircularityCalibrationModal(ctk.CTkToplevel):
-    def __init__(self, parent, title, section):
+    def __init__(self, parent, title, section, on_finish=None):
         super().__init__(parent)
         self.parent = parent
         self.section = section
         self.is_left = ("left" in section.lower())
+        self.on_finish = on_finish
         
         self.title(f"{title} - Circularity Calibration")
         self.geometry("500x550")
@@ -218,4 +219,6 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
             config.set(self.section, 'circularity_mode', 'before')
             
         self.parent.save_config()
+        if self.on_finish:
+            self.on_finish()
         self.destroy()
