@@ -17,6 +17,7 @@ import tkinter as tk
 from logger_setup import setup_logger
 from hid_reader import HIDReader, RawHIDReport
 from decoder import Decoder
+from circularity_modal import CircularityCalibrationModal
 
 logger = None
 
@@ -339,6 +340,7 @@ class App(ctk.CTk):
                     pass
                 break
         
+        self.hardware_profile_path = hardware_profile_path
         self.hardware_layout = 'xbox'
         if hardware_profile_path and os.path.exists(hardware_profile_path):
             try:
@@ -431,6 +433,8 @@ class App(ctk.CTk):
                 return
 
             self.decoder = Decoder(profile_path)
+            self.hardware_profile_path = profile_path
+            self.after(0, self.refresh_shift_trigger_menu)
             if "layout" in self.decoder.profile:
                 self.hardware_layout = self.decoder.profile["layout"]
                 if hasattr(self, 'layout_label'):
@@ -573,6 +577,45 @@ class App(ctk.CTk):
         if hasattr(self, 'label_widgets'):
             for btn, lbl in self.label_widgets.items():
                 lbl.configure(text=self.get_btn_display_name(btn))
+
+    def get_profile_mapped_keys(self):
+        defaults = ["a", "b", "x", "y", "lb", "rb", "lt", "rt", "l3", "r3", "select", "start", "dpad_up", "dpad_down", "dpad_left", "dpad_right", "home", "paddle_l", "paddle_r"]
+        path = getattr(self, 'hardware_profile_path', None)
+        if not path or not os.path.exists(path):
+            if self.daemon_config.has_section('controller'):
+                path = self.daemon_config.get('controller', 'last_profile', fallback=None)
+
+        if path and os.path.exists(path):
+            try:
+                with open(path, 'r') as f:
+                    prof_data = json.load(f)
+                    mapped = set()
+                    for rep_id, rep_cfg in prof_data.get('reports', {}).items():
+                        for input_name, cfg in rep_cfg.get('inputs', {}).items():
+                            itype = cfg.get('type')
+                            if itype == 'button':
+                                mapped.add(input_name)
+                            elif itype == 'hat':
+                                mapped.update(['dpad_up', 'dpad_down', 'dpad_left', 'dpad_right'])
+                            elif itype == 'trigger':
+                                mapped.add(input_name)
+                    if mapped:
+                        ordered = [""]
+                        for k in defaults:
+                            if k in mapped:
+                                ordered.append(k)
+                        for k in sorted(mapped):
+                            if k not in ordered:
+                                ordered.append(k)
+                        return ordered
+            except Exception:
+                pass
+        return [""] + defaults
+
+    def refresh_shift_trigger_menu(self):
+        if hasattr(self, 'trig_menu'):
+            keys = self.get_profile_mapped_keys()
+            self.trig_menu.configure(values=keys)
 
     def setup_remapping(self):
         # Configure columns and rows in tab_remapping for expansion
@@ -1151,6 +1194,26 @@ class App(ctk.CTk):
                 self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var)
 
             ctk.CTkButton(btn_frame, text="Reset", command=reset).pack(side="left", padx=5, expand=True)
+            
+            circ_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
+            circ_frame.pack(fill="x", pady=5)
+            
+            circ_mode_var = ctk.StringVar(value=self.config.get(section, 'circularity_mode', fallback='disabled'))
+            
+            def update_circ_mode(val):
+                if not self.config.has_section(section):
+                    self.config.add_section(section)
+                self.config.set(section, 'circularity_mode', val)
+                self.save_config()
+                
+            circ_menu = ctk.CTkOptionMenu(circ_frame, values=["disabled", "before", "after"], variable=circ_mode_var, command=update_circ_mode)
+            circ_menu.pack(side="left", fill="x", expand=True, padx=5)
+            
+            def open_circ_calib():
+                CircularityCalibrationModal(self, title, section)
+                
+            circ_btn = ctk.CTkButton(circ_frame, text="Calibrate Circularity", command=open_circ_calib, fg_color="#1f538d")
+            circ_btn.pack(side="right", padx=5)
 
             return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var
 
@@ -1404,7 +1467,24 @@ class App(ctk.CTk):
             # Left Stick
             raw_lx, raw_ly = state.lx, state.ly
             disp_raw_ly = -raw_ly
-            out_lx, out_ly = math_utils.process_analog_stick(raw_lx, disp_raw_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get())
+            
+            ls_circ_mode = self.config.get('analog_left', 'circularity_mode', fallback='disabled').lower()
+            ls_circ_cx = self.config.getfloat('analog_left', 'circularity_center_x', fallback=0.0)
+            ls_circ_cy = self.config.getfloat('analog_left', 'circularity_center_y', fallback=0.0)
+            ls_bounds_str = self.config.get('analog_left', 'circularity_bounds', fallback='')
+            ls_circ_bounds = [float(x) for x in ls_bounds_str.split(',')] if ls_bounds_str else None
+            
+            out_lx, out_ly = raw_lx, disp_raw_ly
+            
+            if ls_circ_mode == 'before':
+                out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get())
+            elif ls_circ_mode == 'after':
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get())
+                out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
+            else:
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get())
+                
             self.draw_crosshair(self.c_ls_pos, raw_lx, disp_raw_ly, out_lx, out_ly)
             raw_mag = math.sqrt(raw_lx**2 + disp_raw_ly**2)
             out_mag = math.sqrt(out_lx**2 + out_ly**2)
@@ -1412,7 +1492,24 @@ class App(ctk.CTk):
             
             # Right Stick
             disp_raw_ry = -state.ry
-            out_rx, out_ry = math_utils.process_analog_stick(state.rx, disp_raw_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get())
+            
+            rs_circ_mode = self.config.get('analog_right', 'circularity_mode', fallback='disabled').lower()
+            rs_circ_cx = self.config.getfloat('analog_right', 'circularity_center_x', fallback=0.0)
+            rs_circ_cy = self.config.getfloat('analog_right', 'circularity_center_y', fallback=0.0)
+            rs_bounds_str = self.config.get('analog_right', 'circularity_bounds', fallback='')
+            rs_circ_bounds = [float(x) for x in rs_bounds_str.split(',')] if rs_bounds_str else None
+            
+            out_rx, out_ry = state.rx, disp_raw_ry
+            
+            if rs_circ_mode == 'before':
+                out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get())
+            elif rs_circ_mode == 'after':
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get())
+                out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
+            else:
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get())
+                
             self.draw_crosshair(self.c_rs_pos, state.rx, disp_raw_ry, out_rx, out_ry)
             raw_mag_r = math.sqrt(state.rx**2 + disp_raw_ry**2)
             out_mag_r = math.sqrt(out_rx**2 + out_ry**2)
@@ -1453,7 +1550,7 @@ class App(ctk.CTk):
         ctk.CTkLabel(trig_frame, text="Trigger Button:", width=120, anchor="w").pack(side="left")
         
         self.shift_trig_var = ctk.StringVar(value=self.config.get('shift_layer', 'trigger_button', fallback=''))
-        base_buttons = ["", "a", "b", "x", "y", "lb", "rb", "lt", "rt", "l3", "r3", "select", "start", "dpad_up", "dpad_down", "dpad_left", "dpad_right", "home", "paddle_l", "paddle_r"]
+        base_buttons = self.get_profile_mapped_keys()
         
         def on_shift_trig_changed(val):
             val = val.strip()
@@ -1477,8 +1574,8 @@ class App(ctk.CTk):
                     self.block_checkboxes[val].configure(state="disabled")
             self.save_advanced()
             
-        trig_menu = ctk.CTkOptionMenu(trig_frame, values=base_buttons, variable=self.shift_trig_var, command=on_shift_trig_changed)
-        trig_menu.pack(side="left", fill="x", expand=True)
+        self.trig_menu = ctk.CTkOptionMenu(trig_frame, values=base_buttons, variable=self.shift_trig_var, command=on_shift_trig_changed)
+        self.trig_menu.pack(side="left", fill="x", expand=True)
         
         # Mode
         mode_frame = ctk.CTkFrame(shift_frame, fg_color="transparent")

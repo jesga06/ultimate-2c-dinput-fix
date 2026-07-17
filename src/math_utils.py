@@ -80,3 +80,50 @@ def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str
     # Apply anti-deadzone
     final_val = anti_dz + norm_val * (1.0 - anti_dz)
     return max(0.0, min(1.0, final_val))
+
+def apply_circularity_correction(x: float, y: float, center_x: float, center_y: float, bounds_data: list):
+    """
+    Applies circularity correction to an analog stick.
+    bounds_data: list of 360 floats representing max radius at each degree (0-359).
+    """
+    if not bounds_data or len(bounds_data) != 360:
+        return x, y
+        
+    dx = x - center_x
+    dy = y - center_y
+    r = math.sqrt(dx**2 + dy**2)
+    
+    if r == 0:
+        return 0.0, 0.0
+        
+    theta = int(math.degrees(math.atan2(dy, dx))) % 360
+    r_max = bounds_data[theta]
+    
+    if r_max <= 0:
+        return x, y
+        
+    # Scale by (R_max * 0.98) to ensure we overshoot slightly (guarantee hitting 1.0)
+    adjusted_r_max = r_max * 0.98
+    
+    new_r = r / adjusted_r_max
+    
+    # Cap to unit circle
+    new_r = min(new_r, 1.0)
+    
+    new_x = new_r * (dx / r)
+    new_y = new_r * (dy / r)
+    
+    return new_x, new_y
+
+def calculate_circularity_error(bounds_data: list):
+    """
+    Calculates the average deviation from a perfect circle (radius 1.0).
+    """
+    if not bounds_data:
+        return 0.0
+        
+    total_deviation = 0.0
+    for r in bounds_data:
+        total_deviation += abs(r - 1.0)
+        
+    return (total_deviation / len(bounds_data)) * 100.0

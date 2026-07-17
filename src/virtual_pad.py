@@ -107,6 +107,11 @@ class VirtualPad:
             self.ls_curve = config.get('analog_left', 'curve', fallback=self.ls_curve)
             self.ls_power = config.getfloat('analog_left', 'exp_factor', fallback=self.ls_power)
             self.ls_rest_dz = config.getfloat('analog_left', 'rest_deadzone', fallback=0.0)
+            self.ls_circ_mode = config.get('analog_left', 'circularity_mode', fallback='disabled').lower()
+            self.ls_circ_cx = config.getfloat('analog_left', 'circularity_center_x', fallback=0.0)
+            self.ls_circ_cy = config.getfloat('analog_left', 'circularity_center_y', fallback=0.0)
+            bounds_str = config.get('analog_left', 'circularity_bounds', fallback='')
+            self.ls_circ_bounds = [float(x) for x in bounds_str.split(',')] if bounds_str else None
             
         if config.has_section('analog_right'):
             self.rs_inner = config.getfloat('analog_right', 'deadzone', fallback=self.rs_inner)
@@ -114,6 +119,11 @@ class VirtualPad:
             self.rs_curve = config.get('analog_right', 'curve', fallback=self.rs_curve)
             self.rs_power = config.getfloat('analog_right', 'exp_factor', fallback=self.rs_power)
             self.rs_rest_dz = config.getfloat('analog_right', 'rest_deadzone', fallback=0.0)
+            self.rs_circ_mode = config.get('analog_right', 'circularity_mode', fallback='disabled').lower()
+            self.rs_circ_cx = config.getfloat('analog_right', 'circularity_center_x', fallback=0.0)
+            self.rs_circ_cy = config.getfloat('analog_right', 'circularity_center_y', fallback=0.0)
+            bounds_str = config.get('analog_right', 'circularity_bounds', fallback='')
+            self.rs_circ_bounds = [float(x) for x in bounds_str.split(',')] if bounds_str else None
 
         # Load block preferences (default to block if mapped, i.e. True)
         block_prefs = {}
@@ -170,12 +180,26 @@ class VirtualPad:
         if 'ls' in self.blocked_buttons:
             lx_val, ly_val = 0.0, 0.0
         else:
-            lx_val, ly_val = math_utils.process_analog_stick(lx_val, ly_val, self.ls_inner, self.ls_adz, self.ls_curve, self.ls_power, getattr(self, 'ls_rest_dz', 0.0))
+            if getattr(self, 'ls_circ_mode', 'disabled') == 'before':
+                lx_val, ly_val = math_utils.apply_circularity_correction(lx_val, ly_val, getattr(self, 'ls_circ_cx', 0.0), getattr(self, 'ls_circ_cy', 0.0), getattr(self, 'ls_circ_bounds', None))
+                lx_val, ly_val = math_utils.process_analog_stick(lx_val, ly_val, self.ls_inner, self.ls_adz, self.ls_curve, self.ls_power, getattr(self, 'ls_rest_dz', 0.0))
+            elif getattr(self, 'ls_circ_mode', 'disabled') == 'after':
+                lx_val, ly_val = math_utils.process_analog_stick(lx_val, ly_val, self.ls_inner, self.ls_adz, self.ls_curve, self.ls_power, getattr(self, 'ls_rest_dz', 0.0))
+                lx_val, ly_val = math_utils.apply_circularity_correction(lx_val, ly_val, getattr(self, 'ls_circ_cx', 0.0), getattr(self, 'ls_circ_cy', 0.0), getattr(self, 'ls_circ_bounds', None))
+            else:
+                lx_val, ly_val = math_utils.process_analog_stick(lx_val, ly_val, self.ls_inner, self.ls_adz, self.ls_curve, self.ls_power, getattr(self, 'ls_rest_dz', 0.0))
 
         if 'rs' in self.blocked_buttons:
             rx_val, ry_val = 0.0, 0.0
         else:
-            rx_val, ry_val = math_utils.process_analog_stick(rx_val, ry_val, self.rs_inner, self.rs_adz, self.rs_curve, self.rs_power, getattr(self, 'rs_rest_dz', 0.0))
+            if getattr(self, 'rs_circ_mode', 'disabled') == 'before':
+                rx_val, ry_val = math_utils.apply_circularity_correction(rx_val, ry_val, getattr(self, 'rs_circ_cx', 0.0), getattr(self, 'rs_circ_cy', 0.0), getattr(self, 'rs_circ_bounds', None))
+                rx_val, ry_val = math_utils.process_analog_stick(rx_val, ry_val, self.rs_inner, self.rs_adz, self.rs_curve, self.rs_power, getattr(self, 'rs_rest_dz', 0.0))
+            elif getattr(self, 'rs_circ_mode', 'disabled') == 'after':
+                rx_val, ry_val = math_utils.process_analog_stick(rx_val, ry_val, self.rs_inner, self.rs_adz, self.rs_curve, self.rs_power, getattr(self, 'rs_rest_dz', 0.0))
+                rx_val, ry_val = math_utils.apply_circularity_correction(rx_val, ry_val, getattr(self, 'rs_circ_cx', 0.0), getattr(self, 'rs_circ_cy', 0.0), getattr(self, 'rs_circ_bounds', None))
+            else:
+                rx_val, ry_val = math_utils.process_analog_stick(rx_val, ry_val, self.rs_inner, self.rs_adz, self.rs_curve, self.rs_power, getattr(self, 'rs_rest_dz', 0.0))
 
         self.gamepad.left_joystick_float(x_value_float=lx_val, y_value_float=ly_val)
         self.gamepad.right_joystick_float(x_value_float=rx_val, y_value_float=ry_val)

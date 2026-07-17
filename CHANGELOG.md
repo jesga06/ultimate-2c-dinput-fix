@@ -6,6 +6,10 @@
 - **Built-in Community Profiles:** Auto-discovery database to bypass calibration for common VID/PIDs using pre-made templates.
 - **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
 - **Vibration Diagnostic Test:** Diagnostic tool `07_vibration_test.py` to test and identify rumble payloads.
+- **UI/Customization & Basic QoL**: Analog sensitivity slider, theme customization, and font changes.
+- **Core Profiles & Inputs**: Calibration confidence, profile validator/comparison/export, new stick/trigger curves.
+- **Utilities Tab**: Polling rate & latency monitors, built-in benchmark, generic input graph, and input inspector.
+- **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and reverse engineering tools.
 
 
 ## NOTES

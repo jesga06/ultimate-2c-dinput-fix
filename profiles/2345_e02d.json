@@ -57,15 +57,15 @@
                     "length": 1,
                     "center": true
                 },
-                "ly": {
-                    "type": "axis",
-                    "byte": 4,
-                    "length": 1,
-                    "center": true
-                },
                 "rx": {
                     "type": "axis",
                     "byte": 5,
+                    "length": 1,
+                    "center": true
+                },
+                "ry": {
+                    "type": "axis",
+                    "byte": 6,
                     "length": 1,
                     "center": true
                 },
@@ -87,9 +87,9 @@
         },
         "2_0": {
             "inputs": {
-                "ry": {
+                "ly": {
                     "type": "axis",
-                    "byte": 6,
+                    "byte": 4,
                     "length": 1,
                     "center": true
                 },

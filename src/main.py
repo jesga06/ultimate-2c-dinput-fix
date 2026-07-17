@@ -122,6 +122,10 @@ def main():
         '--log',
         action='store_true',
         help='Enable verbose debugging logs')
+    parser.add_argument(
+        '--boot',
+        action='store_true',
+        help='Indicate wrapper was called by system initialization (prevents GUI auto-open)')
     args = parser.parse_args()
 
     is_debug_mode = args.log
@@ -315,6 +319,11 @@ def main():
     t_reader.start()
 
     logger.info("App is running in the system tray.")
+
+    # Automatically open GUI on initialization unless --boot is specified
+    if not args.boot:
+        logger.info("Auto-opening GUI...")
+        open_config(None, None)
 
     # Setup tray icon
     image = create_image()

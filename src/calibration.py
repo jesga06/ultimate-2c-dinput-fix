@@ -342,29 +342,87 @@ class Calibrator:
                 for _, r in self.readers: r.stop()
             return
 
-        # Prompt for visual layout
-        print("\nSelect the visual button layout for this controller:")
-        print("[1] Xbox (A/B/X/Y)")
-        print("[2] PlayStation (X/O/■/▲)")
-        print("[3] Nintendo (B/A/Y/X)")
-        layout_choice = ""
-        while layout_choice not in ["1", "2", "3"]:
-            layout_choice = input("Choice [1-3] (default 1): ").strip()
-            if not layout_choice:
-                layout_choice = "1"
+        remapping_targets = None
+        profile_path = f"profiles/{self.profile['vid']}_{self.profile['pid']}.json".lower()
+        if os.path.exists(profile_path):
+            print("\nAn existing profile was found for this controller.")
+            print("[1] Recalibrate Everything (Overwrite)")
+            print("[2] Remap Specific Inputs")
+            print("[3] Exit")
+            choice = ""
+            while choice not in ["1", "2", "3"]:
+                choice = input("Choice [1-3]: ").strip()
+            if choice == "3":
+                for _, r in self.readers: r.stop()
+                return
+            elif choice == "2":
+                try:
+                    with open(profile_path, 'r', encoding='utf-8') as f:
+                        old_profile = json.load(f)
+                    
+                    for k, v in old_profile.items():
+                        if k not in ["name", "vid", "pid", "interfaces"]:
+                            self.profile[k] = v
+                            
+                    all_standard = ["a", "b", "x", "y", "lb", "rb", "select", "start", "home", "lx", "ly", "rx", "ry", "l3", "r3", "lt", "rt", "dpad"]
+                    mapped_inputs = []
+                    for rep_id, rep_data in old_profile.get("reports", {}).items():
+                        for in_name in rep_data.get("inputs", {}).keys():
+                            mapped_inputs.append(in_name)
+                    
+                    mapped_inputs = sorted(list(set(mapped_inputs)))
+                    unmapped_inputs = sorted([inp for inp in all_standard if inp not in mapped_inputs])
+                    
+                    print(f"\nCurrently Mapped Inputs: {', '.join(mapped_inputs) if mapped_inputs else 'None'}")
+                    print(f"Currently Unmapped Standard Inputs: {', '.join(unmapped_inputs) if unmapped_inputs else 'None'}")
+                    
+                    print("\nEnter the names of the inputs you want to remap, separated by commas.")
+                    print("Standard inputs: a, b, x, y, lb, rb, lt, rt, l3, r3, select, start, home, lx, ly, rx, ry, dpad")
+                    print("(You can also enter extra button names, e.g. l4)")
+                    inputs_str = input("Inputs to remap: ").strip().lower()
+                    remapping_targets = [x.strip() for x in inputs_str.split(',') if x.strip()]
+                    
+                    if not remapping_targets:
+                        print("No inputs selected. Exiting.")
+                        for _, r in self.readers: r.stop()
+                        return
+                        
+                    for rep_id, rep_data in self.profile.get("reports", {}).items():
+                        if "inputs" in rep_data:
+                            for t in remapping_targets:
+                                if t in rep_data["inputs"]:
+                                    del rep_data["inputs"][t]
+                except Exception as e:
+                    print(f"Failed to load existing profile: {e}")
+                    print("Proceeding with full recalibration.")
+                    remapping_targets = None
 
-        layout_map = {"1": "xbox", "2": "playstation", "3": "nintendo"}
-        self.layout = layout_map[layout_choice]
-        self.profile["layout"] = self.layout
-        print("\nDoes your controller constantly stream Gyroscope/Motion data?")
-        print("[1] NO (Standard gamepads, or Gyro is disabled in D-Input mode) - RECOMMENDED")
-        print("[2] YES (DualSense, Switch Pro, etc.)")
-        report_choice = ""
-        while report_choice not in ["1", "2"]:
-            report_choice = input("Choice [1-2] (default 1): ").strip()
-            if not report_choice:
-                report_choice = "1"
-        self.profile["has_report_id"] = (report_choice == "2")
+        if remapping_targets is None:
+            # Prompt for visual layout
+            print("\nSelect the visual button layout for this controller:")
+            print("[1] Xbox (A/B/X/Y)")
+            print("[2] PlayStation (X/O/■/▲)")
+            print("[3] Nintendo (B/A/Y/X)")
+            layout_choice = ""
+            while layout_choice not in ["1", "2", "3"]:
+                layout_choice = input("Choice [1-3] (default 1): ").strip()
+                if not layout_choice:
+                    layout_choice = "1"
+    
+            layout_map = {"1": "xbox", "2": "playstation", "3": "nintendo"}
+            self.layout = layout_map[layout_choice]
+            self.profile["layout"] = self.layout
+            print("\nDoes your controller constantly stream Gyroscope/Motion data?")
+            print("[1] NO (Standard gamepads, or Gyro is disabled in D-Input mode) - RECOMMENDED")
+            print("[2] YES (DualSense, Switch Pro, etc.)")
+            report_choice = ""
+            while report_choice not in ["1", "2"]:
+                report_choice = input("Choice [1-2] (default 1): ").strip()
+                if not report_choice:
+                    report_choice = "1"
+            self.profile["has_report_id"] = (report_choice == "2")
+        elif "layout" in self.profile:
+            self.layout = self.profile["layout"]
 
         print("\n--- Calibration Started ---")
         if logger: logger.info(f"Calibration Started for VID:{self.profile['vid']} PID:{self.profile['pid']} Layout:{self.layout}")
@@ -381,11 +439,11 @@ class Calibrator:
             time.sleep(0.01)
 
         try:
-            self._calibrate_loop()
+            self._calibrate_loop(remapping_targets)
         finally:
             for _, r in self.readers: r.stop()
 
-    def _calibrate_loop(self):
+    def _calibrate_loop(self, remapping_targets=None):
         labels = self.get_layout_labels()
 
         steps = [
@@ -410,18 +468,26 @@ class Calibrator:
         ]
 
         # Extra buttons
-        num_extras = -1
-        while num_extras < 0:
-            user_input = input("\nHow many extra buttons (e.g., L4, R4) does this controller have? (or 'q' to quit): ").strip().lower()
-            if user_input == 'q': return
-            try: num_extras = int(user_input)
-            except ValueError: pass
+        if remapping_targets is None:
+            num_extras = -1
+            while num_extras < 0:
+                user_input = input("\nHow many extra buttons (e.g., L4, R4) does this controller have? (or 'q' to quit): ").strip().lower()
+                if user_input == 'q': return
+                try: num_extras = int(user_input)
+                except ValueError: pass
 
-        for i in range(num_extras):
-            name = ""
-            while not name:
-                name = input(f"Enter a name for extra button {i + 1} (e.g., l4): ").strip().lower()
-            steps.append((name, "buttons", f"Press the '{name}' extra button"))
+            for i in range(num_extras):
+                name = ""
+                while not name:
+                    name = input(f"Enter a name for extra button {i + 1} (e.g., l4): ").strip().lower()
+                steps.append((name, "buttons", f"Press the '{name}' extra button"))
+        else:
+            filtered_steps = [s for s in steps if s[0] in remapping_targets]
+            standard_names = {s[0] for s in steps}
+            for t in remapping_targets:
+                if t not in standard_names:
+                    filtered_steps.append((t, "buttons", f"Press the '{t}' extra button"))
+            steps = filtered_steps
 
         i = 0
         while i < len(steps):
@@ -614,11 +680,18 @@ class Calibrator:
                             # Analyze samples
                             unique_counts = {}
                             base_state = {}
+                            for b_iface, b_reps in self.baselines.items():
+                                for b_rid, b_data in b_reps.items():
+                                    base_state[f"{b_iface}_{b_rid}"] = b_data
                             
                             for full_id, data in trigger_samples:
                                 if full_id not in unique_counts:
                                     unique_counts[full_id] = [set() for _ in range(len(data))]
-                                    base_state[full_id] = data
+                                    if full_id in base_state:
+                                        for byte_idx, b_val in enumerate(base_state[full_id]):
+                                            if byte_idx < len(unique_counts[full_id]):
+                                                unique_counts[full_id][byte_idx].add(b_val)
+                                                
                                 for byte_idx, val in enumerate(data):
                                     unique_counts[full_id][byte_idx].add(val)
                                     
@@ -649,48 +722,76 @@ class Calibrator:
                                 if logger: logger.info(f"Detected Analog {name} at {best_full_id}, byte {best_byte} ({max_uniques} unique states)")
                                 done = True
                             else:
-                                analog_fail_count += 1
-                                if analog_fail_count > 2:
+                                known_bits = set()
+                                known_axis_bytes = set()
+                                for rep_id, rep_data in self.profile.get("reports", {}).items():
+                                    for in_name, in_cfg in rep_data.get("inputs", {}).items():
+                                        if in_cfg.get("type") == "button":
+                                            known_bits.add((rep_id, in_cfg.get("byte"), in_cfg.get("bitmask")))
+                                        elif in_cfg.get("type") in ("axis", "trigger", "hat"):
+                                            known_axis_bytes.add((rep_id, in_cfg.get("byte")))
+                                            if in_cfg.get("length", 1) == 2:
+                                                known_axis_bytes.add((rep_id, in_cfg.get("byte")+1))
+                                                
+                                found = False
+                                best_full_id = None
+                                best_byte = -1
+                                best_mask = 0
+                                
+                                for full_id, counts in unique_counts.items():
+                                    if found: break
+                                    for byte_idx, u_set in enumerate(counts):
+                                        if found: break
+                                        if (full_id, byte_idx) in known_axis_bytes: continue
+                                        if len(u_set) > 3: continue # noisy analog axis, skip
+                                        
+                                        for val in u_set:
+                                            base_val = base_state[full_id][byte_idx]
+                                            changed_bits = val ^ base_val
+                                            if changed_bits == 0: continue
+                                            
+                                            for bit in range(8):
+                                                bitmask = 1 << bit
+                                                if (changed_bits & bitmask):
+                                                    if (full_id, byte_idx, bitmask) not in known_bits:
+                                                        best_full_id = full_id
+                                                        best_byte = byte_idx
+                                                        best_mask = bitmask
+                                                        found = True
+                                                        break
+                                            if found: break
+                                            
+                                if found:
                                     print(f"\nFalling back to digital trigger detection for {name}.")
                                     if logger: logger.warning(f"Falling back to digital trigger detection for {name}.")
-                                    
-                                    best_amp = 0
-                                    for full_id, data in trigger_samples:
-                                        if full_id in base_state:
-                                            for byte_idx, val in enumerate(data):
-                                                is_button = False
-                                                if full_id in self.profile.get("reports", {}):
-                                                    for in_name, in_cfg in self.profile["reports"][full_id].get("inputs", {}).items():
-                                                        if in_cfg.get("type") == "button" and in_cfg.get("byte") == byte_idx:
-                                                            is_button = True
-                                                            break
-                                                if is_button: continue
-                                                
-                                                amp = abs(val - base_state[full_id][byte_idx])
-                                                if amp > best_amp:
-                                                    best_amp = amp
-                                                    best_full_id = full_id
-                                                    best_byte = byte_idx
-                                                    changed_bits = val ^ base_state[full_id][byte_idx]
-                                                    # Get highest set bit or just lowest to isolate a single button mask
-                                                    best_mask = changed_bits & -changed_bits
-                                                    
-                                    if best_amp > 0:
-                                        if best_full_id not in self.profile["reports"]: self.profile["reports"][best_full_id] = {"inputs": {}}
-                                        self.profile["reports"][best_full_id]["inputs"][name] = {"type": "button", "byte": best_byte, "bitmask": best_mask, "is_analog": False}
-                                        print(f"Detected Digital {name} at {best_full_id}, byte {best_byte}, mask {best_mask}")
-                                        if logger: logger.info(f"Detected Digital {name} at {best_full_id}, byte {best_byte}, mask {best_mask}")
-                                        done = True
-                                    else:
-                                        print("Could not detect any input. Retry.")
-                                        trigger_start = 0
-                                        trigger_samples = []
-                                        analog_fail_count = 0
+                                    if best_full_id not in self.profile["reports"]: self.profile["reports"][best_full_id] = {"inputs": {}}
+                                    self.profile["reports"][best_full_id]["inputs"][name] = {"type": "button", "byte": best_byte, "bitmask": best_mask, "is_analog": False}
+                                    print(f"Detected Digital {name} at {best_full_id}, byte {best_byte}, mask {best_mask}")
+                                    if logger: logger.info(f"Detected Digital {name} at {best_full_id}, byte {best_byte}, mask {best_mask}")
+                                    done = True
                                 else:
-                                    print("\nWARNING: No analog trigger signal detected!")
+                                    print("\nWARNING: No trigger signal detected!")
                                     print("Ensure your controller is in DInput mode, the correct interface was selected,")
-                                    print("or confirm if your controller only possesses digital triggers.")
-                                    print("Press 's' to skip or 'u' to retry.")
+                                    print("or press the trigger more firmly.")
+                                    print("Press 's' to skip or 'u' to undo.")
+                                    
+                                    # DEBUG BLOCK
+                                    if "--log" in sys.argv:
+                                        debug_lines = []
+                                        for dfull_id, dcounts in unique_counts.items():
+                                            for dbyte_idx, d_u_set in enumerate(dcounts):
+                                                if len(d_u_set) > 1:
+                                                    dbase = base_state.get(dfull_id, [])
+                                                    b_val = dbase[dbyte_idx] if dbyte_idx < len(dbase) else -1
+                                                    is_axis = (dfull_id, dbyte_idx) in known_axis_bytes
+                                                    debug_lines.append(f"Byte {dbyte_idx} (axis={is_axis}, base={b_val}): uniques={d_u_set}")
+                                        if debug_lines:
+                                            print("DEBUG INFO (Changes detected but rejected):")
+                                            for line in debug_lines:
+                                                print(f"  {line}")
+                                        else:
+                                            print("DEBUG INFO: No byte had more than 1 unique value during the 2-second window.")
+                                        
                                     trigger_start = 0
                                     trigger_samples = []
 
