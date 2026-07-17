@@ -58,11 +58,13 @@ class Mapper:
         self.chords = []
         
         if config.has_section('settings'):
-            self.shift_button = config.get('settings', 'shift_button', fallback=None)
+            self.chord_mode = config.get('settings', 'chord_mode', fallback='rollback').lower()
+
+        if config.has_section('shift_layer'):
+            self.shift_button = config.get('shift_layer', 'trigger_button', fallback=None)
             if self.shift_button:
                 self.shift_button = self.shift_button.lower()
-            self.shift_mode = config.get('settings', 'shift_mode', fallback='hold').lower()
-            self.chord_mode = config.get('settings', 'chord_mode', fallback='rollback').lower()
+            self.shift_mode = config.get('shift_layer', 'mode', fallback='hold').lower()
 
         # Legacy extra_buttons to layer_base
         if config.has_section('extra_buttons'):
@@ -73,8 +75,8 @@ class Mapper:
             for key, val in config.items('layer_base'):
                 self.mappings['layer_base'][key.lower()] = val.lower()
                 
-        if config.has_section('layer_shift'):
-            for key, val in config.items('layer_shift'):
+        if config.has_section('shift_mappings'):
+            for key, val in config.items('shift_mappings'):
                 self.mappings['layer_shift'][key.lower()] = val.lower()
 
         # Extract Chords
