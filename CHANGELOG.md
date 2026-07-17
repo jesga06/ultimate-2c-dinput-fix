@@ -201,6 +201,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Interactive Dotted Curves:** Introduced a second type of custom response curve alongside fully custom ones, allowing users to define a set number of dots on the graph and drag them to shape the curves interactively.
 - **Selective Community Map Downloads:** Integrated the live repository (`jesga06/UR-XD-community-HID-maps`). Instead of downloading a full ZIP, the app downloads only the index (`database.json`) first, then selectively fetches only the specific HID maps matching connected controllers.
 - **Auto-Update Scheduler:** Added configuration options under UI Customization to check for community HID map updates periodically (1 to 30 days) independent of run frequency, including a status indicator and a "Force Update Now" button.
+- **Version Number In UI:** Added version number to the GUI's dashboard.
 
 ### ⚙️ Under-the-Hood Changes
 - **Dynamic Theme Interpolation:** Re-engineered GUI canvas drawing methods to automatically query the `ctk.ThemeManager.theme` for current accent colors. Automatically inverses hex codes to dynamically color raw input and processed output tracers.
@@ -215,3 +216,4 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Terminology Propagation:** Renamed validation and diagnostic modules (`validate_profile` → `validate_hid_map`, `diff_profiles` → `diff_hid_maps`) and local references throughout the codebase.
 - **Corrected GUI Configuration Reference:** Updated the dashboard's "Validate HID Map" validation query to reference `self.daemon_config` rather than `self.config` to resolve config key lookup errors.
 - **Synchronized HID Map Method Names:** Updated `gui.py`'s Profiles tab utility references to point to `validate_hid_map` and `diff_hid_maps` instead of their deprecated method names.
+- **Commit Commenting:** I actually do commented atomic commits now. Even the commit that adds this line was commented. Learned to do so the hard way.
