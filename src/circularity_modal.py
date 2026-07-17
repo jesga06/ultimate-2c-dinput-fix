@@ -191,7 +191,16 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
         self.lbl_instruct.configure(text="Calibration Complete!")
         self.lbl_result.configure(text=f"Average Circularity Error: {error_pct:.2f}%\nCenter Offset: ({self.center_x:.3f}, {self.center_y:.3f})")
         
-        self.btn_action.configure(text="Save & Close", command=self.save_and_close)
+        self.btn_action.pack_forget()
+        
+        self.btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.btn_frame.pack(pady=10)
+        
+        btn_apply = ctk.CTkButton(self.btn_frame, text="Apply Changes", command=self.save_and_close, fg_color="#1f538d")
+        btn_apply.pack(side="left", padx=10)
+        
+        btn_discard = ctk.CTkButton(self.btn_frame, text="Discard", command=self.destroy, fg_color="#8d1f1f")
+        btn_discard.pack(side="left", padx=10)
         
     def save_and_close(self):
         config = self.parent.config
