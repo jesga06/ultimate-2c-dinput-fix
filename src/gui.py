@@ -21,10 +21,20 @@ from circularity_modal import CircularityCalibrationModal
 
 logger = None
 
-ctk.set_appearance_mode("Dark")
+# Read global config to set UI theme early
+_global_config = configparser.ConfigParser()
+_global_config.read('config.ini')
+_appearance = _global_config.get('UI', 'appearance', fallback="Dark")
+_theme = _global_config.get('UI', 'theme', fallback="purple")
+
+ctk.set_appearance_mode(_appearance)
 script_dir = os.path.dirname(os.path.abspath(__file__))
-theme_path = os.path.join(script_dir, "purple_theme.json")
-ctk.set_default_color_theme(theme_path)
+# Check if theme is in themes directory (new) or root (legacy purple)
+theme_path = os.path.join(script_dir, "themes", f"{_theme}_theme.json")
+if not os.path.exists(theme_path):
+    theme_path = os.path.join(script_dir, f"{_theme}_theme.json")
+if os.path.exists(theme_path):
+    ctk.set_default_color_theme(theme_path)
 
 class ToolTip:
     def __init__(self, widget, text):
@@ -368,14 +378,20 @@ class App(ctk.CTk):
         self.tabview.pack(padx=20, pady=20, fill="both", expand=True)
 
         self.tab_dashboard = self.tabview.add("Dashboard")
+        self.tab_profile = self.tabview.add("Profile")
         self.tab_remapping = self.tabview.add("Remapping")
         self.tab_analog = self.tabview.add("Tuning")
         self.tab_advanced = self.tabview.add("Advanced")
+        self.tab_utilities = self.tabview.add("Utilities")
+        self.tab_customization = self.tabview.add("Customization")
 
         self.setup_dashboard()
+        self.setup_profile()
         self.setup_remapping()
         self.setup_analog_tuning()
         self.setup_advanced()
+        self.setup_utilities()
+        self.setup_customization()
 
         # Load loading quotes from hidden json
         quotes_path = os.path.join(script_dir, ".loading_quotes.json")
@@ -1162,6 +1178,7 @@ class App(ctk.CTk):
             rest_dz_var = ctk.DoubleVar(value=float(self.config.get(section, 'rest_deadzone', fallback='0.0')))
             curve_var = ctk.StringVar(value=self.config.get(section, 'curve', fallback='linear'))
             exp_var = ctk.DoubleVar(value=float(self.config.get(section, 'exp_factor', fallback='2.0')))
+            sens_var = ctk.DoubleVar(value=float(self.config.get(section, 'sensitivity', fallback='1.0')))
             
             update_lbl_callbacks = []
             
@@ -1185,7 +1202,7 @@ class App(ctk.CTk):
                 
                 def wrap_cmd(val):
                     update_lbl()
-                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var)
+                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
                     
                 slider = ctk.CTkSlider(row_f, from_=from_, to=to, number_of_steps=int((to-from_)/res), variable=var, command=wrap_cmd)
                 slider.pack(side="left", fill="x", expand=True, padx=5)
@@ -1194,6 +1211,7 @@ class App(ctk.CTk):
             make_slider("Anti-Deadzone", adz_var, 0.0, 0.5, 0.01, "Instantly jumps the output to this value when the deadzone is crossed.\nUseful for games with their own unchangeable built-in deadzones.")
             make_slider("Rest Deadzone", rest_dz_var, 0.0, 0.3, 0.01, "Secondary buffer after the deadzone.\nPrevents anti-deadzone from activating on controllers\nwhose sticks don't rest exactly at center.")
             make_slider("Curve Factor", exp_var, 0.5, 4.0, 0.1, "Intensity of the curve. >1.0 makes it steeper for exponential,\nor steeper at the start for aggressive.")
+            make_slider("Sensitivity", sens_var, 0.1, 5.0, 0.05, "Multiplies the final output. Great for tweaking mouse movement.")
 
             row_f = ctk.CTkFrame(controls_frame, fg_color="transparent")
             row_f.pack(fill="x", pady=5)
@@ -1201,8 +1219,21 @@ class App(ctk.CTk):
             info_btn.pack(side="left", padx=(0,5))
             ToolTip(info_btn, "Mathematical shape of the response curve.\nLinear = straight 1:1 line.\nExponential = precise at center, fast at edges.\nAggressive = fast at center, precise at edges.")
             ctk.CTkLabel(row_f, text="Curve Type:", width=90, anchor="w").pack(side="left")
-            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive"], variable=curve_var, command=lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var))
+            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "cubic", "sigmoid", "bezier"], variable=curve_var, command=lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var))
             curve_menu.pack(side="left", fill="x", expand=True, padx=5)
+            
+            def export_math():
+                import curves
+                import tkinter as tk
+                from tkinter import messagebox
+                latex_str = curves.export_to_latex(curve_var.get(), exp_var.get(), dz_var.get(), adz_var.get(), rest_dz_var.get())
+                # Copy to clipboard
+                self.clipboard_clear()
+                self.clipboard_append(latex_str)
+                messagebox.showinfo("Exported", "LaTeX formula copied to clipboard!\n\n" + latex_str)
+                
+            export_btn = ctk.CTkButton(row_f, text="Export Math", width=80, command=export_math)
+            export_btn.pack(side="right", padx=5)
 
             btn_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
             btn_frame.pack(fill="x", pady=10)
@@ -1213,9 +1244,10 @@ class App(ctk.CTk):
                 rest_dz_var.set(0.0)
                 curve_var.set("linear")
                 exp_var.set(1.0)
+                sens_var.set(1.0)
                 for cb in update_lbl_callbacks:
                     cb()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
 
             ctk.CTkButton(btn_frame, text="Reset", command=reset).pack(side="left", padx=5, expand=True)
             
@@ -1275,6 +1307,7 @@ class App(ctk.CTk):
             rest_dz_var = ctk.DoubleVar(value=float(self.config.get(section, 'rest_deadzone', fallback='0.0')))
             curve_var = ctk.StringVar(value=self.config.get(section, 'curve', fallback='linear'))
             exp_var = ctk.DoubleVar(value=float(self.config.get(section, 'exp_factor', fallback='2.0')))
+            sens_var = ctk.DoubleVar(value=float(self.config.get(section, 'sensitivity', fallback='1.0')))
             
             update_lbl_callbacks = []
             
@@ -1298,7 +1331,7 @@ class App(ctk.CTk):
                 
                 def wrap_cmd(val):
                     update_lbl()
-                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var)
+                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
                     
                 slider = ctk.CTkSlider(row_f, from_=from_, to=to, number_of_steps=int((to-from_)/res), variable=var, command=wrap_cmd)
                 slider.pack(side="left", fill="x", expand=True, padx=5)
@@ -1314,8 +1347,21 @@ class App(ctk.CTk):
             info_btn.pack(side="left", padx=(0,5))
             ToolTip(info_btn, "Mathematical shape of the response curve.")
             ctk.CTkLabel(row_f, text="Curve Type:", width=90, anchor="w").pack(side="left")
-            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive"], variable=curve_var, command=lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var))
+            curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "cubic", "sigmoid", "bezier"], variable=curve_var, command=lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var))
             curve_menu.pack(side="left", fill="x", expand=True, padx=5)
+            
+            def export_math():
+                import curves
+                import tkinter as tk
+                from tkinter import messagebox
+                latex_str = curves.export_to_latex(curve_var.get(), exp_var.get(), dz_var.get(), adz_var.get(), rest_dz_var.get())
+                # Copy to clipboard
+                self.clipboard_clear()
+                self.clipboard_append(latex_str)
+                messagebox.showinfo("Exported", "LaTeX formula copied to clipboard!\n\n" + latex_str)
+                
+            export_btn = ctk.CTkButton(row_f, text="Export Math", width=80, command=export_math)
+            export_btn.pack(side="right", padx=5)
 
             btn_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
             btn_frame.pack(fill="x", pady=10)
@@ -1326,9 +1372,10 @@ class App(ctk.CTk):
                 rest_dz_var.set(0.0)
                 curve_var.set("linear")
                 exp_var.set(1.0)
+                sens_var.set(1.0)
                 for cb in update_lbl_callbacks:
                     cb()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
 
             ctk.CTkButton(btn_frame, text="Reset", command=reset).pack(side="left", padx=5, expand=True)
 
@@ -1361,7 +1408,7 @@ class App(ctk.CTk):
         
         self.update_position_loop()
 
-    def update_analog_config(self, section, dz_var, adz_var, rest_dz_var, curve_var, exp_var):
+    def update_analog_config(self, section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var=None):
         if not self.config.has_section(section):
             self.config.add_section(section)
         self.config.set(section, 'deadzone', str(round(dz_var.get(), 3)))
@@ -1369,6 +1416,8 @@ class App(ctk.CTk):
         self.config.set(section, 'rest_deadzone', str(round(rest_dz_var.get(), 3)))
         self.config.set(section, 'curve', curve_var.get())
         self.config.set(section, 'exp_factor', str(round(exp_var.get(), 3)))
+        if sens_var is not None:
+            self.config.set(section, 'sensitivity', str(round(sens_var.get(), 3)))
         self.save_config()
         
         if section == "analog_left":
@@ -1394,7 +1443,7 @@ class App(ctk.CTk):
         for x_px in range(width + 1):
             input_val = x_px / width
             # Pass 0 for Y so magnitude = input_val
-            out_x, _ = math_utils.process_analog_stick(input_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz)
+            out_x, _ = math_utils.process_analog_stick(input_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, 1.0)
             y_px = height - (out_x * height)
             points.append(x_px)
             points.append(y_px)
@@ -1502,12 +1551,12 @@ class App(ctk.CTk):
             
             if ls_circ_mode == 'before':
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
-                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get())
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get())
             elif ls_circ_mode == 'after':
-                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get())
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get())
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
             else:
-                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get())
+                out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get())
                 
             self.draw_crosshair(self.c_ls_pos, raw_lx, disp_raw_ly, out_lx, out_ly)
             raw_mag = math.sqrt(raw_lx**2 + disp_raw_ly**2)
@@ -1527,12 +1576,12 @@ class App(ctk.CTk):
             
             if rs_circ_mode == 'before':
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
-                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get())
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get())
             elif rs_circ_mode == 'after':
-                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get())
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get())
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
             else:
-                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get())
+                out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get())
                 
             self.draw_crosshair(self.c_rs_pos, state.rx, disp_raw_ry, out_rx, out_ry)
             raw_mag_r = math.sqrt(state.rx**2 + disp_raw_ry**2)
@@ -1816,6 +1865,215 @@ class App(ctk.CTk):
         
         if logger:
             logger.info("Advanced configuration saved.")
+
+    def setup_customization(self):
+        lbl = ctk.CTkLabel(self.tab_customization, text="UI Customization", font=ctk.CTkFont(size=20, weight="bold"))
+        lbl.pack(pady=(20, 10))
+
+        frame = ctk.CTkFrame(self.tab_customization)
+        frame.pack(padx=20, pady=10, fill="x")
+
+        # Appearance Mode
+        lbl_mode = ctk.CTkLabel(frame, text="Appearance Mode (Light/Dark):")
+        lbl_mode.grid(row=0, column=0, padx=15, pady=10, sticky="w")
+        
+        current_mode = "Dark"
+        if self.daemon_config.has_option('UI', 'appearance'):
+            current_mode = self.daemon_config.get('UI', 'appearance')
+            
+        self.mode_var = ctk.StringVar(value=current_mode)
+        opt_mode = ctk.CTkOptionMenu(frame, variable=self.mode_var, values=["Dark", "Light", "System"], command=self.change_appearance_mode)
+        opt_mode.grid(row=0, column=1, padx=15, pady=10, sticky="ew")
+
+        # Theme Color
+        lbl_theme = ctk.CTkLabel(frame, text="Accent Theme (Requires Restart):")
+        lbl_theme.grid(row=1, column=0, padx=15, pady=10, sticky="w")
+        
+        current_theme = "purple"
+        if self.daemon_config.has_option('UI', 'theme'):
+            current_theme = self.daemon_config.get('UI', 'theme')
+            
+        self.theme_var = ctk.StringVar(value=current_theme)
+        opt_theme = ctk.CTkOptionMenu(frame, variable=self.theme_var, values=["purple", "red", "blue", "green", "yellow", "orange", "white"], command=self.change_theme)
+        opt_theme.grid(row=1, column=1, padx=15, pady=10, sticky="ew")
+
+        # Font Selection
+        lbl_font = ctk.CTkLabel(frame, text="Application Font (Requires Restart):")
+        lbl_font.grid(row=2, column=0, padx=15, pady=10, sticky="w")
+        
+        current_font = "Arial"
+        if self.daemon_config.has_option('UI', 'font'):
+            current_font = self.daemon_config.get('UI', 'font')
+            
+        self.font_var = ctk.StringVar(value=current_font)
+        opt_font = ctk.CTkOptionMenu(frame, variable=self.font_var, values=["Arial", "Consolas", "Courier New", "Segoe UI", "Tahoma"], command=self.change_font)
+        opt_font.grid(row=2, column=1, padx=15, pady=10, sticky="ew")
+        
+        frame.columnconfigure(1, weight=1)
+
+    def change_appearance_mode(self, new_mode):
+        ctk.set_appearance_mode(new_mode)
+        if not self.daemon_config.has_section('UI'):
+            self.daemon_config.add_section('UI')
+        self.daemon_config.set('UI', 'appearance', new_mode)
+        with open(self.daemon_config_file, 'w') as f:
+            self.daemon_config.write(f)
+
+    def change_theme(self, new_theme):
+        if not self.daemon_config.has_section('UI'):
+            self.daemon_config.add_section('UI')
+        self.daemon_config.set('UI', 'theme', new_theme)
+        with open(self.daemon_config_file, 'w') as f:
+            self.daemon_config.write(f)
+
+    def change_font(self, new_font):
+        if not self.daemon_config.has_section('UI'):
+            self.daemon_config.add_section('UI')
+        self.daemon_config.set('UI', 'font', new_font)
+        with open(self.daemon_config_file, 'w') as f:
+            self.daemon_config.write(f)
+
+    def setup_profile(self):
+        lbl = ctk.CTkLabel(self.tab_profile, text="Profile Validation & Diff", font=ctk.CTkFont(size=20, weight="bold"))
+        lbl.pack(pady=(20, 10))
+        
+        main_frame = ctk.CTkFrame(self.tab_profile, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        import os
+        import glob
+        profiles = [os.path.basename(p) for p in glob.glob("profiles/*.json")]
+        if not profiles:
+            profiles = ["No profiles found"]
+            
+        p1_var = ctk.StringVar(value=profiles[0])
+        p2_var = ctk.StringVar(value=profiles[0])
+        
+        # Profile 1 Selection
+        p1_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        p1_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(p1_frame, text="Profile 1 (Base):", width=120, anchor="w").pack(side="left")
+        ctk.CTkOptionMenu(p1_frame, values=profiles, variable=p1_var).pack(side="left", fill="x", expand=True)
+        
+        # Profile 2 Selection
+        p2_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        p2_frame.pack(fill="x", pady=5)
+        ctk.CTkLabel(p2_frame, text="Profile 2 (Compare):", width=120, anchor="w").pack(side="left")
+        ctk.CTkOptionMenu(p2_frame, values=profiles, variable=p2_var).pack(side="left", fill="x", expand=True)
+        
+        # Buttons
+        btn_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        btn_frame.pack(fill="x", pady=10)
+        
+        output_txt = ctk.CTkTextbox(main_frame, height=300)
+        output_txt.pack(fill="both", expand=True, pady=10)
+        
+        def run_validate():
+            import profile_tools
+            p_path = os.path.join("profiles", p1_var.get())
+            res = profile_tools.validate_profile(p_path)
+            output_txt.delete("0.0", "end")
+            output_txt.insert("0.0", res)
+            
+        def run_diff():
+            import profile_tools
+            p1_path = os.path.join("profiles", p1_var.get())
+            p2_path = os.path.join("profiles", p2_var.get())
+            res = profile_tools.diff_profiles(p1_path, p2_path)
+            output_txt.delete("0.0", "end")
+            output_txt.insert("0.0", res)
+            
+        def export_output():
+            from tkinter import filedialog, messagebox
+            fpath = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt")])
+            if fpath:
+                with open(fpath, 'w') as f:
+                    f.write(output_txt.get("0.0", "end"))
+                messagebox.showinfo("Exported", f"Output exported to {fpath}")
+        
+        ctk.CTkButton(btn_frame, text="Validate Profile 1", command=run_validate).pack(side="left", padx=5, expand=True)
+        ctk.CTkButton(btn_frame, text="Diff Profiles (1 vs 2)", command=run_diff).pack(side="left", padx=5, expand=True)
+        ctk.CTkButton(btn_frame, text="Export Output", command=export_output).pack(side="left", padx=5, expand=True)
+
+    def setup_utilities(self):
+        lbl = ctk.CTkLabel(self.tab_utilities, text="Utilities & Diagnostics", font=ctk.CTkFont(size=20, weight="bold"))
+        lbl.pack(pady=(20, 10))
+        
+        main_frame = ctk.CTkFrame(self.tab_utilities, fg_color="transparent")
+        main_frame.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        # Latency Monitor Frame
+        lat_frame = ctk.CTkFrame(main_frame)
+        lat_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(lat_frame, text="Live Latency Monitor", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
+        
+        self.lbl_poll = ctk.CTkLabel(lat_frame, text="Polling Rate: -- Hz")
+        self.lbl_poll.pack()
+        self.lbl_avg = ctk.CTkLabel(lat_frame, text="Avg Processing Latency: -- ms")
+        self.lbl_avg.pack()
+        self.lbl_max = ctk.CTkLabel(lat_frame, text="Max Processing Latency: -- ms")
+        self.lbl_max.pack(pady=(0, 10))
+        
+        # Benchmark Frame
+        bench_frame = ctk.CTkFrame(main_frame)
+        bench_frame.pack(fill="x", pady=10)
+        
+        ctk.CTkLabel(bench_frame, text="Synthetic Benchmark", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
+        ctk.CTkLabel(bench_frame, text="Runs 10,000 simulated packets through the decoding and math engines.").pack()
+        
+        self.bench_result = ctk.CTkLabel(bench_frame, text="")
+        self.bench_result.pack(pady=5)
+        
+        def run_benchmark():
+            self.bench_result.configure(text="Running benchmark...")
+            self.update_idletasks()
+            
+            import time
+            import math_utils
+            from decoder import Decoder
+            from hid_reader import RawHIDReport
+            
+            d = Decoder("")
+            d.reports_config = {"0": {"inputs": {"lx": {"type": "axis", "byte": 1}}}}
+            
+            start = time.perf_counter()
+            for _ in range(10000):
+                rep = RawHIDReport(0, bytes([0, 128]))
+                state = d.decode(rep)
+                lx, ly = math_utils.process_analog_stick(state.lx, state.ly, 0.1, 0.1, "bezier", 2.0, 0.0)
+            end = time.perf_counter()
+            
+            total_ms = (end - start) * 1000.0
+            per_packet_us = (total_ms / 10000.0) * 1000.0
+            self.bench_result.configure(text=f"Score: 10,000 packets in {total_ms:.1f}ms\nAverage per packet: {per_packet_us:.2f}us")
+            
+        ctk.CTkButton(bench_frame, text="Run Benchmark", command=run_benchmark).pack(pady=(5, 10))
+        
+        def open_graph():
+            import subprocess
+            import sys
+            import os
+            script_path = os.path.join(os.path.dirname(__file__), "input_graph.py")
+            subprocess.Popen([sys.executable, script_path])
+            
+        ctk.CTkButton(bench_frame, text="Open Live Input Inspector", command=open_graph, fg_color="#2c7a2c", hover_color="#1f591f").pack(pady=(5, 10))
+        
+        self.update_utilities_loop()
+        
+    def update_utilities_loop(self):
+        try:
+            import os, json
+            if os.path.exists('diagnostics.json'):
+                with open('diagnostics.json', 'r') as f:
+                    stats = json.load(f)
+                self.lbl_poll.configure(text=f"Polling Rate: {stats.get('polling_rate_hz', 0)} Hz")
+                self.lbl_avg.configure(text=f"Avg Processing Latency: {stats.get('avg_process_ms', 0)} ms")
+                self.lbl_max.configure(text=f"Max Processing Latency: {stats.get('max_process_ms', 0)} ms")
+        except Exception:
+            pass
+            
+        self.after(500, self.update_utilities_loop)
 
 
     def update_status_loop(self):

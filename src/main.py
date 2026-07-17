@@ -272,7 +272,10 @@ def main():
 
     last_log_time = 0
 
+    from utilities_backend import monitor
+
     def data_handler(report: RawHIDReport):
+        start_t = monitor.record_poll()
         nonlocal last_log_time
         current_time = time.time()
 
@@ -285,6 +288,9 @@ def main():
 
         mapper.process(state)
         virtual_pad.process(state)
+        
+        monitor.record_process(start_t)
+        monitor.broadcast_state(state)
 
     for r in readers:
         r.set_callback(data_handler)

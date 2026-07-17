@@ -717,7 +717,10 @@ class Calibrator:
                                         
                             if max_uniques > 2:
                                 if best_full_id not in self.profile["reports"]: self.profile["reports"][best_full_id] = {"inputs": {}}
-                                self.profile["reports"][best_full_id]["inputs"][name] = {"type": "trigger", "byte": best_byte, "length": 1, "center": False, "is_analog": True}
+                                self.profile["reports"][best_full_id]["inputs"][name] = {
+                                    "type": "trigger", "byte": best_byte, "length": 1, "center": False, "is_analog": True,
+                                    "range_confidence": round(min(1.0, max_uniques / 40.0), 3)
+                                }
                                 print(f"Detected Analog {name} at {best_full_id}, byte {best_byte} ({max_uniques} unique states)")
                                 if logger: logger.info(f"Detected Analog {name} at {best_full_id}, byte {best_byte} ({max_uniques} unique states)")
                                 done = True
@@ -832,6 +835,14 @@ class Calibrator:
                             delta = get_signed_val(curr_val) - get_signed_val(base_val)
                             if name in ("lx", "rx") and delta < 0: cfg["invert"] = True
                             elif name in ("ly", "ry") and delta > 0: cfg["invert"] = True
+                            
+                            # Calibration Confidence Metrics
+                            if not cfg.get("signed", False):
+                                centeredness = 1.0 - (abs(base_val - 127.5) / 127.5)
+                            else:
+                                centeredness = 1.0 - (abs(get_signed_val(base_val)) / 128.0)
+                            cfg["centeredness"] = round(max(0.0, min(1.0, centeredness)), 3)
+                            cfg["range_confidence"] = round(min(1.0, top['amp'] / 127.0), 3)
                                     
                             if full_id not in self.profile["reports"]: self.profile["reports"][full_id] = {"inputs": {}}
                             self.profile["reports"][full_id]["inputs"][name] = cfg

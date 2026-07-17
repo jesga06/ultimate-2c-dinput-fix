@@ -1,6 +1,6 @@
 import math
 
-def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0):
+def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0, sensitivity: float = 1.0):
     """
     Processes an analog stick's X and Y coordinates.
     Applies a radial inner deadzone.
@@ -30,11 +30,9 @@ def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, cu
     else:
         norm_mag = 0.0
     
+    import curves
     # Apply curve to normalized magnitude
-    if curve_type.lower() == 'exponential' or curve_type.lower() == 'relaxed':
-        norm_mag = norm_mag ** power
-    elif curve_type.lower() == 'aggressive':
-        norm_mag = 1.0 - (1.0 - norm_mag) ** power
+    norm_mag = curves.evaluate_curve(norm_mag, curve_type, power)
         
     # Apply anti-deadzone
     final_mag = anti_dz + norm_mag * (1.0 - anti_dz)
@@ -43,10 +41,10 @@ def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, cu
     # Reconstruct X and Y
     if magnitude > 0.0:
         ratio = final_mag / magnitude
-        return x * ratio, y * ratio
+        return x * ratio * sensitivity, y * ratio * sensitivity
     return 0.0, 0.0
 
-def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0):
+def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0, sensitivity: float = 1.0):
     """
     Processes an analog trigger's 1D value [0.0, 1.0].
     Applies an inner deadzone.
@@ -71,14 +69,13 @@ def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str
     else:
         norm_val = 0.0
     
+    import curves
     # Apply curve
-    if curve_type.lower() == 'exponential' or curve_type.lower() == 'relaxed':
-        norm_val = norm_val ** power
-    elif curve_type.lower() == 'aggressive':
-        norm_val = 1.0 - (1.0 - norm_val) ** power
+    norm_val = curves.evaluate_curve(norm_val, curve_type, power)
         
     # Apply anti-deadzone
     final_val = anti_dz + norm_val * (1.0 - anti_dz)
+    final_val *= sensitivity
     return max(0.0, min(1.0, final_val))
 
 def apply_circularity_correction(x: float, y: float, center_x: float, center_y: float, bounds_data: list):
