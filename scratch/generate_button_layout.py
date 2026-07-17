@@ -5,37 +5,37 @@ def generate_layout():
     # Relative positions (0.0 to 1.0) on a standard Xbox-style layout canvas
     # The canvas will map these to real X/Y coordinates based on its current width/height
     layout = {
-        "dpad_up": {"x": 0.35, "y": 0.58},
-        "dpad_down": {"x": 0.35, "y": 0.72},
-        "dpad_left": {"x": 0.29, "y": 0.65},
-        "dpad_right": {"x": 0.41, "y": 0.65},
+        "dpad_up": {"x": 0.35, "y": 0.65},
+        "dpad_down": {"x": 0.35, "y": 0.85},
+        "dpad_left": {"x": 0.25, "y": 0.75},
+        "dpad_right": {"x": 0.45, "y": 0.75},
         
-        "a": {"x": 0.72, "y": 0.65},
-        "b": {"x": 0.80, "y": 0.55},
-        "x": {"x": 0.64, "y": 0.55},
-        "y": {"x": 0.72, "y": 0.45},
+        "a": {"x": 0.72, "y": 0.75},
+        "b": {"x": 0.82, "y": 0.65},
+        "x": {"x": 0.62, "y": 0.65},
+        "y": {"x": 0.72, "y": 0.55},
         
-        "lb": {"x": 0.25, "y": 0.18},
-        "rb": {"x": 0.75, "y": 0.18},
+        "lb": {"x": 0.25, "y": 0.35},
+        "rb": {"x": 0.75, "y": 0.35},
         
-        "lt": {"x": 0.25, "y": 0.02},
-        "rt": {"x": 0.75, "y": 0.02},
+        "lt": {"x": 0.25, "y": 0.10},
+        "rt": {"x": 0.75, "y": 0.10},
         
-        "l3": {"x": 0.28, "y": 0.35},
-        "r3": {"x": 0.62, "y": 0.75},
+        "l3": {"x": 0.28, "y": 0.45},
+        "r3": {"x": 0.62, "y": 0.85},
         
-        "select": {"x": 0.43, "y": 0.35},
-        "start": {"x": 0.57, "y": 0.35},
-        "home": {"x": 0.50, "y": 0.45}
+        "select": {"x": 0.43, "y": 0.45},
+        "start": {"x": 0.57, "y": 0.45},
+        "home": {"x": 0.50, "y": 0.55}
     }
     
     # Standard PS layout fallback (swaps D-Pad and Left Stick)
     ps_layout = layout.copy()
-    ps_layout["dpad_up"] = {"x": 0.28, "y": 0.28}
-    ps_layout["dpad_down"] = {"x": 0.28, "y": 0.42}
-    ps_layout["dpad_left"] = {"x": 0.22, "y": 0.35}
-    ps_layout["dpad_right"] = {"x": 0.34, "y": 0.35}
-    ps_layout["l3"] = {"x": 0.35, "y": 0.65}
+    ps_layout["dpad_up"] = {"x": 0.28, "y": 0.35}
+    ps_layout["dpad_down"] = {"x": 0.28, "y": 0.55}
+    ps_layout["dpad_left"] = {"x": 0.18, "y": 0.45}
+    ps_layout["dpad_right"] = {"x": 0.38, "y": 0.45}
+    ps_layout["l3"] = {"x": 0.35, "y": 0.75}
     
     output = {
         "xbox": layout,

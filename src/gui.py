@@ -689,12 +689,16 @@ class App(ctk.CTk):
             accent = accent[1] if ctk.get_appearance_mode() == "Dark" else accent[0]
             
         for btn, pos in layout_dict.items():
+            btn_text = self.get_btn_display_name(btn).upper()
+            if btn.startswith("dpad_"):
+                btn_text = btn.split("_")[1].upper()
+                
             if btn in ['lt', 'rt']:
                 b = ctk.CTkCanvas(self.layout_canvas, bg="#333333", highlightthickness=0)
                 b.place(relx=pos["x"], rely=pos["y"], anchor="center")
-                self.dashboard_btns[btn] = {"canvas": b}
+                self.dashboard_btns[btn] = {"canvas": b, "text": btn_text}
             else:
-                b = ctk.CTkButton(self.layout_canvas, text=self.get_btn_display_name(btn).upper(), fg_color="#333333", hover_color="#444444")
+                b = ctk.CTkButton(self.layout_canvas, text=btn_text, fg_color="#333333", hover_color="#444444")
                 b.place(relx=pos["x"], rely=pos["y"], anchor="center")
                 self.dashboard_btns[btn] = b
             
@@ -2282,10 +2286,11 @@ class App(ctk.CTk):
                         
                         fill_h = int(val * ch)
                         if fill_h > 0:
-                            c.create_rectangle(0, 0, cw, fill_h, fill=accent, outline="")
+                            c.create_rectangle(0, ch - fill_h, cw, ch, fill=accent, outline="")
                             
                         # Draw text directly on canvas so it has true transparency
-                        c.create_text(cw/2, ch/2, text=self.get_btn_display_name(btn).upper(), fill="white", font=("Helvetica", max(8, int(cw * 0.3)), "bold"))
+                        btn_text = widget.get("text", self.get_btn_display_name(btn).upper())
+                        c.create_text(cw/2, ch/2, text=btn_text, fill="white", font=("Helvetica", max(8, int(cw * 0.3)), "bold"))
                     else:
                         if is_pressed:
                             widget.configure(fg_color=accent)
