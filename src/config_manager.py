@@ -2,10 +2,12 @@ import json
 import os
 import re
 
-def get_sanitized_filename(name):
+def get_sanitized_filename(name, mode=None):
     # keep alphanumeric and underscores/dashes, replace spaces with underscores, lowercase
     cleaned = re.sub(r'[^a-zA-Z0-9_\- ]', '', name)
     cleaned = cleaned.replace(' ', '_').lower()
+    if mode:
+        return f"{cleaned}_{mode}.json"
     return f"{cleaned}.json"
 
 class ControllerConfig:
@@ -33,6 +35,10 @@ class ControllerConfig:
             "shift_mappings": {},
             "shift_block_xinput": {},
             "chords": {},
+            "hardware_chords": {},
+            "backend": {
+                "mode": "auto"
+            },
             "analog": {
                 "deadzone": "0.08",
                 "anti_deadzone": "0.0",
