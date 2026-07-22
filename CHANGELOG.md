@@ -223,7 +223,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Integrated real-time velocity checking that flashes a warning ("Too Fast! Slow down.") if rotation speed is too high.
   - Refactored wizard completion to offer explicit "Apply Changes" and "Discard" options.
 - **Warped Stick Correction:** Added a "Warp Threshold" slider (0-20%) that dynamically stretches weak thumbstick axes to reach 1.0 maximum deflection without hard-clipping.
-- **Proportional Gamepad Test Dashboard:** Added a responsive, auto-scaling gamepad layout dashboard mapping physical and extra buttons based on configured layout resources (Xbox, PlayStation, etc.).
+- **Proportional Gamepad Test Dashboard & Layout Builder:** Added a responsive, auto-scaling gamepad layout dashboard mapping physical and extra buttons based on configured layout resources (Xbox, PlayStation, etc.). Includes an interactive drag-and-drop Layout Builder tool (`scratch/interactive_layout_builder.py`) equipped with a configurable background grid slider (5px to 20px) and automatic snap-to-grid alignment.
 - **Interactive Recorder Save Targets:** Added explicit "Save Standard" and "Save Shift Map" buttons inside the mapping recorder to assign inputs to standard or shift layers.
 - **Dynamic Color Legends:** tooltips now query the active interface theme (Purple, Red, Blue, etc.) to reference raw/processed indicators dynamically.
 - **Digital Trigger response Graph:** The Tuning tab now displays trigger curves in digital mode as a clean step-function based on deadzone thresholds.

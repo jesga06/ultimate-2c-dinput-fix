@@ -117,6 +117,11 @@ r4 = keyboard:f13
 - **Changes in GUI Aren't Applying:** Ensure that **`run_wrapper.bat`** (the background daemon) is actively running in your system tray. The GUI only modifies the settings; the daemon actually applies them.
 - **Double Inputs in Games:** If you remap a standard button (like 'A'), the app blocks the original 'A' press from reaching the game to prevent double inputs. If you are still seeing double inputs, verify the background daemon is running and Steam Input is not interfering.
 - **Calibration Tool Fails Due to Two Axes Moving:** Some controllers report movement on two separate axes simultaneously when squeezing a single trigger (due to hardware quirks). The calibration tool expects isolated movement. If this happens to you, the tool may misidentify the trigger axis. You may need to manually edit the resulting `profiles/` JSON file or use a different controller.
+- **Dashboard Buttons Misaligned or Overlapping:** You can interactively align, position, and grid-snap buttons for your gamepad layout using the Interactive Layout Builder tool:
+   1. Run `python scratch/interactive_layout_builder.py` in PowerShell or Command Prompt.
+   2. Switch between **Xbox** and **PlayStation** layout templates.
+   3. Adjust the **Grid Slider** (5px to 20px) to display background grid lines and enable automatic snap-to-grid alignment.
+   4. Drag buttons to their desired positions and click **Save Layout** to automatically update `resources/button_layout.json`.
 - **Tool doesn't work:**
    - Check whether you're actually using the Virtual Gamepad exposed by this tool, not your physical controller. The Virtual Gamepad will appear in Windows Device Settings as "Virtual Gamepad" or "Xbox 360 Controller".
    - Check if you correctly installed the required dependencies with `pip install -r requirements.txt`.
