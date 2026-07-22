@@ -13,4 +13,4 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-%PYTHON_CMD% src\main.py
+%PYTHON_CMD% src\main.py %*

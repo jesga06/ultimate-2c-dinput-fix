@@ -47,7 +47,7 @@ echo ">>> STATUS: DO NOT TOUCH ANYTHING during this step."
 echo ======================================================================
 pause
 echo Running Step 1...
-"%PYTHON_CMD%" diagnostics\01_environment_audit.py
+"%PYTHON_CMD%" diagnostics\01_environment_audit.py %*
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [WARNING] Step 1 finished with non-zero exit code: %ERRORLEVEL%
@@ -69,7 +69,7 @@ echo 2. Close Steam, game launchers, and other controller mapping programs.
 echo ======================================================================
 pause
 echo Running Step 2...
-"%PYTHON_CMD%" diagnostics\02_device_enumeration.py
+"%PYTHON_CMD%" diagnostics\02_device_enumeration.py %*
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [WARNING] Step 2 finished with non-zero exit code: %ERRORLEVEL%
@@ -99,7 +99,7 @@ echo    zip report will NOT be created.
 echo ======================================================================
 pause
 echo Running Step 3...
-"%PYTHON_CMD%" diagnostics\03_raw_transport.py
+"%PYTHON_CMD%" diagnostics\03_raw_transport.py %*
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [WARNING] Step 3 finished with non-zero exit code: %ERRORLEVEL%
@@ -123,7 +123,7 @@ echo    pull triggers CONTINUOUSLY until the scan finishes automatically.
 echo ======================================================================
 pause
 echo Running Step 4...
-"%PYTHON_CMD%" diagnostics\04_report_id_scanner.py
+"%PYTHON_CMD%" diagnostics\04_report_id_scanner.py %*
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [WARNING] Step 4 finished with non-zero exit code: %ERRORLEVEL%
@@ -154,7 +154,7 @@ echo    zip report will NOT be created.
 echo ======================================================================
 pause
 echo Running Step 5...
-"%PYTHON_CMD%" diagnostics\05_baseline_logic_test.py
+"%PYTHON_CMD%" diagnostics\05_baseline_logic_test.py %*
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [WARNING] Step 5 finished with non-zero exit code: %ERRORLEVEL%
@@ -179,7 +179,7 @@ echo 4. If you do not have a requested button, you can skip it by typing 's'.
 echo ======================================================================
 pause
 echo Running Step 6...
-"%PYTHON_CMD%" diagnostics\06_guided_calibration.py
+"%PYTHON_CMD%" diagnostics\06_guided_calibration.py %*
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo [WARNING] Step 6 finished with non-zero exit code: %ERRORLEVEL%

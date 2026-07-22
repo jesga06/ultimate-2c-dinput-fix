@@ -69,7 +69,7 @@ cls
 echo Starting Wrapper in Debug Mode...
 set PYTHON_CMD=python
 if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-%PYTHON_CMD% src\main.py --log
+%PYTHON_CMD% src\main.py --debug
 pause
 goto MENU
 
@@ -78,7 +78,7 @@ cls
 echo Starting Calibration in Debug Mode...
 set PYTHON_CMD=python
 if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-%PYTHON_CMD% src\calibration.py --log
+%PYTHON_CMD% src\calibration.py --debug
 pause
 goto MENU
 

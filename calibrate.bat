@@ -13,5 +13,5 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
-%PYTHON_CMD% src\calibration.py
+%PYTHON_CMD% src\calibration.py %*
 pause
