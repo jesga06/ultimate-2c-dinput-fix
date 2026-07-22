@@ -60,8 +60,8 @@ class VirtualPad:
             print(f"Warning: Could not register vgamepad notifications: {e}")
             logger.warning(f"Could not register vgamepad notifications: {e}", exc_info=True)
 
-        if config:
-            self.reload_config(config)
+        # Always load default attributes (and apply config if provided)
+        self.reload_config(config)
 
     def set_rumble_callback(self, callback):
         """callback(left_motor: int, right_motor: int) -> 0-255"""
@@ -72,7 +72,7 @@ class VirtualPad:
             # large_motor and small_motor are 0-255
             self.rumble_callback(large_motor, small_motor)
 
-    def reload_config(self, config):
+    def reload_config(self, config=None):
         if logger:
             logger.debug("[ENTER] virtual_pad reload_config()")
         self.home_mapping = 'guide'
@@ -81,6 +81,45 @@ class VirtualPad:
 
         self.digital_lt = False
         self.digital_rt = False
+        self.lt_inner = 0.05
+        self.lt_adz = 0.0
+        self.lt_curve = 'linear'
+        self.lt_power = 2.0
+        self.lt_rest_dz = 0.0
+        self.lt_sens = 1.0
+
+        self.rt_inner = 0.05
+        self.rt_adz = 0.0
+        self.rt_curve = 'linear'
+        self.rt_power = 2.0
+        self.rt_rest_dz = 0.0
+        self.rt_sens = 1.0
+
+        self.ls_inner = 0.05
+        self.ls_adz = 0.0
+        self.ls_curve = 'linear'
+        self.ls_power = 2.0
+        self.ls_rest_dz = 0.0
+        self.ls_sens = 1.0
+        self.ls_circ_mode = 'disabled'
+        self.ls_circ_cx = 0.0
+        self.ls_circ_cy = 0.0
+        self.ls_circ_bounds = None
+
+        self.rs_inner = 0.05
+        self.rs_adz = 0.0
+        self.rs_curve = 'linear'
+        self.rs_power = 2.0
+        self.rs_rest_dz = 0.0
+        self.rs_sens = 1.0
+        self.rs_circ_mode = 'disabled'
+        self.rs_circ_cx = 0.0
+        self.rs_circ_cy = 0.0
+        self.rs_circ_bounds = None
+
+        if not config:
+            return
+
         if config.has_section('settings'):
             if config.has_option('settings', 'digital_lt'):
                 self.digital_lt = config.get(
@@ -88,16 +127,6 @@ class VirtualPad:
             if config.has_option('settings', 'digital_rt'):
                 self.digital_rt = config.get(
                     'settings', 'digital_rt').lower() == 'true'
-
-        self.lt_inner = 0.05
-        self.lt_adz = 0.0
-        self.lt_curve = 'linear'
-        self.lt_power = 2.0
-        
-        self.rt_inner = 0.05
-        self.rt_adz = 0.0
-        self.rt_curve = 'linear'
-        self.rt_power = 2.0
 
         if config.has_section('trigger_left'):
             self.lt_inner = config.getfloat('trigger_left', 'deadzone', fallback=self.lt_inner)
@@ -114,16 +143,6 @@ class VirtualPad:
             self.rt_power = config.getfloat('trigger_right', 'exp_factor', fallback=self.rt_power)
             self.rt_rest_dz = config.getfloat('trigger_right', 'rest_deadzone', fallback=0.0)
             self.rt_sens = config.getfloat('trigger_right', 'sensitivity', fallback=1.0)
-
-        self.ls_inner = 0.05
-        self.ls_adz = 0.0
-        self.ls_curve = 'linear'
-        self.ls_power = 2.0
-        
-        self.rs_inner = 0.05
-        self.rs_adz = 0.0
-        self.rs_curve = 'linear'
-        self.rs_power = 2.0
 
         if config.has_section('analog_left'):
             self.ls_inner = config.getfloat('analog_left', 'deadzone', fallback=self.ls_inner)
@@ -150,6 +169,7 @@ class VirtualPad:
             self.rs_circ_cy = config.getfloat('analog_right', 'circularity_center_y', fallback=0.0)
             bounds_str = config.get('analog_right', 'circularity_bounds', fallback='')
             self.rs_circ_bounds = [float(x) for x in bounds_str.split(',')] if bounds_str else None
+
 
         # Load block preferences (default to block if mapped, i.e. True)
         block_prefs = {}

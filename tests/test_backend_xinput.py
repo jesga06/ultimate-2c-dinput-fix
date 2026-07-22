@@ -3,15 +3,20 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(REPO_ROOT)
-sys.path.append(os.path.join(REPO_ROOT, "src"))
+# Mock hid module before loading backend_xinput if hidapi library is not loaded
+if 'hid' not in sys.modules:
+    try:
+        import hid
+    except ImportError:
+        mock_hid = MagicMock()
+        sys.modules['hid'] = mock_hid
 
 from src.backend_xinput import (
     XInputBackend, XINPUT_STATE, XINPUT_GAMEPAD, XINPUT_VIBRATION,
     XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_GUIDE
 )
 from src.decoder import ControllerState
+
 
 class TestXInputBackend(unittest.TestCase):
 

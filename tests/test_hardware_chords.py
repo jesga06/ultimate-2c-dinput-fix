@@ -7,11 +7,18 @@ from unittest.mock import MagicMock
 # Add repo root and src dir to path
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(REPO_ROOT)
-sys.path.append(os.path.join(REPO_ROOT, "src"))
+# Mock hid module before loading hardware_chords if hidapi library is not loaded
+if 'hid' not in sys.modules:
+    try:
+        import hid
+    except ImportError:
+        mock_hid = MagicMock()
+        sys.modules['hid'] = mock_hid
 
 from src.hardware_chords import HardwareChordEngine
 from src.decoder import ControllerState
 import configparser
+
 
 class TestHardwareChords(unittest.TestCase):
     def setUp(self):

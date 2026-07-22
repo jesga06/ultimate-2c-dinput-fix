@@ -3,12 +3,16 @@ from unittest.mock import MagicMock, patch
 import sys
 import os
 
-# Add src to python path
-src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'))
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
+# Mock hid module before loading decoder if hidapi library is not loaded
+if 'hid' not in sys.modules:
+    try:
+        import hid
+    except ImportError:
+        mock_hid = MagicMock()
+        sys.modules['hid'] = mock_hid
 
 from decoder import ControllerState
+
 
 class TestVirtualPadTunedOutputs(unittest.TestCase):
     @patch('vgamepad.VX360Gamepad')
