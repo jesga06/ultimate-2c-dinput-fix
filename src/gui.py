@@ -2487,6 +2487,8 @@ class App(ctk.CTk):
         show_topic(topic)
 
     def setup_advanced(self):
+        for child in self.tab_advanced.winfo_children():
+            child.destroy()
         if not self.config.has_section('shift_layer'):
             self.config.add_section('shift_layer')
         if not self.config.has_section('chords'):
@@ -2992,6 +2994,8 @@ class App(ctk.CTk):
             logger.info("Advanced configuration saved.")
 
     def setup_customization(self):
+        for child in self.tab_customization.winfo_children():
+            child.destroy()
         self.customization_scroll = ctk.CTkScrollableFrame(self.tab_customization, fg_color="transparent", corner_radius=0)
         self.customization_scroll.pack(fill="both", expand=True)
 
@@ -3118,6 +3122,8 @@ class App(ctk.CTk):
             self.daemon_config.write(f)
 
     def setup_utilities(self):
+        for child in self.tab_utilities.winfo_children():
+            child.destroy()
         self.utilities_scroll = ctk.CTkScrollableFrame(self.tab_utilities, fg_color="transparent", corner_radius=0)
         self.utilities_scroll.pack(fill="both", expand=True)
 
