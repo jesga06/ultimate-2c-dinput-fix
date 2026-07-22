@@ -2297,11 +2297,10 @@ class App(ctk.CTk):
                         btn_text = widget.get("text", self.get_btn_display_name(btn).upper())
                         c.create_text(cw/2, ch/2, text=btn_text, fill="white", font=("Helvetica", max(8, int(cw * 0.3)), "bold"))
                     else:
-                        if is_pressed:
-                            widget.configure(fg_color=accent)
-                        else:
-                            base_color = "#333333" if widget.winfo_parent() == str(self.layout_canvas) else "#443333"
-                            widget.configure(fg_color=base_color)
+                        base_color = "#333333" if widget.winfo_parent() == str(self.layout_canvas) else "#443333"
+                        target_color = accent if is_pressed else base_color
+                        if widget.cget("fg_color") != target_color:
+                            widget.configure(fg_color=target_color)
 
         self.after(16, self.update_position_loop)
             

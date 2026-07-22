@@ -27,8 +27,8 @@ class LatencyMonitor:
     def broadcast_state(self, state):
         import json
         try:
-            # Broadcast on loopback port 9999
-            msg = json.dumps({"lx": state.lx, "ly": state.ly, "rx": state.rx, "ry": state.ry, "lt": state.lt, "rt": state.rt}).encode('utf-8')
+            d = state.__dict__.copy()
+            msg = json.dumps(d).encode('utf-8')
             self.sock.sendto(msg, ("127.0.0.1", 9999))
         except Exception:
             pass

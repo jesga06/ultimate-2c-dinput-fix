@@ -146,3 +146,6 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 * **Latency Estimator:** Dynamically calculates the round-trip latency of the Python daemon's processing pipeline in milliseconds.
 * **Polling Rate Monitor:** Continuously measures your physical gamepad's USB polling rate, calculating 1% lows and average Hertz.
 * **Synthetic Wrapper Benchmark:** Floods the translation pipeline with artificial HID packets to measure the maximum theoretical throughput of the software without hardware bottlenecks.
+* **Dashboard Fidelity:** Solved rendering bugs causing dashboard buttons to flicker and fail to display live UDP button data.
+* **XInput Calibration Safety:** Implemented string matching to safely recommend the correct endpoint interface for XInput controllers during calibration.
+

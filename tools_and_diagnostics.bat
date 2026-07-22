@@ -5,10 +5,10 @@ setlocal enabledelayedexpansion
 :MENU
 cls
 echo ======================================================================
-echo           ULTIMATE-2C DINPUT FIX - TOOLS & DIAGNOSTICS
+echo           ULTIMATE-2C DINPUT FIX - TOOLS AND DIAGNOSTICS
 echo ======================================================================
 echo.
-echo  PRIMARY DIAGNOSTICS & SETUP
+echo  PRIMARY DIAGNOSTICS AND SETUP
 echo  [1] Run Full Issue Reporter (Generates issue_report.zip)
 echo  [2] Install / Repair Python Dependencies
 echo.
@@ -16,7 +16,7 @@ echo  DEBUG MODE LAUNCHERS
 echo  [3] Launch Wrapper in Debug Mode (Console Output)
 echo  [4] Launch Calibration Wizard in Debug Mode
 echo.
-echo  DEVELOPER & UTILITY TOOLS
+echo  DEVELOPER AND UTILITY TOOLS
 echo  [5] Launch Interactive Layout Builder (CustomTkinter GUI)
 echo  [6] Run Individual Diagnostic Script
 echo.
@@ -69,7 +69,7 @@ cls
 echo Starting Wrapper in Debug Mode...
 set PYTHON_CMD=python
 if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-%PYTHON_CMD% src\main.py --debug
+%PYTHON_CMD% src\main.py --log
 pause
 goto MENU
 
@@ -78,7 +78,7 @@ cls
 echo Starting Calibration in Debug Mode...
 set PYTHON_CMD=python
 if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-%PYTHON_CMD% src\calibration.py --debug
+%PYTHON_CMD% src\calibration.py --log
 pause
 goto MENU
 

@@ -305,7 +305,12 @@ class Calibrator:
                 print("\n--- Stage 2: Manual Interface Selection ---")
                 print("Please select which interfaces to enable for this controller.")
                 for i, (iface_num, r, d) in enumerate(opened_readers):
-                    print(f"[{i}] Interface: {iface_num} | Usage Page: {d.get('usage_page', 'N/A')} | Usage: {d.get('usage', 'N/A')}")
+                    prod = str(d.get('product_string', '')).lower()
+                    mfg = str(d.get('manufacturer_string', '')).lower()
+                    rec_str = ""
+                    if "controller" in prod or "microsoft" in prod or "microsoft" in mfg:
+                        rec_str = " (Recommended for XInput)"
+                    print(f"[{i}] Interface: {iface_num} | Usage Page: {d.get('usage_page', 'N/A')} | Usage: {d.get('usage', 'N/A')}{rec_str}")
                 
                 print("Enter comma-separated choices (e.g. 0,1) or 'q' to quit: ")
                 choices = input("Choices: ").strip().lower()
