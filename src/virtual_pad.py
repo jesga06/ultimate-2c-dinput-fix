@@ -177,6 +177,13 @@ class VirtualPad:
 
 
     def process(self, state: ControllerState):
+        """
+        Translates normalized float ControllerState values into vgamepad commands.
+        Clamps values, handles deadzones, inverts Y axis as needed, and respects blocked inputs.
+        """
+        if not self.gamepad:
+            return
+
         # Triggers
         lt_val = math_utils.process_trigger(state.lt, self.lt_inner, self.lt_adz, self.lt_curve, self.lt_power, getattr(self, 'lt_rest_dz', 0.0), getattr(self, 'lt_sens', 1.0))
         if getattr(self, 'digital_lt', False):
@@ -188,11 +195,15 @@ class VirtualPad:
 
         if 'lt' in self.blocked_buttons:
             self.gamepad.left_trigger_float(value_float=0.0)
+        elif 'lt' in self.macro_pressed_buttons:
+            self.gamepad.left_trigger_float(value_float=1.0)
         else:
             self.gamepad.left_trigger_float(value_float=lt_val)
 
         if 'rt' in self.blocked_buttons:
             self.gamepad.right_trigger_float(value_float=0.0)
+        elif 'rt' in self.macro_pressed_buttons:
+            self.gamepad.right_trigger_float(value_float=1.0)
         else:
             self.gamepad.right_trigger_float(value_float=rt_val)
 
@@ -219,30 +230,21 @@ class VirtualPad:
         else:
             if getattr(self, 'rs_circ_mode', 'disabled') == 'before':
                 rx_val, ry_val = math_utils.apply_circularity_correction(rx_val, ry_val, getattr(self, 'rs_circ_cx', 0.0), getattr(self, 'rs_circ_cy', 0.0), getattr(self, 'rs_circ_bounds', None))
-        """
-        Translates normalized float ControllerState values into vgamepad commands.
-        Clamps values, handles deadzones, inverts Y axis as needed, and respects blocked inputs.
-        """
-        if not self.gamepad:
-            return
+                rx_val, ry_val = math_utils.process_analog_stick(rx_val, ry_val, self.rs_inner, self.rs_adz, self.rs_curve, self.rs_power, getattr(self, 'rs_rest_dz', 0.0), getattr(self, 'rs_sens', 1.0))
+            elif getattr(self, 'rs_circ_mode', 'disabled') == 'after':
+                rx_val, ry_val = math_utils.process_analog_stick(rx_val, ry_val, self.rs_inner, self.rs_adz, self.rs_curve, self.rs_power, getattr(self, 'rs_rest_dz', 0.0), getattr(self, 'rs_sens', 1.0))
+                rx_val, ry_val = math_utils.apply_circularity_correction(rx_val, ry_val, getattr(self, 'rs_circ_cx', 0.0), getattr(self, 'rs_circ_cy', 0.0), getattr(self, 'rs_circ_bounds', None))
+            else:
+                rx_val, ry_val = math_utils.process_analog_stick(rx_val, ry_val, self.rs_inner, self.rs_adz, self.rs_curve, self.rs_power, getattr(self, 'rs_rest_dz', 0.0), getattr(self, 'rs_sens', 1.0))
 
         # Joysticks: Scale float (-1.0 to 1.0) to XInput int (-32768 to 32767)
-        lx_int = math_utils.clamp_int(int(state.lx * 32767), -32768, 32767)
-        ly_int = math_utils.clamp_int(int(state.ly * 32767), -32768, 32767)
-        rx_int = math_utils.clamp_int(int(state.rx * 32767), -32768, 32767)
-        ry_int = math_utils.clamp_int(int(state.ry * 32767), -32768, 32767)
+        lx_int = math_utils.clamp_int(int(lx_val * 32767), -32768, 32767)
+        ly_int = math_utils.clamp_int(int(ly_val * 32767), -32768, 32767)
+        rx_int = math_utils.clamp_int(int(rx_val * 32767), -32768, 32767)
+        ry_int = math_utils.clamp_int(int(ry_val * 32767), -32768, 32767)
 
         self.gamepad.left_joystick(x_value=lx_int, y_value=ly_int)
         self.gamepad.right_joystick(x_value=rx_int, y_value=ry_int)
-
-        # Triggers: Scale float (0.0 to 1.0) to XInput int (0 to 255)
-        lt_int = math_utils.clamp_int(int(state.lt * 255), 0, 255)
-        rt_int = math_utils.clamp_int(int(state.rt * 255), 0, 255)
-
-        if 'lt' not in self.blocked_buttons and 'lt' not in self.macro_pressed_buttons:
-            self.gamepad.left_trigger(value=lt_int)
-        if 'rt' not in self.blocked_buttons and 'rt' not in self.macro_pressed_buttons:
-            self.gamepad.right_trigger(value=rt_int)
 
         # Helper function for pressing or releasing standard buttons
         def handle_btn(btn_name, state_val, xusb_btn):
