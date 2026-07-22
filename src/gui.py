@@ -2709,13 +2709,15 @@ class App(ctk.CTk):
         row1.pack(fill="x", padx=2, pady=2)
         
         ctk.CTkLabel(row1, text="Name:").pack(side="left", padx=2)
-        ent_name = ctk.CTkEntry(row1, width=80)
-        ent_name.insert(0, name_val)
+        ent_name = ctk.CTkEntry(row1, width=90, placeholder_text="e.g. macro1")
+        if name_val:
+            ent_name.insert(0, name_val)
         ent_name.pack(side="left", padx=2)
         
         ctk.CTkLabel(row1, text="Inputs:").pack(side="left", padx=2)
-        ent_in = ctk.CTkEntry(row1, width=100)
-        ent_in.insert(0, inputs_val)
+        ent_in = ctk.CTkEntry(row1, width=110, placeholder_text="e.g. lb, rb")
+        if inputs_val:
+            ent_in.insert(0, inputs_val)
         ent_in.pack(side="left", padx=2)
         
         btn_rec_in = ctk.CTkButton(row1, text="[GP]", width=45, command=lambda: self.start_macro_recording(ent_in, 'inputs'))
@@ -2731,8 +2733,9 @@ class App(ctk.CTk):
         row2.pack(fill="x", padx=2, pady=2)
         
         ctk.CTkLabel(row2, text="Outputs:").pack(side="left", padx=2)
-        ent_out = ctk.CTkEntry(row2)
-        ent_out.insert(0, outputs_val)
+        ent_out = ctk.CTkEntry(row2, placeholder_text="e.g. keyboard:h, wait:50, mouse:left")
+        if outputs_val:
+            ent_out.insert(0, outputs_val)
         ent_out.pack(side="left", fill="x", expand=True, padx=2)
         
         btn_rec_out = ctk.CTkButton(row2, text="[KBM]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
@@ -2746,18 +2749,21 @@ class App(ctk.CTk):
         row_f.pack(fill="x", pady=2)
         
         ctk.CTkLabel(row_f, text="Chord:").pack(side="left", padx=2)
-        ent_chord = ctk.CTkEntry(row_f, width=80)
-        ent_chord.insert(0, chord_val)
+        ent_chord = ctk.CTkEntry(row_f, width=95, placeholder_text="e.g. lb, start")
+        if chord_val:
+            ent_chord.insert(0, chord_val)
         ent_chord.pack(side="left", padx=2)
         
         ctk.CTkLabel(row_f, text="Delayed:").pack(side="left", padx=2)
-        ent_delayed = ctk.CTkEntry(row_f, width=60)
-        ent_delayed.insert(0, delayed_val)
+        ent_delayed = ctk.CTkEntry(row_f, width=75, placeholder_text="e.g. start")
+        if delayed_val:
+            ent_delayed.insert(0, delayed_val)
         ent_delayed.pack(side="left", padx=2)
         
         ctk.CTkLabel(row_f, text="Action:").pack(side="left", padx=2)
-        ent_action = ctk.CTkEntry(row_f, width=60)
-        ent_action.insert(0, action_val)
+        ent_action = ctk.CTkEntry(row_f, width=75, placeholder_text="e.g. M1")
+        if action_val:
+            ent_action.insert(0, action_val)
         ent_action.pack(side="left", padx=2)
         
         ctk.CTkLabel(row_f, text="Mode:").pack(side="left", padx=2)
