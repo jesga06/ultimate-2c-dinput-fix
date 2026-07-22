@@ -139,21 +139,21 @@ class VirtualPad:
                 # explicitly false
                 block_prefs[key.lower()] = val.lower() != 'false'
 
-        if config.has_section('extra_buttons'):
-            for key, val in config.items('extra_buttons'):
-                key_lower = key.lower()
-                val_lower = val.lower()
-                if key_lower == 'home':
-                    self.home_mapping = val_lower
+        for section_name in ['layer_base', 'layer_shift', 'extra_buttons']:
+            if config.has_section(section_name):
+                for key, val in config.items(section_name):
+                    key_lower = key.lower()
+                    val_lower = val.lower()
+                    if key_lower == 'home':
+                        self.home_mapping = val_lower
 
-                # If a standard button/trigger is mapped, block it from being pressed on virtual pad
-                # unless explicitly opted out in block_xinput
-                if key_lower in ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'select',
-                                 'start', 'l3', 'r3', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'ls', 'rs']:
-                    should_block = block_prefs.get(key_lower, True)
-                    if should_block:
-                        self.blocked_buttons.add(key_lower)
-
+                    # If a standard button/trigger is mapped, block it from being pressed on virtual pad
+                    # unless explicitly opted out in block_xinput
+                    if key_lower in ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'select',
+                                     'start', 'l3', 'r3', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'ls', 'rs']:
+                        should_block = block_prefs.get(key_lower, True)
+                        if should_block:
+                            self.blocked_buttons.add(key_lower)
 
 
     def process(self, state: ControllerState):
@@ -176,12 +176,11 @@ class VirtualPad:
         else:
             self.gamepad.right_trigger_float(value_float=rt_val)
 
-        # Sticks
-        # Invert Y axes so up is positive
+        # Sticks (Standard ControllerState polarity: positive UP)
         lx_val = state.lx
-        ly_val = -state.ly
+        ly_val = state.ly
         rx_val = state.rx
-        ry_val = -state.ry
+        ry_val = state.ry
         
         if 'ls' in self.blocked_buttons:
             lx_val, ly_val = 0.0, 0.0
