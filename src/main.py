@@ -58,17 +58,22 @@ gui_processes = []
 
 
 def open_config(icon, item):
+    if logger:
+        logger.debug(f"[ENTER] open_config called with args: icon={icon}, item={item}")
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         gui_path = os.path.join(script_dir, 'gui.py')
         cmd = [sys.executable, gui_path]
         if is_debug_mode:
-            cmd.extend(['--log', '--append-log'])
+            cmd.extend(['--debug', '--append-log'])
+            logger.debug(f"  [DEBUG] Launching GUI with cmd: {cmd}")
         p = subprocess.Popen(cmd)
         gui_processes.append(p)
+        if logger:
+            logger.debug(f"[EXIT] open_config completed successfully. PID: {p.pid}")
     except Exception as e:
         if logger:
-            logger.error(f"Failed to open GUI: {e}")
+            logger.error(f"Failed to open GUI: {e}", exc_info=True)
         else:
             print(f"Failed to open GUI: {e}")
 
@@ -122,7 +127,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--log',
+        '--debug', '-d',
         action='store_true',
         help='Enable verbose debugging logs')
     parser.add_argument(
@@ -131,7 +136,7 @@ def main():
         help='Indicate wrapper was called by system initialization (prevents GUI auto-open)')
     args = parser.parse_args()
 
-    is_debug_mode = args.log
+    is_debug_mode = args.debug
     logger = setup_logger('main', 'wrapper.log', is_debug_mode)
 
     hide_console()
@@ -275,7 +280,7 @@ def main():
         hardware_chord_engine = HardwareChordEngine(controller_config)
         
     except Exception as e:
-        logger.error(f"Failed to initialize mapper or virtual pad: {e}")
+        logger.error(f"Failed to initialize mapper or virtual pad: {e}", exc_info=True)
         logger.info("Please ensure ViGEmBus is installed.")
         show_console()
         time.sleep(5)
@@ -293,7 +298,7 @@ def main():
                 if req_iface != -1:
                     req_ifaces.append(req_iface)
     except Exception as e:
-        logger.error(f"Failed to parse profile to check interface: {e}")
+        logger.error(f"Failed to parse profile to check interface: {e}", exc_info=True)
 
     # Determine Backend Mode
     backend_mode = controller_config.data.get('backend', {}).get('mode', 'auto')
@@ -372,7 +377,8 @@ def main():
             recorder.record_event(state.__dict__)
 
         if is_debug_mode and (current_time - last_log_time) >= 0.5:
-            logger.debug(f"DECODED STATE: {state}")
+            logger.debug(f"[DATA HANDLER] Throttle boundary reached. DECODED STATE: {state}")
+            logger.debug(f"[DATA HANDLER] Variables: recorder_active={recorder.is_recording}, player_active={player.is_playing}")
             last_log_time = current_time
 
         # Pipeline: Hardware Chords -> Mapper -> VirtualPad
@@ -408,7 +414,7 @@ def main():
                         macro_executor.load_macros()
                         logger.info("Controller config reloaded live!")
             except Exception as e:
-                logger.error(f"Error reloading config: {e}")
+                logger.error(f"Error reloading config: {e}", exc_info=True)
 
     t_poller = threading.Thread(target=config_poller, daemon=True)
     t_poller.start()
