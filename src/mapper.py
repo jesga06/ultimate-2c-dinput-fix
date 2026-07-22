@@ -116,6 +116,19 @@ class Mapper:
         if mapping.startswith('macro:'):
             self._execute_macro(mapping.split(':', 1)[1])
             return
+        elif self.macro_executor and mapping in self.macro_executor.macros:
+            self._execute_macro(mapping)
+            return
+
+        if mapping.startswith('gamepad:'):
+            btn_name = mapping.split(':', 1)[1]
+            if hasattr(self, 'virtual_pad') and self.virtual_pad:
+                self.virtual_pad.press_gamepad_button(btn_name)
+            return
+        elif mapping in ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']:
+            if hasattr(self, 'virtual_pad') and self.virtual_pad:
+                self.virtual_pad.press_gamepad_button(mapping)
+            return
 
         if mapping == 'mouse4':
             self.mouse.press(MouseButton.x1)
@@ -161,6 +174,18 @@ class Mapper:
             return
 
         if mapping.startswith('macro:'):
+            return
+        elif self.macro_executor and mapping in self.macro_executor.macros:
+            return
+
+        if mapping.startswith('gamepad:'):
+            btn_name = mapping.split(':', 1)[1]
+            if hasattr(self, 'virtual_pad') and self.virtual_pad:
+                self.virtual_pad.release_gamepad_button(btn_name)
+            return
+        elif mapping in ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']:
+            if hasattr(self, 'virtual_pad') and self.virtual_pad:
+                self.virtual_pad.release_gamepad_button(mapping)
             return
 
         if mapping == 'mouse4':

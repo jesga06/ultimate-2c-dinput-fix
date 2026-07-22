@@ -11,6 +11,24 @@ import logging
 
 logger = logging.getLogger('virtual_pad')
 
+BUTTON_MAP = {
+    'a': vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
+    'b': vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
+    'x': vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
+    'y': vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
+    'lb': vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
+    'rb': vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
+    'select': vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
+    'start': vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
+    'home': vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE,
+    'l3': vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
+    'r3': vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,
+    'dpad_up': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP,
+    'dpad_down': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN,
+    'dpad_left': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT,
+    'dpad_right': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT,
+}
+
 
 class VirtualPad:
     """
@@ -263,3 +281,27 @@ class VirtualPad:
             vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT)
 
         self.gamepad.update()
+
+    def press_gamepad_button(self, btn_name):
+        btn = btn_name.lower().replace('gamepad:', '').strip()
+        if btn == 'lt':
+            self.gamepad.left_trigger_float(value_float=1.0)
+            self.gamepad.update()
+        elif btn == 'rt':
+            self.gamepad.right_trigger_float(value_float=1.0)
+            self.gamepad.update()
+        elif btn in BUTTON_MAP:
+            self.gamepad.press_button(button=BUTTON_MAP[btn])
+            self.gamepad.update()
+
+    def release_gamepad_button(self, btn_name):
+        btn = btn_name.lower().replace('gamepad:', '').strip()
+        if btn == 'lt':
+            self.gamepad.left_trigger_float(value_float=0.0)
+            self.gamepad.update()
+        elif btn == 'rt':
+            self.gamepad.right_trigger_float(value_float=0.0)
+            self.gamepad.update()
+        elif btn in BUTTON_MAP:
+            self.gamepad.release_button(button=BUTTON_MAP[btn])
+            self.gamepad.update()

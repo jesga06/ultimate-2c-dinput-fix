@@ -2629,16 +2629,16 @@ class App(ctk.CTk):
         header_f = ctk.CTkFrame(self.chords_frame, fg_color="transparent")
         header_f.pack(fill="x", padx=5, pady=5)
         
-        ctk.CTkLabel(header_f, text="Chords & Macros", font=ctk.CTkFont(weight="bold")).pack(side="left")
-        info_btn_chords = ctk.CTkButton(header_f, text="? Chords & Macros Guide", width=160, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12), command=lambda: self.open_chords_guide_modal("std"))
+        ctk.CTkLabel(header_f, text="Macros", font=ctk.CTkFont(weight="bold")).pack(side="left")
+        info_btn_chords = ctk.CTkButton(header_f, text="? Macros Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12), command=lambda: self.open_chords_guide_modal("std"))
         info_btn_chords.pack(side="left", padx=(10,0))
-        ToolTip(info_btn_chords, "Click to view full step-by-step tutorial on mapping gamepad combinations to keyboard/mouse macro sequences.")
+        ToolTip(info_btn_chords, "Click to view full step-by-step tutorial on creating macros and referencing them by name in remapping.")
         
         self.chord_rows = []
         self.chord_list_frame = ctk.CTkScrollableFrame(self.chords_frame, height=250, corner_radius=0)
         self.chord_list_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        # Load chords & macros
+        # Load macros (all macros in macros.json, with optional trigger chords from config)
         import os, json
         macros_data = {}
         if os.path.exists('macros.json'):
@@ -2647,25 +2647,35 @@ class App(ctk.CTk):
                     macros_data = json.load(f)
             except Exception:
                 pass
-                
-        for k, v in self.config.items('chords'):
-            if v.startswith('macro:'):
-                m_name = v.split('macro:')[1]
-                m_steps = macros_data.get(m_name, [])
-                # Reconstruct string from steps
-                out_str_parts = []
-                for step in m_steps:
-                    action = step.get('action')
-                    if action == 'wait':
-                        out_str_parts.append(f"wait:{step.get('ms')}")
-                    elif action == 'press':
-                        out_str_parts.append(f"press:{step.get('key')}")
-                    elif action == 'release':
-                        out_str_parts.append(f"release:{step.get('key')}")
-                
-                # Simplify full clicks back to basic binds? Or just keep raw for now
-                out_str = ", ".join(out_str_parts)
-                self.add_chord_row(m_name, k, out_str)
+
+        macro_triggers = {}
+        if self.config.has_section('chords'):
+            for k, v in self.config.items('chords'):
+                if v.startswith('macro:'):
+                    m_name = v.split('macro:', 1)[1]
+                    macro_triggers[m_name] = k
+
+        loaded_macros = set()
+        for m_name, m_steps in macros_data.items():
+            loaded_macros.add(m_name)
+            out_str_parts = []
+            for step in m_steps:
+                action = step.get('action')
+                if action == 'wait':
+                    out_str_parts.append(f"wait:{step.get('ms')}")
+                elif action == 'press':
+                    out_str_parts.append(step.get('key'))
+                elif action == 'release':
+                    out_str_parts.append(f"release:{step.get('key')}")
+            
+            out_str = ", ".join(out_str_parts)
+            input_trig = macro_triggers.get(m_name, "")
+            self.add_chord_row(m_name, input_trig, out_str)
+
+        # Fallback for any chord entries not in macros.json yet
+        for m_name, input_trig in macro_triggers.items():
+            if m_name not in loaded_macros:
+                self.add_chord_row(m_name, input_trig, "")
             
         btn_add = ctk.CTkButton(self.chords_frame, text="+ Add Macro", command=lambda: self.add_chord_row("", "", ""))
         btn_add.pack(pady=5)
@@ -2676,17 +2686,17 @@ class App(ctk.CTk):
     def start_macro_recording(self, entry_widget, mode):
         # mode: 'inputs' (Gamepad only) or 'outputs' (KBM + Gamepad)
         record_win = ctk.CTkToplevel(self)
-        record_win.title("Record Gamepad Inputs" if mode == 'inputs' else "Record Outputs (KBM)")
-        record_win.geometry("520x340" if mode == 'inputs' else "520x320")
+        record_win.title("Record Gamepad Inputs" if mode == 'inputs' else "Record Macro Outputs (KBM + Gamepad)")
+        record_win.geometry("540x380" if mode == 'outputs' else "520x340")
         record_win.attributes("-topmost", True)
         record_win.focus()
         
-        title_text = "Recording Gamepad Inputs...\nPress controller buttons or click quick-add buttons below." if mode == 'inputs' else "Recording Outputs (KBM)...\nPress keys, click mouse buttons, scroll, or use quick-add buttons below."
+        title_text = "Recording Gamepad Inputs...\nPress controller buttons or click quick-add buttons below." if mode == 'inputs' else "Recording Macro Outputs...\nPress keys, click mouse buttons, press controller buttons, or use quick-add buttons below."
         lbl = ctk.CTkLabel(record_win, text=title_text, font=ctk.CTkFont(size=12))
         lbl.pack(pady=5)
         
         result_var = ctk.StringVar(value=entry_widget.get())
-        result_lbl = ctk.CTkLabel(record_win, textvariable=result_var, font=ctk.CTkFont(size=13, weight="bold"), wraplength=480)
+        result_lbl = ctk.CTkLabel(record_win, textvariable=result_var, font=ctk.CTkFont(size=13, weight="bold"), wraplength=500)
         result_lbl.pack(pady=5)
         
         def append_result(text):
@@ -2732,47 +2742,60 @@ class App(ctk.CTk):
             quick_f = ctk.CTkFrame(record_win, fg_color="transparent")
             quick_f.pack(fill="x", padx=10, pady=5)
 
-            ctk.CTkButton(quick_f, text="+ Left Click", width=90, command=lambda: append_result("mouse:left")).grid(row=0, column=0, padx=3, pady=3)
-            ctk.CTkButton(quick_f, text="+ Right Click", width=90, command=lambda: append_result("mouse:right")).grid(row=0, column=1, padx=3, pady=3)
-            ctk.CTkButton(quick_f, text="+ Mid Click", width=90, command=lambda: append_result("mouse:middle")).grid(row=0, column=2, padx=3, pady=3)
-            ctk.CTkButton(quick_f, text="+ Scroll Up", width=90, command=lambda: append_result("mouse:scroll_up")).grid(row=0, column=3, padx=3, pady=3)
-            ctk.CTkButton(quick_f, text="+ Scroll Down", width=90, command=lambda: append_result("mouse:scroll_down")).grid(row=0, column=4, padx=3, pady=3)
-            ctk.CTkButton(quick_f, text="+ Wait 50ms", width=90, command=lambda: append_result("wait:50")).grid(row=1, column=0, padx=3, pady=3)
+            ctk.CTkButton(quick_f, text="+ Left Click", width=85, command=lambda: append_result("mouse:left")).grid(row=0, column=0, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Right Click", width=85, command=lambda: append_result("mouse:right")).grid(row=0, column=1, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Mid Click", width=85, command=lambda: append_result("mouse:middle")).grid(row=0, column=2, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Scroll Up", width=85, command=lambda: append_result("mouse:scroll_up")).grid(row=0, column=3, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Scroll Down", width=85, command=lambda: append_result("mouse:scroll_down")).grid(row=0, column=4, padx=2, pady=2)
+            
+            ctk.CTkButton(quick_f, text="+ Wait 50ms", width=85, command=lambda: append_result("wait:50")).grid(row=1, column=0, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Wait 100ms", width=85, command=lambda: append_result("wait:100")).grid(row=1, column=1, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: A", width=85, command=lambda: append_result("gamepad:a")).grid(row=1, column=2, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: B", width=85, command=lambda: append_result("gamepad:b")).grid(row=1, column=3, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: X", width=85, command=lambda: append_result("gamepad:x")).grid(row=1, column=4, padx=2, pady=2)
 
-        else:
-            # Gamepad live polling listener
-            last_pressed_buttons = set()
+            ctk.CTkButton(quick_f, text="+ GP: Y", width=85, command=lambda: append_result("gamepad:y")).grid(row=2, column=0, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: LB", width=85, command=lambda: append_result("gamepad:lb")).grid(row=2, column=1, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: RB", width=85, command=lambda: append_result("gamepad:rb")).grid(row=2, column=2, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: LT", width=85, command=lambda: append_result("gamepad:lt")).grid(row=2, column=3, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: RT", width=85, command=lambda: append_result("gamepad:rt")).grid(row=2, column=4, padx=2, pady=2)
 
-            def poll_gamepad():
-                if not record_win.winfo_exists():
-                    return
-                current_pressed = set()
-                if hasattr(self, 'current_state') and self.current_state:
-                    st = self.current_state
-                    btn_attrs = ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']
-                    for b in btn_attrs:
-                        val = getattr(st, b, False)
-                        if isinstance(val, bool) and val:
-                            current_pressed.add(b)
-                        elif isinstance(val, (int, float)) and val > 0.5:
-                            current_pressed.add(b)
+        # Gamepad live polling listener (for both inputs and outputs)
+        last_pressed_buttons = set()
 
-                    if hasattr(st, 'extra_inputs') and isinstance(st.extra_inputs, dict):
-                        for eb, ev in st.extra_inputs.items():
-                            if ev:
-                                current_pressed.add(eb)
+        def poll_gamepad():
+            if not record_win.winfo_exists():
+                return
+            current_pressed = set()
+            if hasattr(self, 'current_state') and self.current_state:
+                st = self.current_state
+                btn_attrs = ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']
+                for b in btn_attrs:
+                    val = getattr(st, b, False)
+                    if isinstance(val, bool) and val:
+                        current_pressed.add(b)
+                    elif isinstance(val, (int, float)) and val > 0.5:
+                        current_pressed.add(b)
 
-                # Newly pressed buttons this frame
-                newly_pressed = current_pressed - last_pressed_buttons
-                for btn_name in newly_pressed:
+                if hasattr(st, 'extra_inputs') and isinstance(st.extra_inputs, dict):
+                    for eb, ev in st.extra_inputs.items():
+                        if ev:
+                            current_pressed.add(eb)
+
+            newly_pressed = current_pressed - last_pressed_buttons
+            for btn_name in newly_pressed:
+                if mode == 'outputs':
+                    append_result(f"gamepad:{btn_name}")
+                else:
                     append_result(btn_name)
 
-                last_pressed_buttons.clear()
-                last_pressed_buttons.update(current_pressed)
-                record_win.after(50, poll_gamepad)
-
+            last_pressed_buttons.clear()
+            last_pressed_buttons.update(current_pressed)
             record_win.after(50, poll_gamepad)
 
+        record_win.after(50, poll_gamepad)
+
+        if mode == 'inputs':
             # Quick add buttons frame for gamepad inputs
             quick_f = ctk.CTkFrame(record_win, fg_color="transparent")
             quick_f.pack(fill="x", padx=10, pady=5)
@@ -2854,8 +2877,8 @@ class App(ctk.CTk):
             ent_name.insert(0, name_val)
         ent_name.pack(side="left", padx=2)
         
-        ctk.CTkLabel(row1, text="Inputs:").pack(side="left", padx=2)
-        ent_in = ctk.CTkEntry(row1, width=110, placeholder_text="e.g. dpad_down, rb")
+        ctk.CTkLabel(row1, text="Inputs (Opt):").pack(side="left", padx=2)
+        ent_in = ctk.CTkEntry(row1, width=110, placeholder_text="Opt. trigger e.g. lb+rb")
         if inputs_val:
             ent_in.insert(0, inputs_val)
         ent_in.pack(side="left", padx=2)
@@ -2873,12 +2896,12 @@ class App(ctk.CTk):
         row2.pack(fill="x", padx=2, pady=2)
         
         ctk.CTkLabel(row2, text="Outputs:").pack(side="left", padx=2)
-        ent_out = ctk.CTkEntry(row2, placeholder_text="e.g. keyboard:h, wait:50, mouse:left")
+        ent_out = ctk.CTkEntry(row2, placeholder_text="e.g. gamepad:a, wait:50, keyboard:h, mouse:left")
         if outputs_val:
             ent_out.insert(0, outputs_val)
         ent_out.pack(side="left", fill="x", expand=True, padx=2)
         
-        btn_rec_out = ctk.CTkButton(row2, text="[KBM]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
+        btn_rec_out = ctk.CTkButton(row2, text="[Rec]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
         btn_rec_out.pack(side="right", padx=2)
         
         row_data = {"name": ent_name, "in": ent_in, "out": ent_out, "frame": row_f}
@@ -2947,7 +2970,7 @@ class App(ctk.CTk):
                         val += f"; delayed={delayed}"
                     self.config.set('hardware_chords', f"hw_{i}", val)
         
-        # Save Chords & Macros
+        # Save Macros
         self.config.remove_section('chords')
         self.config.add_section('chords')
         
@@ -2956,8 +2979,9 @@ class App(ctk.CTk):
             name = row["name"].get().strip()
             inputs = row["in"].get().strip()
             outputs = row["out"].get().strip()
-            if name and inputs and outputs:
-                self.config.set('chords', inputs, f"macro:{name}")
+            if name and outputs:
+                if inputs:
+                    self.config.set('chords', inputs, f"macro:{name}")
                 
                 steps = []
                 # parse outputs like: "press:keyboard:h, wait:50, release:keyboard:h, keyboard:j"

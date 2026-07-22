@@ -325,6 +325,7 @@ def main():
         from macro_executor import MacroExecutor
         macro_executor = MacroExecutor(mapper)
         mapper.macro_executor = macro_executor
+        mapper.virtual_pad = virtual_pad
         
         # Initialize Hardware Chord Engine
         hardware_chord_engine = HardwareChordEngine(controller_config)
