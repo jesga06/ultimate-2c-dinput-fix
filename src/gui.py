@@ -650,6 +650,18 @@ class App(ctk.CTk):
         )
         self.validate_btn.pack(side="left", padx=10)
         
+        # Bottom widgets packed first so they claim space
+        version_lbl = ctk.CTkLabel(
+            self.tab_dashboard,
+            text="v2.2.0",
+            text_color="gray50",
+            font=ctk.CTkFont(size=11))
+        version_lbl.pack(side="bottom", pady=(0, 20))
+        
+        self.extra_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
+        self.extra_frame.pack(fill="x", side="bottom", pady=10)
+
+        # Expanding widget packed last so it takes the remaining cavity
         self.layout_canvas = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
         self.layout_canvas.pack(fill="both", expand=True, padx=20, pady=10)
         
@@ -667,17 +679,7 @@ class App(ctk.CTk):
         self.dashboard_btns = {}
         self.layout_canvas.bind("<Configure>", self.on_dashboard_resize)
         
-        self.extra_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
-        self.extra_frame.pack(fill="x", side="bottom", pady=10)
-        
         self._build_dashboard_layout()
-
-        version_lbl = ctk.CTkLabel(
-            self.tab_dashboard,
-            text="v2.2.0",
-            text_color="gray50",
-            font=ctk.CTkFont(size=11))
-        version_lbl.pack(side="bottom", pady=(0, 20))
 
     def _build_dashboard_layout(self):
         # Clear existing
