@@ -267,25 +267,7 @@ def main():
     with open(config_file, 'w') as f:
         config.write(f)
 
-    try:
-        mapper = Mapper(controller_config)
-        virtual_pad = VirtualPad(controller_config)
-        
-        # Initialize Macro Executor and inject it into mapper
-        from macro_executor import MacroExecutor
-        macro_executor = MacroExecutor(mapper)
-        mapper.macro_executor = macro_executor
-        
-        # Initialize Hardware Chord Engine
-        hardware_chord_engine = HardwareChordEngine(controller_config)
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize mapper or virtual pad: {e}", exc_info=True)
-        logger.info("Please ensure ViGEmBus is installed.")
-        show_console()
-        time.sleep(5)
-        sys.exit(1)
-    
+
     # Load HID map to check for interface restriction
     req_ifaces = []
     try:
@@ -329,10 +311,30 @@ def main():
             sys.exit(1)
         logger.info("Using DInput Backend.")
         
+    try:
+        mapper = Mapper(controller_config)
+        virtual_pad = VirtualPad(controller_config)
+        
+        # Initialize Macro Executor and inject it into mapper
+        from macro_executor import MacroExecutor
+        macro_executor = MacroExecutor(mapper)
+        mapper.macro_executor = macro_executor
+        
+        # Initialize Hardware Chord Engine
+        hardware_chord_engine = HardwareChordEngine(controller_config)
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize mapper or virtual pad: {e}", exc_info=True)
+        logger.info("Please ensure ViGEmBus is installed.")
+        show_console()
+        time.sleep(5)
+        sys.exit(1)
+
+
     write_status("Connected", device_name)
 
     def rumble_callback(left_motor, right_motor):
-        backend.set_vibration(left_motor, right_motor)
+        backend.set_vibration(left_motor / 255.0, right_motor / 255.0)
 
     virtual_pad.set_rumble_callback(rumble_callback)
 

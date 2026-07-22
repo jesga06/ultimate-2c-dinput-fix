@@ -667,6 +667,9 @@ class App(ctk.CTk):
         self.dashboard_btns = {}
         self.layout_canvas.bind("<Configure>", self.on_dashboard_resize)
         
+        self.extra_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
+        self.extra_frame.pack(fill="x", side="bottom", pady=10)
+        
         self._build_dashboard_layout()
 
         version_lbl = ctk.CTkLabel(
@@ -719,8 +722,8 @@ class App(ctk.CTk):
                 if k not in standard_buttons:
                     extra_btns.append(k)
                     
-        self.extra_frame = ctk.CTkFrame(self.layout_canvas, fg_color="transparent")
-        self.extra_frame.place(relx=0.5, rely=0.9, anchor="center")
+        for widget in self.extra_frame.winfo_children():
+            widget.destroy()
         
         for i, eb in enumerate(extra_btns):
             b = ctk.CTkButton(self.extra_frame, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444")
