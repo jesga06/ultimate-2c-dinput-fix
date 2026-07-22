@@ -2381,6 +2381,89 @@ class App(ctk.CTk):
 
         self.after(16, self.update_position_loop)
             
+    def open_chords_guide_modal(self, topic="all"):
+        guide_modal = ctk.CTkToplevel(self)
+        guide_modal.title("Chords & Hardware Chords Master Guide")
+        guide_modal.geometry("640x540")
+        guide_modal.resizable(True, True)
+        guide_modal.attributes("-topmost", True)
+        guide_modal.focus()
+
+        lbl_header = ctk.CTkLabel(guide_modal, text="📘 Chords & Hardware Chords Master Tutorial", font=ctk.CTkFont(size=18, weight="bold"))
+        lbl_header.pack(pady=(15, 5))
+
+        btn_bar = ctk.CTkFrame(guide_modal, fg_color="transparent")
+        btn_bar.pack(fill="x", padx=15, pady=5)
+
+        txt = ctk.CTkTextbox(guide_modal, wrap="word", font=ctk.CTkFont(size=12))
+        txt.pack(fill="both", expand=True, padx=15, pady=(5, 15))
+
+        def show_topic(t):
+            txt.configure(state="normal")
+            txt.delete("0.0", "end")
+
+            if t == "hw":
+                content = (
+                    "=== HARDWARE CHORDS (INPUT SUPPRESSION) TUTORIAL ===\n\n"
+                    "1️⃣ WHAT ARE HARDWARE CHORDS?\n"
+                    "Hardware Chords operate at the controller firmware level with native Input Suppression (available in XInput backend mode).\n\n"
+                    "2️⃣ WHAT IS INPUT SUPPRESSION?\n"
+                    "When back paddles or firmware shortcuts output multi-button combos (e.g. LB + Start), standard software sends BOTH 'LB' and 'Start' to your game. "
+                    "With Hardware Chords, the underlying base buttons ('LB' and 'Start') are SUPPRESSED upstream before Windows or games see them, and a synthetic extra button (e.g. 'M1' or 'EXTRA_1') is created instead!\n\n"
+                    "3️⃣ HOW TO SET UP HARDWARE CHORDS (STEP-BY-STEP):\n"
+                    "• Step 1: Ensure your controller is running in XInput Mode (Auto-Detect calibration or XInput mode).\n"
+                    "• Step 2: Under Hardware Chords, click '+ Add Hardware Chord'.\n"
+                    "• Step 3: Base Chord Inputs: Enter the physical buttons pressed together (e.g., 'lb, start' or 'a, b').\n"
+                    "• Step 4: Synthetic Action: Select or type the target virtual extra button (e.g., 'M1', 'L4', 'R4').\n"
+                    "• Step 5: Buffer / Delay (ms): Enter an optional timing buffer (e.g., 50ms) to account for human thumb out-of-sync variance when pressing both buttons.\n"
+                    "• Step 6: Mode: Keep set to 'Auto' (or 'Hold' / 'Tap').\n"
+                    "• Step 7: Click 'Save Settings'. Pressing LB + Start now cleanly sends M1 without triggering LB or Start in-game!"
+                )
+            elif t == "std":
+                content = (
+                    "=== STANDARD CHORDS & MACROS STUDIO TUTORIAL ===\n\n"
+                    "1️⃣ WHAT ARE STANDARD CHORDS & MACROS?\n"
+                    "Standard Chords allow mapping multi-button gamepad combinations (e.g. LB + RB) to automated keyboard hotkeys, mouse actions, or multi-step macro sequences.\n\n"
+                    "2️⃣ EXECUTION MODES:\n"
+                    "• Hold Mode: The macro sequence holds or loops continuously while the physical chord buttons are held down.\n"
+                    "• Press (Toggle) Mode: Pressing the chord once starts execution, and pressing it again toggles it off. Includes built-in stuck-key prevention safeguards.\n\n"
+                    "3️⃣ HOW TO SET UP CHORDS & MACROS (STEP-BY-STEP):\n"
+                    "• Step 1: Under Chords & Macros, click '+ Add Macro'.\n"
+                    "• Step 2: Macro Name: Give your macro a unique name (e.g., 'fast_heal' or 'emote_combo').\n"
+                    "• Step 3: Inputs: Enter the gamepad buttons forming the chord (e.g., 'lb, rb' or click ⏺ Record to press them on your controller).\n"
+                    "• Step 4: Outputs: Enter the action sequence (e.g., 'keyboard:h, wait:50, mouse:left' or click ⏺ Record).\n"
+                    "• Step 5: Mode: Choose between 'Hold' or 'Press' (Toggle).\n"
+                    "• Step 6: Click 'Save Settings'."
+                )
+            else:  # Overview / Both
+                content = (
+                    "=== CHORDS & HARDWARE CHORDS OVERVIEW & COMPARISON ===\n\n"
+                    "Both tools allow mapping multi-button gamepad combinations, but serve different purposes in your controller pipeline:\n\n"
+                    "1️⃣ HARDWARE CHORDS (Firmware Level / Upstream Input Suppression)\n"
+                    "• Best For: Controller back paddles or firmware button combos (e.g. LB + Start -> M1).\n"
+                    "• Key Feature: INPUT SUPPRESSION. Swallows base button presses so 'LB' and 'Start' do NOT leak into games while triggering synthetic extra buttons.\n"
+                    "• Requirements: Requires XInput backend mode.\n\n"
+                    "2️⃣ STANDARD CHORDS & MACROS STUDIO (Software Macro Engine)\n"
+                    "• Best For: Multi-step macros, keyboard hotkeys, and mouse commands triggered by gamepad combinations.\n"
+                    "• Key Feature: Supports Hold and Press (Toggle) modes, step delays (e.g. wait:50), keyboard/mouse output chains, and interactive key recording.\n\n"
+                    "3️⃣ SHIFT LAYER SETTINGS\n"
+                    "• Best For: Secondary layer remappings across all base buttons while holding or toggling a single Shift Trigger button."
+                )
+
+            txt.insert("0.0", content)
+            txt.configure(state="disabled")
+
+        btn_all = ctk.CTkButton(btn_bar, text="Overview & Comparison", width=160, command=lambda: show_topic("all"), fg_color="#1f538d")
+        btn_all.pack(side="left", padx=5)
+
+        btn_hw = ctk.CTkButton(btn_bar, text="Hardware Chords Guide", width=170, command=lambda: show_topic("hw"), fg_color="#555555")
+        btn_hw.pack(side="left", padx=5)
+
+        btn_std = ctk.CTkButton(btn_bar, text="Chords & Macros Guide", width=170, command=lambda: show_topic("std"), fg_color="#555555")
+        btn_std.pack(side="left", padx=5)
+
+        show_topic(topic)
+
     def setup_advanced(self):
         if not self.config.has_section('shift_layer'):
             self.config.add_section('shift_layer')
@@ -2394,6 +2477,40 @@ class App(ctk.CTk):
         self.advanced_scroll = ctk.CTkScrollableFrame(self.tab_advanced, fg_color="transparent", corner_radius=0)
         self.advanced_scroll.pack(fill="both", expand=True)
 
+        # Prominent Chords & Hardware Chords Guide Box
+        guide_box = ctk.CTkFrame(self.advanced_scroll)
+        guide_box.pack(fill="x", padx=20, pady=(10, 5))
+        
+        guide_hdr = ctk.CTkFrame(guide_box, fg_color="transparent")
+        guide_hdr.pack(fill="x", padx=10, pady=(8, 2))
+        
+        ctk.CTkLabel(guide_hdr, text="📘 Chords & Hardware Chords Tutorial", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
+        
+        btn_open_guide = ctk.CTkButton(
+            guide_hdr,
+            text="? Open Interactive Guide",
+            width=170,
+            height=26,
+            corner_radius=13,
+            fg_color="#1f538d",
+            hover_color="#14375e",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=lambda: self.open_chords_guide_modal("all")
+        )
+        btn_open_guide.pack(side="right")
+        
+        summary_lbl = ctk.CTkLabel(
+            guide_box,
+            text=(
+                "• Hardware Chords (Input Suppression): Firmware-level combinations (e.g. LB+Start -> M1) that swallow base inputs so they don't leak into games.\n"
+                "• Chords & Macros Studio: Software-level combinations (e.g. LB+RB) mapped to keyboard/mouse sequences, wait steps, or toggle modes."
+            ),
+            font=ctk.CTkFont(size=12),
+            justify="left",
+            anchor="w"
+        )
+        summary_lbl.pack(fill="x", padx=15, pady=(0, 10))
+
         # Hardware Chords Builder
         self.hw_chords_frame = ctk.CTkFrame(self.advanced_scroll)
         self.hw_chords_frame.pack(fill="x", padx=20, pady=10)
@@ -2402,9 +2519,9 @@ class App(ctk.CTk):
         hdr_hw.pack(fill="x", padx=5, pady=5)
         ctk.CTkLabel(hdr_hw, text="Hardware Chords (Input Suppression)", font=ctk.CTkFont(weight="bold")).pack(side="left")
         
-        info_btn_hw = ctk.CTkButton(hdr_hw, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
-        info_btn_hw.pack(side="left", padx=(5,0))
-        ToolTip(info_btn_hw, "Map your controller's firmware chords to synthesize extra buttons upstream.")
+        info_btn_hw = ctk.CTkButton(hdr_hw, text="? Hardware Chords Guide", width=160, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12), command=lambda: self.open_chords_guide_modal("hw"))
+        info_btn_hw.pack(side="left", padx=(10,0))
+        ToolTip(info_btn_hw, "Click to view full step-by-step tutorial on firmware chord remapping and input suppression.")
         
         if backend_mode != "xinput":
             ctk.CTkLabel(self.hw_chords_frame, text="Hardware Chords are locked because the backend is not in XInput mode.\nPlease use Auto-Detect calibration to switch to XInput mode.", text_color="#ff5555").pack(pady=10)
@@ -2487,9 +2604,9 @@ class App(ctk.CTk):
         header_f.pack(fill="x", padx=5, pady=5)
         
         ctk.CTkLabel(header_f, text="Chords & Macros", font=ctk.CTkFont(weight="bold")).pack(side="left")
-        info_btn_chords = ctk.CTkButton(header_f, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
-        info_btn_chords.pack(side="left", padx=(5,0))
-        ToolTip(info_btn_chords, "Map multiple simultaneous button presses (a chord) to a macro sequence.\nExample Outputs: 'keyboard:h, wait:50, mouse:left'")
+        info_btn_chords = ctk.CTkButton(header_f, text="? Chords & Macros Guide", width=160, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12), command=lambda: self.open_chords_guide_modal("std"))
+        info_btn_chords.pack(side="left", padx=(10,0))
+        ToolTip(info_btn_chords, "Click to view full step-by-step tutorial on mapping gamepad combinations to keyboard/mouse macro sequences.")
         
         self.chord_rows = []
         self.chord_list_frame = ctk.CTkScrollableFrame(self.chords_frame, height=250, corner_radius=0)
