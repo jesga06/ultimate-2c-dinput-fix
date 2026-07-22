@@ -1,14 +1,8 @@
 ## [Planned Features (Sorted by what I want to do next)]
-- **Tuning Graphs & Sensitivity Real-time Updates**: Bind sensitivity sliders to dynamically redraw stick and trigger graphs, and update digital trigger display to draw a step-function graph using the deadzone as the threshold.
-- **Circularity Calibration & Wizard Enhancements**: Implement speed warnings, minimum 6 spins (3 CW, 3 CCW) requirement, pre-apply circularity error calculation, dynamic dark/light mode circularity circle rendering, 45º diagonal line response graphs, and a warped/asymmetric stick scaling correction algorithm.
-- **Gamepad Button Testing Dashboard**: Support a proportional, auto-scaling gamepad button layout dashboard mapping both asymmetrical (Xbox) and symmetrical (PlayStation) controllers, using a helper script-driven positioning model.
-- **Mapping Recorder Save Options**: Provide "Save Standard" and "Save Shift Map" buttons inside the interactive recording window.
 - **Complete Vibration Implementation:** Finalize the incomplete rumble code.
 - **Vibration Diagnostic Test:** Diagnostic tool `07_vibration_test.py` to test and identify rumble payloads.
 - **HidHide Integration (Double Input Fix)**: Automated integration with Nefarius HidHide to completely hide physical gamepads from other applications. Includes automatic executable whitelisting and dynamic cloaking that cleanly reverts its changes when the wrapper daemon closes.
 - **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and gamepad HID reverse engineering tools.
-- **Dynamic Color Guides**: Reference theme colors dynamically in help guides and legends rather than using hardcoded color names.
-- **Retroactive Button Name Normalization**: Standardize all button names to uppercase client-side and retroactively across configuration settings.
 - **Analog-to-Mouse & WASD Mapping:** Support for high-frequency translation of stick deflection to mouse deltas or WASD keystrokes.
 - **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
 - **Windows Startup Integration:** Registry integration to launch the wrapper daemon silently on boot.
@@ -18,6 +12,7 @@
 
 ## NOTES
 This list orders updates from oldest-first to newest-last. For the most recent updates, scroll all the way down.
+
 
 ## [1.0.0] - 2026-07-15
 This is the official 1.0.0 release of the universal HID-to-XInput wrapper. It brings the wrapper from a hardcoded script to a robust, user-friendly, and customizable daemon.
@@ -217,3 +212,26 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Corrected GUI Configuration Reference:** Updated the dashboard's "Validate HID Map" validation query to reference `self.daemon_config` rather than `self.config` to resolve config key lookup errors.
 - **Synchronized HID Map Method Names:** Updated `gui.py`'s Profiles tab utility references to point to `validate_hid_map` and `diff_hid_maps` instead of their deprecated method names.
 - **Commit Commenting:** I actually do commented atomic commits now. Even the commit that adds this line was commented. Learned to do so the hard way.
+
+## [2.2.0] - Unreleased
+### 🎮 User-Facing Changes
+- **Circularity Calibration & Wizard Enhancements:**
+  - Added a toggleable 45º diagonal reference line on response graphs.
+  - Added a dashed circular bounds guide on crosshair displays mapping the 1.0 boundary in current theme colors (dark/light appearance matched).
+  - Added an information overlay modal explaining circularity math and "Before" vs "After" processing configurations.
+  - Guided wizard now actively tracks clockwise/counter-clockwise spins, requiring 3 full rotations in both directions before unlocking completion.
+  - Integrated real-time velocity checking that flashes a warning ("Too Fast! Slow down.") if rotation speed is too high.
+  - Refactored wizard completion to offer explicit "Apply Changes" and "Discard" options.
+- **Warped Stick Correction:** Added a "Warp Threshold" slider (0-20%) that dynamically stretches weak thumbstick axes to reach 1.0 maximum deflection without hard-clipping.
+- **Proportional Gamepad Test Dashboard:** Added a responsive, auto-scaling gamepad layout dashboard mapping physical and extra buttons based on configured layout resources (Xbox, PlayStation, etc.).
+- **Interactive Recorder Save Targets:** Added explicit "Save Standard" and "Save Shift Map" buttons inside the mapping recorder to assign inputs to standard or shift layers.
+- **Dynamic Color Legends:** tooltips now query the active interface theme (Purple, Red, Blue, etc.) to reference raw/processed indicators dynamically.
+- **Digital Trigger response Graph:** The Tuning tab now displays trigger curves in digital mode as a clean step-function based on deadzone thresholds.
+- **Tuning Graphs & Sensitivity Real-time Updates:** Bind sensitivity sliders to dynamically redraw stick and trigger graphs.
+- **Retroactive Button Name Normalization:** Standardize all button names to uppercase client-side and retroactively across configuration settings.
+- **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
+
+### ⚙️ Under-the-Hood Changes
+- **Circularity On-Finish Callbacks:** Programmed an `on_finish` callback flow to refresh GUI plots and configuration states immediately when circularity changes are applied.
+- **Diagonal Response Curve Math:** Refactored graph rendering to mathematically evaluate diagonal deflection vectors across warped stick corrections, circularity boundaries (before/after), deadzones, and sensitivities.
+- **Dynamic Extra Button Parsing:** The GUI now parses `extra_buttons` directly from the active HID map dynamically at launch, properly recognizing all supported extra buttons from downloaded community profiles instead of failing to populate them when they aren't yet mapped in the user's config file.

@@ -29,10 +29,12 @@ Run the test tool directly using `test_calibration.bat` to verify your gamepad i
 
 ## ⚙️ Advanced Remapping GUI (`src/gui.py`)
 Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the system tray).
+* **Proportional Gamepad Test Dashboard:** Auto-scaling, responsive button layout mapping physical and extra paddles symmetrically or asymmetrically based on active controller resources.
 * **Interactive Recorder Modal:**
   * **Keyboard Combos:** Records complex multi-key combinations (e.g., `Ctrl + Shift + Alt + Z`) as you press them.
   * **Mouse Clicks:** Captures clicks for Middle, Left, Right, Mouse4, and Mouse5. Left-clicks inside the recorder are ignored for UI protection.
   * **Mouse Scroll Wheel:** Records scroll direction.
+  * **Target Layer Saving:** Explicit **"Save Standard"** and **"Save Shift Map"** buttons to cleanly redirect recorded inputs.
 * **Mouse Scroll Remapping Customization:**
   * **Oneshot Mode:** Triggers exactly $X$ scroll notches on button press.
   * **Continuous Mode:** Repeats $X$ scroll notches every $Y$ seconds as long as the button is held.
@@ -43,13 +45,20 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
   * A **"Block XInput"** checkbox column next to each remapped action lets you toggle this behavior on or off. Unchecking it allows sending both the virtual controller signal and the remapped keyboard/mouse signal simultaneously.
 * **Tuning Tab (Sticks & Triggers):**
   * **Trigger Sensitivity:** Modify the sensitivity of analog triggers directly using sliders (values from 0.1 to 3.0) to fine-tune actuation limits.
-  * **Digital Triggers Mode:** A "Digital Trigger Mode" checkbox forces analog trigger values to act as binary buttons (0 or 255) on the virtual pad immediately upon input.
-  * **Analog Tuning Visualizer:** Displays real-time coordinate plotting with a 1.0 unit circular bounds grid and exact decimal labels for thumbsticks.
-  * **Circularity Calibrator:** A calibration module in the Tuning tab that records the maximum range of your stick and applies correction math to ensure a perfect 1.0 circular output.
+  * **Digital Triggers Mode:** A "Digital Trigger Mode" checkbox forces analog trigger values to act as binary buttons (0 or 255) on the virtual pad immediately upon input. Replaces standard curve display with a clean step-function.
+  * **Warped Stick Correction:** "Warp Threshold" slider (0-20%) to independently scale weak stick axes to reach 1.0 maximum throw without hard-clipping.
+  * **Analog Tuning Visualizer:** Displays real-time coordinate plotting with a 1.0 unit circular bounds grid and exact decimal labels for thumbsticks. Offers a toggleable 45º diagonal reference line.
+  * **Circularity Calibrator:** A calibration wizard in the Tuning tab that records the maximum range of your stick and applies correction math to ensure a perfect 1.0 circular output.
+    * **Rotation Monitoring:** Tracks and requires 3 CW + 3 CCW rotations.
+    * **Speed Checks:** Real-time velocity warnings if spinning too fast.
+    * **Apply/Discard Flow:** Lets the user preview error percentage and center offset before choosing to Apply or Discard.
+    * **Circularity Info Modal:** Info popup detailing forced circularity calculations and before vs. after routing options.
 * **Live Connection Status:** Displays whether the background daemon is currently "Connected" or "Disconnected", along with the active controller's name.
 * **Chords & Macros Studio (Advanced Tab):** Record sequences of gamepad inputs and output key/mouse events, choose between toggle (press) and hold execution, with integrated stuck-key protection.
 * **Shift Layer Remapping:** Configure dynamic shift mappings and shift blocking for every button, expanding total layout mapping possibilities. Shift trigger keys dynamically adapt to your controller's profile.
 * **Transition Screen Overlay:** Smooth color-interpolated canvas fades (250ms in/out, 900ms hold) with randomized community quotes and a rotating vector loading spinner.
+* **Button Name Normalization:** Standardizes and forces all client-side button names to uppercase across all configurations and UI elements.
+* **Dynamic Color Legends:** Tooltips and legends automatically reference color schemes based on the active GUI theme.
 
 ---
 

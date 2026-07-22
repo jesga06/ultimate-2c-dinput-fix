@@ -81,7 +81,8 @@ class ToolTip:
         tw.attributes("-topmost", True)
         
         # Simple label for tooltip
-        label = ctk.CTkLabel(tw, text=self.text, justify="left", fg_color="#333333", text_color="white", corner_radius=4, padx=10, pady=5)
+        txt = self.text() if callable(self.text) else self.text
+        label = ctk.CTkLabel(tw, text=txt, justify="left", fg_color="#333333", text_color="white", corner_radius=4, padx=10, pady=5)
         label.pack(ipadx=1, ipady=1)
 
     def hidetip(self):
@@ -398,11 +399,19 @@ class App(ctk.CTk):
         
         self.hardware_profile_path = hardware_profile_path
         self.hardware_layout = 'xbox'
+        self.extra_buttons = []
         if hardware_profile_path and os.path.exists(hardware_profile_path):
             try:
                 with open(hardware_profile_path, 'r') as f:
                     prof_data = json.load(f)
                     self.hardware_layout = prof_data.get('layout', 'xbox')
+                    
+                    standard_buttons = {'a', 'b', 'x', 'y', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home'}
+                    for r_id, r_info in prof_data.get('reports', {}).items():
+                        for name, input_info in r_info.get('inputs', {}).items():
+                            if input_info.get('type') == 'button' and name not in standard_buttons:
+                                if name not in self.extra_buttons:
+                                    self.extra_buttons.append(name)
             except:
                 pass
 
@@ -636,19 +645,91 @@ class App(ctk.CTk):
             hover_color="#5a0000"
         )
         self.validate_btn.pack(side="left", padx=10)
-
-        info = ctk.CTkLabel(
-            self.tab_dashboard,
-            text="The background wrapper reloads configuration automatically.",
-            text_color="gray")
-        info.pack(pady=(40, 5))
+        
+        self.layout_canvas = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
+        self.layout_canvas.pack(fill="both", expand=True, padx=20, pady=10)
+        
+        # Load layout
+        import json, os
+        layout_path = os.path.join(os.path.dirname(__file__), "..", "resources", "button_layout.json")
+        self.button_layout_data = {}
+        if os.path.exists(layout_path):
+            try:
+                with open(layout_path, 'r') as f:
+                    self.button_layout_data = json.load(f)
+            except Exception as e:
+                print("Error loading button layout:", e)
+                
+        self.dashboard_btns = {}
+        self.layout_canvas.bind("<Configure>", self.on_dashboard_resize)
+        
+        self._build_dashboard_layout()
 
         version_lbl = ctk.CTkLabel(
             self.tab_dashboard,
-            text="v2.1.0",
+            text="v2.2.0",
             text_color="gray50",
             font=ctk.CTkFont(size=11))
-        version_lbl.pack(pady=(0, 20))
+        version_lbl.pack(side="bottom", pady=(0, 20))
+
+    def _build_dashboard_layout(self):
+        # Clear existing
+        for widget in self.layout_canvas.winfo_children():
+            widget.destroy()
+        self.dashboard_btns = {}
+        
+        layout_name = self.hardware_layout
+        if layout_name not in self.button_layout_data:
+            layout_name = "xbox"
+            
+        layout_dict = self.button_layout_data.get(layout_name, {})
+        
+        for btn, pos in layout_dict.items():
+            b = ctk.CTkButton(self.layout_canvas, text=self.get_btn_display_name(btn).upper(), fg_color="#333333", hover_color="#444444")
+            b.place(relx=pos["x"], rely=pos["y"], anchor="center")
+            self.dashboard_btns[btn] = b
+            
+        # Extra buttons grid below
+        standard_buttons = set(layout_dict.keys())
+        extra_btns = []
+        for k in self.extra_buttons:
+            if k not in standard_buttons:
+                extra_btns.append(k)
+        
+        # Fallback to mapped ones in config if none found in profile
+        if not extra_btns and self.config.has_section('extra_buttons'):
+            for k in self.config.options('extra_buttons'):
+                if k not in standard_buttons:
+                    extra_btns.append(k)
+                    
+        self.extra_frame = ctk.CTkFrame(self.layout_canvas, fg_color="transparent")
+        self.extra_frame.place(relx=0.5, rely=0.9, anchor="center")
+        
+        for i, eb in enumerate(extra_btns):
+            b = ctk.CTkButton(self.extra_frame, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444")
+            b.grid(row=i//4, column=i%4, padx=5, pady=5)
+            self.dashboard_btns[eb] = b
+
+    def on_dashboard_resize(self, event):
+        w = event.width
+        h = event.height
+        if w < 10 or h < 10:
+            return
+            
+        # Keep buttons square/proportional and prevent overlap
+        base_size = min(w, h) * 0.12  # 12% of the smallest dimension
+        base_size = max(30, min(base_size, 80)) # clamp between 30 and 80 pixels
+        
+        font_size = max(8, int(base_size * 0.25))
+        fnt = ctk.CTkFont(size=font_size, weight="bold")
+        
+        for btn_name, btn_widget in self.dashboard_btns.items():
+            if btn_widget.winfo_parent() == str(self.layout_canvas):
+                # Standard buttons are directly in layout_canvas
+                btn_widget.configure(width=int(base_size * 1.5), height=int(base_size), font=fnt)
+            else:
+                # Extra buttons are in extra_frame
+                btn_widget.configure(width=int(base_size * 1.5), height=int(base_size * 0.8), font=fnt)
 
     def get_layout_labels(self):
         layout = self.hardware_layout
@@ -692,7 +773,7 @@ class App(ctk.CTk):
 
     def get_btn_display_name(self, btn):
         labels = self.get_layout_labels()
-        return labels.get(btn, btn.upper())
+        return labels.get(btn, btn).upper()
 
     def refresh_labels(self):
         if hasattr(self, 'label_widgets'):
@@ -875,12 +956,20 @@ class App(ctk.CTk):
         system_buttons = ['select', 'start', 'home']
 
         # Extra dynamic buttons
-        existing_extras = []
-        standard_buttons = face_buttons + dpad_buttons + stick_buttons + system_buttons
+        existing_extras = set()
+        standard_buttons = set(face_buttons + dpad_buttons + stick_buttons + system_buttons)
+        
+        for k in self.extra_buttons:
+            if k not in standard_buttons:
+                existing_extras.add(k)
+                
+        # Fallback to currently mapped ones in config
         if self.config.has_section('extra_buttons'):
             for k in self.config.options('extra_buttons'):
                 if k not in standard_buttons:
-                    existing_extras.append(k)
+                    existing_extras.add(k)
+
+        existing_extras = sorted(list(existing_extras))
 
         # Populate quadrants
         for i, btn in enumerate(face_buttons):
@@ -1087,7 +1176,7 @@ class App(ctk.CTk):
         k_listener.start()
         m_listener.start()
 
-        def save_and_close():
+        def save_and_close(target_map="standard"):
             try:
                 k_listener.stop()
             except Exception:
@@ -1112,9 +1201,14 @@ class App(ctk.CTk):
                 val = result_var.get()
 
             if val:
-                self.entries[btn].delete(0, 'end')
-                self.entries[btn].insert(0, val)
-                self.on_mapping_changed(btn)
+                if target_map == "standard":
+                    self.entries[btn].delete(0, 'end')
+                    self.entries[btn].insert(0, val)
+                    self.on_mapping_changed(btn)
+                elif target_map == "shift":
+                    self.shift_entries[btn].delete(0, 'end')
+                    self.shift_entries[btn].insert(0, val)
+                    self.on_shift_mapping_changed(btn)
             record_win.destroy()
 
         def cancel_and_close():
@@ -1132,11 +1226,19 @@ class App(ctk.CTk):
         btn_frame = ctk.CTkFrame(record_win, fg_color="transparent")
         btn_frame.pack(pady=10)
 
-        save_btn = ctk.CTkButton(
+        save_std_btn = ctk.CTkButton(
             btn_frame,
-            text="Save",
-            command=save_and_close)
-        save_btn.pack(side="left", padx=10)
+            text="Save Standard",
+            command=lambda: save_and_close("standard"))
+        save_std_btn.pack(side="left", padx=10)
+        
+        save_shift_btn = ctk.CTkButton(
+            btn_frame,
+            text="Save Shift Map",
+            fg_color="#335533",
+            hover_color="#446644",
+            command=lambda: save_and_close("shift"))
+        save_shift_btn.pack(side="left", padx=10)
 
         cancel_btn = ctk.CTkButton(
             btn_frame,
@@ -1226,7 +1328,27 @@ class App(ctk.CTk):
         legend_frame.grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(5, 0))
         legend_btn = ctk.CTkButton(legend_frame, text="?  Color Guide", width=110, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12))
         legend_btn.pack(side="left")
-        ToolTip(legend_btn, "Cyan = Raw controller input (what your hardware sends)\nPurple = Processed output (what the game receives\nafter deadzone, curve, and anti-deadzone settings)\n\nThe response curve graph shows the relationship between\nraw input (X axis) and processed output (Y axis).\nThe moving dot/bar tracks your live input on the curve.")
+        
+        def get_color_legend_text():
+            theme = self.daemon_config.get('UI', 'theme', fallback='purple').lower() if hasattr(self, 'daemon_config') else 'purple'
+            color_map = {
+                "purple": ("Green", "Purple"),
+                "red": ("Cyan", "Red"),
+                "blue": ("Yellow", "Blue"),
+                "green": ("Purple", "Green"),
+                "yellow": ("Blue", "Yellow"),
+                "orange": ("Light Blue", "Orange"),
+                "white": ("Black", "White" if ctk.get_appearance_mode().lower() == "dark" else "Black")
+            }
+            raw, proc = color_map.get(theme, ("Cyan", "Purple"))
+            return (f"{raw} = Raw controller input (what your hardware sends)\n"
+                    f"{proc} = Processed output (what the game receives\n"
+                    "after deadzone, curve, and anti-deadzone settings)\n\n"
+                    "The response curve graph shows the relationship between\n"
+                    "raw input (X axis) and processed output (Y axis).\n"
+                    "The moving dot/bar tracks your live input on the curve.")
+                    
+        ToolTip(legend_btn, get_color_legend_text)
 
         self.tuning_scroll.grid_rowconfigure(0, weight=0)
         self.tuning_scroll.grid_rowconfigure(1, weight=1)
@@ -1267,6 +1389,7 @@ class App(ctk.CTk):
             curve_var = ctk.StringVar(value=self.config.get(section, 'curve', fallback='linear'))
             exp_var = ctk.DoubleVar(value=float(self.config.get(section, 'exp_factor', fallback='2.0')))
             sens_var = ctk.DoubleVar(value=float(self.config.get(section, 'sensitivity', fallback='1.0')))
+            warp_var = ctk.DoubleVar(value=float(self.config.get(section, 'warped_stick_threshold', fallback='0.0')))
             
             update_lbl_callbacks = []
             
@@ -1290,7 +1413,7 @@ class App(ctk.CTk):
                 
                 def wrap_cmd(val):
                     update_lbl()
-                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
+                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
                     
                 slider = ctk.CTkSlider(row_f, from_=from_, to=to, number_of_steps=int((to-from_)/res), variable=var, command=wrap_cmd)
                 slider.pack(side="left", fill="x", expand=True, padx=5)
@@ -1298,6 +1421,7 @@ class App(ctk.CTk):
             make_slider("Deadzone", dz_var, 0.0, 0.5, 0.01, "Ignores small movements near the center to prevent stick drift.")
             make_slider("Anti-Deadzone", adz_var, 0.0, 0.5, 0.01, "Instantly jumps the output to this value when the deadzone is crossed.\nUseful for games with their own unchangeable built-in deadzones.")
             make_slider("Rest Deadzone", rest_dz_var, 0.0, 0.3, 0.01, "Secondary buffer after the deadzone.\nPrevents anti-deadzone from activating on controllers\nwhose sticks don't rest exactly at center.")
+            make_slider("Warp Threshold", warp_var, 0.0, 20.0, 1.0, "Scales weak stick outputs to 1.0 based on this % threshold.\nFixes asymmetric stick ranges.")
             make_slider("Curve Factor", exp_var, 0.5, 4.0, 0.1, "Intensity of the curve. >1.0 makes it steeper for exponential,\nor steeper at the start for aggressive.")
             make_slider("Sensitivity", sens_var, 0.1, 5.0, 0.05, "Multiplies the final output. Great for tweaking mouse movement.")
 
@@ -1472,9 +1596,10 @@ class App(ctk.CTk):
                 curve_var.set("linear")
                 exp_var.set(1.0)
                 sens_var.set(1.0)
+                warp_var.set(0.0)
                 for cb in update_lbl_callbacks:
                     cb()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
 
             ctk.CTkButton(btn_frame, text="Reset", command=reset).pack(side="left", padx=5, expand=True)
             
@@ -1492,18 +1617,65 @@ class App(ctk.CTk):
             circ_menu = ctk.CTkOptionMenu(circ_frame, values=["disabled", "before", "after"], variable=circ_mode_var, command=update_circ_mode)
             circ_menu.pack(side="left", fill="x", expand=True, padx=5)
             
+            def on_calib_finish():
+                circ_mode_var.set(self.config.get(section, 'circularity_mode', fallback='disabled'))
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
+
             def open_circ_calib():
-                CircularityCalibrationModal(self, title, section)
+                CircularityCalibrationModal(self, title, section, on_finish=on_calib_finish)
                 
+            def open_circ_info():
+                info_modal = ctk.CTkToplevel(self)
+                info_modal.title("Circularity Explanation")
+                info_modal.geometry("450x400")
+                info_modal.resizable(False, False)
+                info_modal.attributes("-topmost", True)
+                info_modal.focus()
+                
+                txt = ctk.CTkTextbox(info_modal, wrap="word", font=ctk.CTkFont(size=13))
+                txt.pack(fill="both", expand=True, padx=10, pady=10)
+                
+                explanation = (
+                    "What is Circularity?\n\n"
+                    "Most modern analog sticks are physically bounded by a circular gate. "
+                    "However, standard stick outputs form a square shape, which means diagonal inputs naturally exceed 1.0 (100%) distance from the center.\n\n"
+                    "What this tool does:\n"
+                    "When 'Forced Circularity' is enabled, this tool squashes the square corners of your analog stick's raw output back into a perfect circle. "
+                    "This guarantees your maximum diagonal movement is exactly 1.0.\n\n"
+                    "Before vs. After Tuning:\n"
+                    "• 'Before': Applies circularity immediately on the raw hardware input, BEFORE deadzones and response curves. (Recommended)\n"
+                    "• 'After': Applies circularity at the very end, squashing the fully processed output.\n\n"
+                    "Should you use it?\n"
+                    "If your controller already has excellent native circularity (0-10% error), software calibration is redundant and unnecessary. "
+                    "Some games expect perfect circular inputs and might have weird camera acceleration if diagonals exceed 1.0. "
+                    "Other games might feel sluggish on diagonals if circularity is forced. Try it out and see what feels best!"
+                )
+                txt.insert("0.0", explanation)
+                txt.configure(state="disabled")
+
+            circ_info_btn = ctk.CTkButton(circ_frame, text="?", width=28, command=open_circ_info, fg_color="#555555")
+            circ_info_btn.pack(side="right", padx=5)
+            
             circ_btn = ctk.CTkButton(circ_frame, text="Calibrate Circularity", command=open_circ_calib, fg_color="#1f538d")
             circ_btn.pack(side="right", padx=5)
 
-            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var
+            circ_ref_var = ctk.BooleanVar(value=self.config.getboolean(section, 'show_circ_ref', fallback=True))
+            def update_circ_ref():
+                if not self.config.has_section(section):
+                    self.config.add_section(section)
+                self.config.set(section, 'show_circ_ref', 'true' if circ_ref_var.get() else 'false')
+                self.save_config()
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
+                
+            circ_ref_cb = ctk.CTkCheckBox(circ_frame, text="45º Line", variable=circ_ref_var, command=update_circ_ref, width=60)
+            circ_ref_cb.pack(side="right", padx=5)
 
-        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
+            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, circ_mode_var, circ_ref_var, warp_var
+
+        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom, self.ls_circ_mode, self.ls_circ_ref, self.ls_warp = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
         self.f_ls.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         
-        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
+        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom, self.rs_circ_mode, self.rs_circ_ref, self.rs_warp = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
         self.f_rs.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         def create_trigger_frame(parent, title, btn, section):
@@ -1768,14 +1940,22 @@ class App(ctk.CTk):
         self.f_rt.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
 
         # Initial draw
-        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get())
-        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get())
-        self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_sens.get(), self.lt_custom.get())
-        self.draw_curve_trigger(self.c_rt_curve, self.rt_dz.get(), self.rt_adz.get(), self.rt_rest_dz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_sens.get(), self.rt_custom.get())
+        ls_cm = self.config.get('analog_left', 'circularity_mode', fallback='disabled')
+        ls_sr = self.config.getboolean('analog_left', 'show_circ_ref', fallback=True)
+        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get(), ls_cm, ls_sr, section="analog_left", warp_threshold=self.ls_warp.get())
+        
+        rs_cm = self.config.get('analog_right', 'circularity_mode', fallback='disabled')
+        rs_sr = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
+        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get(), rs_cm, rs_sr, section="analog_right", warp_threshold=self.rs_warp.get())
+        
+        lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
+        self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_sens.get(), self.lt_custom.get(), digital=lt_dig)
+        rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
+        self.draw_curve_trigger(self.c_rt_curve, self.rt_dz.get(), self.rt_adz.get(), self.rt_rest_dz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_sens.get(), self.rt_custom.get(), digital=rt_dig)
         
         self.update_position_loop()
 
-    def update_analog_config(self, section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var=None, custom_eq_var=None):
+    def update_analog_config(self, section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var=None, custom_eq_var=None, warp_var=None):
         if not self.config.has_section(section):
             self.config.add_section(section)
         self.config.set(section, 'deadzone', str(round(dz_var.get(), 3)))
@@ -1787,32 +1967,80 @@ class App(ctk.CTk):
             self.config.set(section, 'sensitivity', str(round(sens_var.get(), 3)))
         if custom_eq_var is not None:
             self.config.set(section, 'custom_curve', custom_eq_var.get())
+        if warp_var is not None:
+            self.config.set(section, 'warped_stick_threshold', str(round(warp_var.get(), 3)))
         self.save_config()
         
         if section == "analog_left":
-            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
+            circ_mode = self.config.get('analog_left', 'circularity_mode', fallback='disabled')
+            show_ref = self.config.getboolean('analog_left', 'show_circ_ref', fallback=True)
+            warp = warp_var.get() if warp_var else 0.0
+            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_left", warp_threshold=warp)
         elif section == "analog_right":
-            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
+            circ_mode = self.config.get('analog_right', 'circularity_mode', fallback='disabled')
+            show_ref = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
+            warp = warp_var.get() if warp_var else 0.0
+            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_right", warp_threshold=warp)
         elif section == "trigger_left":
-            self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
+            lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
+            self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=lt_dig)
         elif section == "trigger_right":
-            self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "")
+            rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
+            self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=rt_dig)
 
-    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq=""):
+    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", circ_mode="disabled", show_ref=True, section="", warp_threshold=0.0):
         canvas.delete("all")
         width = 180
         height = 180
-        
-        canvas.create_line(0, height, width, 0, fill="#444444", dash=(4, 4))
+            
         canvas.create_line(width/2, 0, width/2, height, fill="#444444", dash=(2, 2))
         canvas.create_line(0, height/2, width, height/2, fill="#444444", dash=(2, 2))
         
+        import math
         import math_utils
+        
+        if show_ref:
+            circ_cx = 0.0
+            circ_cy = 0.0
+            circ_bounds = []
+            if section and circ_mode != "disabled" and self.config.has_section(section):
+                import json
+                circ_cx = float(self.config.get(section, 'circularity_cx', fallback='0.0'))
+                circ_cy = float(self.config.get(section, 'circularity_cy', fallback='0.0'))
+                try:
+                    circ_bounds = json.loads(self.config.get(section, 'circularity_bounds', fallback='[]'))
+                except:
+                    pass
+            
+            points45 = []
+            for x_px in range(width + 1):
+                input_val = x_px / width
+                in_x = input_val * 0.707106
+                in_y = input_val * 0.707106
+                
+                in_x, in_y = math_utils.apply_warped_stick_correction(in_x, in_y, warp_threshold)
+                
+                if circ_mode == 'before':
+                    in_x, in_y = math_utils.apply_circularity_correction(in_x, in_y, circ_cx, circ_cy, circ_bounds)
+                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
+                elif circ_mode == 'after':
+                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
+                    out_x, out_y = math_utils.apply_circularity_correction(out_x, out_y, circ_cx, circ_cy, circ_bounds)
+                else:
+                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
+                
+                out_mag = min(1.0, math.sqrt(out_x**2 + out_y**2))
+                y_px = height - (out_mag * height)
+                points45.append(x_px)
+                points45.append(y_px)
+            if points45:
+                canvas.create_line(points45, fill="#888888", dash=(4, 4), width=2)
+                
         points = []
         for x_px in range(width + 1):
             input_val = x_px / width
-            # Pass 0 for Y so magnitude = input_val
-            out_x, _ = math_utils.process_analog_stick(input_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
+            in_val, _ = math_utils.apply_warped_stick_correction(input_val, 0.0, warp_threshold)
+            out_x, _ = math_utils.process_analog_stick(in_val, 0.0, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
             y_px = height - (out_x * height)
             points.append(x_px)
             points.append(y_px)
@@ -1832,7 +2060,7 @@ class App(ctk.CTk):
             except:
                 pass
 
-    def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq=""):
+    def draw_curve_trigger(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", digital=False):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1843,7 +2071,10 @@ class App(ctk.CTk):
         points = []
         for x_px in range(width + 1):
             input_val = x_px / width
-            out_val = math_utils.process_trigger(input_val, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
+            if digital:
+                out_val = 1.0 if input_val > dz else 0.0
+            else:
+                out_val = math_utils.process_trigger(input_val, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
             y_px = height - (out_val * height)
             points.append(x_px)
             points.append(y_px)
@@ -1863,7 +2094,7 @@ class App(ctk.CTk):
             except:
                 pass
 
-    def draw_crosshair(self, canvas, raw_x, raw_y, out_x, out_y):
+    def draw_crosshair(self, canvas, raw_x, raw_y, out_x, out_y, circ_mode="disabled"):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1874,6 +2105,11 @@ class App(ctk.CTk):
         canvas.create_line(0, cy, width, cy, fill="#444444", dash=(2, 2))
         
         acc, inv = get_accent_colors()
+        
+        if circ_mode != "disabled":
+            import customtkinter as ctk
+            circ_color = "white" if ctk.get_appearance_mode() == "Dark" else "black"
+            canvas.create_oval(cx - cx, cy - cy, cx + cx, cy + cy, outline=circ_color, width=2)
         
         # Raw position (inverse dot)
         rx_px = cx + (raw_x * cx)
@@ -1943,19 +2179,20 @@ class App(ctk.CTk):
             ls_circ_cy = self.config.getfloat('analog_left', 'circularity_center_y', fallback=0.0)
             ls_bounds_str = self.config.get('analog_left', 'circularity_bounds', fallback='')
             ls_circ_bounds = [float(x) for x in ls_bounds_str.split(',')] if ls_bounds_str else None
+            ls_warp = self.config.getfloat('analog_left', 'warped_stick_threshold', fallback=0.0)
             
-            out_lx, out_ly = raw_lx, disp_raw_ly
+            out_lx, out_ly = math_utils.apply_warped_stick_correction(raw_lx, disp_raw_ly, ls_warp)
             
-            if ls_circ_mode == 'before':
+            if self.ls_circ_mode.get() == 'before':
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
                 out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get(), self.ls_custom.get())
-            elif ls_circ_mode == 'after':
+            elif self.ls_circ_mode.get() == 'after':
                 out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get(), self.ls_custom.get())
                 out_lx, out_ly = math_utils.apply_circularity_correction(out_lx, out_ly, ls_circ_cx, ls_circ_cy, ls_circ_bounds)
             else:
                 out_lx, out_ly = math_utils.process_analog_stick(out_lx, out_ly, self.ls_dz.get(), self.ls_adz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_rest_dz.get(), self.ls_sens.get(), self.ls_custom.get())
                 
-            self.draw_crosshair(self.c_ls_pos, raw_lx, disp_raw_ly, out_lx, out_ly)
+            self.draw_crosshair(self.c_ls_pos, raw_lx, disp_raw_ly, out_lx, out_ly, ls_circ_mode)
             raw_mag = math.sqrt(raw_lx**2 + disp_raw_ly**2)
             out_mag = math.sqrt(out_lx**2 + out_ly**2)
             self.update_curve_cursor(self.c_ls_curve, min(raw_mag, 1.0), min(out_mag, 1.0))
@@ -1968,30 +2205,39 @@ class App(ctk.CTk):
             rs_circ_cy = self.config.getfloat('analog_right', 'circularity_center_y', fallback=0.0)
             rs_bounds_str = self.config.get('analog_right', 'circularity_bounds', fallback='')
             rs_circ_bounds = [float(x) for x in rs_bounds_str.split(',')] if rs_bounds_str else None
+            rs_warp = self.config.getfloat('analog_right', 'warped_stick_threshold', fallback=0.0)
             
-            out_rx, out_ry = state.rx, disp_raw_ry
+            out_rx, out_ry = math_utils.apply_warped_stick_correction(state.rx, disp_raw_ry, rs_warp)
             
-            if rs_circ_mode == 'before':
+            if self.rs_circ_mode.get() == 'before':
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
                 out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get(), self.rs_custom.get())
-            elif rs_circ_mode == 'after':
+            elif self.rs_circ_mode.get() == 'after':
                 out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get(), self.rs_custom.get())
                 out_rx, out_ry = math_utils.apply_circularity_correction(out_rx, out_ry, rs_circ_cx, rs_circ_cy, rs_circ_bounds)
             else:
                 out_rx, out_ry = math_utils.process_analog_stick(out_rx, out_ry, self.rs_dz.get(), self.rs_adz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_rest_dz.get(), self.rs_sens.get(), self.rs_custom.get())
                 
-            self.draw_crosshair(self.c_rs_pos, state.rx, disp_raw_ry, out_rx, out_ry)
+            self.draw_crosshair(self.c_rs_pos, state.rx, disp_raw_ry, out_rx, out_ry, rs_circ_mode)
             raw_mag_r = math.sqrt(state.rx**2 + disp_raw_ry**2)
             out_mag_r = math.sqrt(out_rx**2 + out_ry**2)
             self.update_curve_cursor(self.c_rs_curve, min(raw_mag_r, 1.0), min(out_mag_r, 1.0))
             
             # Left Trigger
-            out_lt = math_utils.process_trigger(state.lt, self.lt_dz.get(), self.lt_adz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_rest_dz.get(), self.lt_sens.get(), self.lt_custom.get())
+            lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
+            if lt_dig:
+                out_lt = 1.0 if state.lt > self.lt_dz.get() else 0.0
+            else:
+                out_lt = math_utils.process_trigger(state.lt, self.lt_dz.get(), self.lt_adz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_rest_dz.get(), self.lt_sens.get(), self.lt_custom.get())
             self.draw_trigger_bar(self.c_lt_pos, state.lt, out_lt)
             self.update_trigger_curve_cursor(self.c_lt_curve, state.lt, out_lt)
 
             # Right Trigger
-            out_rt = math_utils.process_trigger(state.rt, self.rt_dz.get(), self.rt_adz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_rest_dz.get(), self.rt_sens.get(), self.rt_custom.get())
+            rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
+            if rt_dig:
+                out_rt = 1.0 if state.rt > self.rt_dz.get() else 0.0
+            else:
+                out_rt = math_utils.process_trigger(state.rt, self.rt_dz.get(), self.rt_adz.get(), self.rt_curve.get(), self.rt_exp.get(), self.rt_rest_dz.get(), self.rt_sens.get(), self.rt_custom.get())
             self.draw_trigger_bar(self.c_rt_pos, state.rt, out_rt)
             self.update_trigger_curve_cursor(self.c_rt_curve, state.rt, out_rt)
             

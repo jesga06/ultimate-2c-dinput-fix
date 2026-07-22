@@ -2,11 +2,12 @@ import math
 import customtkinter as ctk
 
 class CircularityCalibrationModal(ctk.CTkToplevel):
-    def __init__(self, parent, title, section):
+    def __init__(self, parent, title, section, on_finish=None):
         super().__init__(parent)
         self.parent = parent
         self.section = section
         self.is_left = ("left" in section.lower())
+        self.on_finish = on_finish
         
         self.title(f"{title} - Circularity Calibration")
         self.geometry("500x550")
@@ -21,12 +22,19 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
         self.center_samples_y = []
         self.bounds_data = [0.0] * 360
         self.timer = 0
+        self.last_theta = None
+        self.accum_cw = 0.0
+        self.accum_ccw = 0.0
+        self.speed_warn_timer = 0
         
         lbl_title = ctk.CTkLabel(self, text=f"Calibrating {title}", font=ctk.CTkFont(size=20, weight="bold"))
         lbl_title.pack(pady=10)
         
         self.lbl_instruct = ctk.CTkLabel(self, text="Step 1: Leave the stick at rest without touching it.\nSampling center offset...", font=ctk.CTkFont(size=14))
         self.lbl_instruct.pack(pady=5)
+        
+        self.lbl_warning = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=14, weight="bold"), text_color="red")
+        self.lbl_warning.pack()
         
         self.canvas = ctk.CTkCanvas(self, width=300, height=300, bg="#222222", highlightthickness=0)
         self.canvas.pack(pady=10)
@@ -71,7 +79,7 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
                 self.center_x = sum(self.center_samples_x) / len(self.center_samples_x)
                 self.center_y = sum(self.center_samples_y) / len(self.center_samples_y)
                 self.calib_state = "WAIT_SWEEP"
-                self.lbl_instruct.configure(text="Step 2: Push the stick fully outward\nand slowly rotate it 360 degrees multiple times.")
+                self.lbl_instruct.configure(text="Step 2: Push the stick fully outward and slowly rotate it\n360 degrees 3 times clockwise, then 3 times counter-clockwise.")
                 self.btn_action.configure(text="Start Sweep", state="normal", command=self.start_sweep)
                 
         elif self.calib_state == "SWEEP":
@@ -80,11 +88,39 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
             r = math.sqrt(dx**2 + dy**2)
             if r > 0.1: # Only record if actually pushed
                 theta = int(math.degrees(math.atan2(dy, dx))) % 360
+                
+                if self.last_theta is not None:
+                    delta = (theta - self.last_theta + 180) % 360 - 180
+                    if delta > 0:
+                        self.accum_ccw += delta
+                    elif delta < 0:
+                        self.accum_cw += abs(delta)
+                        
+                    if abs(delta) > 30:
+                        self.speed_warn_timer = 60
+                        self.lbl_warning.configure(text="Too Fast! Slow down.")
+                        
+                self.last_theta = theta
+                
                 # Smear slightly to nearby angles to fill gaps
                 for i in range(-2, 3):
                     idx = (theta + i) % 360
                     if r > self.bounds_data[idx]:
                         self.bounds_data[idx] = r
+                        
+            if self.speed_warn_timer > 0:
+                self.speed_warn_timer -= 1
+                if self.speed_warn_timer == 0:
+                    self.lbl_warning.configure(text="")
+                    
+            if self.accum_cw >= 3 * 360 and self.accum_ccw >= 3 * 360:
+                if self.btn_action.cget("state") == "disabled":
+                    self.btn_action.configure(text="Finish", state="normal", command=self.finish_sweep)
+            else:
+                if self.btn_action.cget("state") == "disabled":
+                    cw_rem = max(0, 3 - int(self.accum_cw / 360))
+                    ccw_rem = max(0, 3 - int(self.accum_ccw / 360))
+                    self.btn_action.configure(text=f"Sweep {cw_rem}x CW, {ccw_rem}x CCW")
                         
             # Draw real-time
             self.canvas.delete("live")
@@ -117,7 +153,7 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
             
     def start_sweep(self):
         self.calib_state = "SWEEP"
-        self.btn_action.configure(text="Finish", command=self.finish_sweep)
+        self.btn_action.configure(text="Sweep 3x CW, 3x CCW", state="disabled")
         
     def interpolate_bounds(self):
         # Fill any zeros by interpolating between nearest non-zeros
@@ -156,7 +192,16 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
         self.lbl_instruct.configure(text="Calibration Complete!")
         self.lbl_result.configure(text=f"Average Circularity Error: {error_pct:.2f}%\nCenter Offset: ({self.center_x:.3f}, {self.center_y:.3f})")
         
-        self.btn_action.configure(text="Save & Close", command=self.save_and_close)
+        self.btn_action.pack_forget()
+        
+        self.btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.btn_frame.pack(pady=10)
+        
+        btn_apply = ctk.CTkButton(self.btn_frame, text="Apply Changes", command=self.save_and_close, fg_color="#1f538d")
+        btn_apply.pack(side="left", padx=10)
+        
+        btn_discard = ctk.CTkButton(self.btn_frame, text="Discard", command=self.destroy, fg_color="#8d1f1f")
+        btn_discard.pack(side="left", padx=10)
         
     def save_and_close(self):
         config = self.parent.config
@@ -174,4 +219,6 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
             config.set(self.section, 'circularity_mode', 'before')
             
         self.parent.save_config()
+        if self.on_finish:
+            self.on_finish()
         self.destroy()

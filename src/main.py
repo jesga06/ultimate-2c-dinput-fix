@@ -227,7 +227,7 @@ def main():
                                 hid_map_path = comm_map
                                 with open(hid_map_path, 'r', encoding='utf-8') as mf:
                                     map_data = json.load(mf)
-                                    device_name = map_data.get('name', "Unknown Device") + " (Community HID Map)"
+                                    device_name = map_data.get('name', "Unknown Device")
                                 break
                 except Exception:
                     pass
