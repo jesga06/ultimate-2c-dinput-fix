@@ -13,6 +13,7 @@ if sys.version_info[:2] not in ((3, 13), (3, 14)):
 import argparse
 import threading
 from logger_setup import setup_logger
+from single_instance import ensure_single_instance
 from hid_reader import HIDReader, HIDReport, RawHIDReport
 from decoder import Decoder
 
@@ -1380,6 +1381,7 @@ def select_stdin():
 
 
 if __name__ == "__main__":
+    ensure_single_instance('calibration', 48126)
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--debug', '-d',
