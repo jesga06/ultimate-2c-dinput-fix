@@ -132,8 +132,15 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 * **Persistent State Engine:** Ensures `ControllerState` persists previously received values when the device transmits partial packets or alternate report IDs.
 * **Native Force Feedback (XInput Backend):** Direct haptic vibration passthrough using XInput backend bindings for physical gamepads.
 * **DirectInput Rumble Investigation & Firmware Gating:** Extensive reverse-engineering confirmed that controller microcontrollers firmware-gate DInput output reports, disabling vibration on DInput endpoints. For full details, see [RUMBLE_TIMELINE.md](technical-stuff/RUMBLE_TIMELINE.md).
+* **Repository-Wide Architecture & Hot-Loop Performance Optimization Pass:**
+  - **1000Hz Hot-Loop Optimization:** Zero-allocation closures and pre-cached math evaluation dictionaries (`_SAFE_MATH_DICT`, `_STANDARD_FIELDS` set lookups) eliminating per-frame garbage collection in high-frequency HID processing.
+  - **Sub-Degree Circularity Interpolation:** Sub-degree linear interpolation between degree boundaries in circularity correction.
+  - **Standalone DLL-Independent Test Suite:** Dynamic mocking of `hid` module across unit tests enabling 100% test suite execution on non-native environments.
+  - **Standardized CMD Execution:** Escaped quote handling for batch script invocation (`%PYTHON_CMD%`).
+  - **Cross-Platform UTF-8 File Preservation:** Enforced `encoding='utf-8'` across profile persistence, status updates, configuration managers, and macro file I/O.
 
 ---
+
 
 ## 🎨 UI & Customization Features
 * **Theme Manager:** Dynamically switch the entire application's color palette (White, Orange, Red, Yellow, Green, Blue, Purple) and immediately preview changes.
