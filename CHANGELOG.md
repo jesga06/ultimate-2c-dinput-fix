@@ -223,6 +223,13 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Force Feedback (Rumble) Reverse-Engineering Timeline:** Documented the exhaustive investigation into DirectInput force feedback in `technical-stuff/RUMBLE_TIMELINE.md`, establishing firmware-level gating as the root cause. Updated `README.md` and `FEATURELIST.md` with explicit DInput rumble limitation notes.
 - **Repository Documentation Organization & Standardization:** Consolidated technical documentation, timelines, proof-of-concept code, and the Interactive Layout Builder into `technical-stuff/`. Standardized document headers, formatting, and writing styles across all technical timelines, and uppercased markdown filenames repository-wide.
 
+### 🗑️ Deprecations & Removals
+- **Profiles Tab Removal:** Removed the dedicated "Profiles" tab from the GUI (and associated HID map export/diffing utility screens). HID Map validation has been relocated directly to the Dashboard tab layout panel.
+- **Input Recording & Playback Removal:** Removed the "Input Recording & Playback" utility frame from the Utilities tab, and decommissioned background state recording/playback routines (`src/state_record_play.py`) from the daemon loop (`src/main.py`). These features were returned to `workspace_ideas/TO-DO-LIST.md` for future architectural redesign.
+- **Light Mode Removal:** Removed the Light Mode appearance toggle and enforced Dark Mode globally across the application, canvas drawing routines, and response graphs to prevent rendering bugs and contrast artifacts.
+- **Redundant Standalone Batch Scripts:** Removed standalone `.bat` launchers (`run_wrapper_debug.bat`, `calibrate_debug.bat`, `test_calibration.bat`, `install_requirements.bat`). All diagnostic suites, debug launchers, live input visualizers, dependency installation, and standalone tools are now centrally accessed via `tools_and_diagnostics.bat`.
+- **Obsolete Calibration Prompts:** Removed the "How many extra buttons?" prompt from `src/calibration.py` during device setup and XInput registration, as physical extra buttons in XInput are now managed exclusively via Hardware Chords.
+
 ### ⚙️ Under-the-Hood Changes
 - **High-Performance 1000Hz Hot-Loop Math Engine:** Optimized core processing loops with zero-allocation closures, pre-cached math evaluation environments (`_SAFE_MATH_DICT`), sub-degree circularity interpolation, and pre-cached metadata lookups (`_STANDARD_FIELDS`) for high-frequency HID polling.
 - **XInput Resilience & Automatic Reconnection:** Fault-tolerant slot binding, automatic reconnection loops, rest-noise snap filters, and UDP telemetry stream priority preventing thread contention between daemon and GUI.
