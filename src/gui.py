@@ -2310,6 +2310,37 @@ class App(ctk.CTk):
             self.config.add_section('shift_layer')
         if not self.config.has_section('chords'):
             self.config.add_section('chords')
+        if not self.config.has_section('hardware_chords'):
+            self.config.add_section('hardware_chords')
+            
+        backend_mode = self.daemon_config.get('backend', 'mode', fallback='auto')
+        
+        # Hardware Chords Builder
+        self.hw_chords_frame = ctk.CTkFrame(self.tab_advanced)
+        self.hw_chords_frame.pack(fill="x", padx=20, pady=10)
+        
+        hdr_hw = ctk.CTkFrame(self.hw_chords_frame, fg_color="transparent")
+        hdr_hw.pack(fill="x", padx=5, pady=5)
+        ctk.CTkLabel(hdr_hw, text="Hardware Chords (Input Suppression)", font=ctk.CTkFont(weight="bold")).pack(side="left")
+        
+        info_btn_hw = ctk.CTkButton(hdr_hw, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
+        info_btn_hw.pack(side="left", padx=(5,0))
+        ToolTip(info_btn_hw, "Map your controller's firmware chords to synthesize extra buttons upstream.")
+        
+        if backend_mode != "xinput":
+            ctk.CTkLabel(self.hw_chords_frame, text="Hardware Chords are locked because the backend is not in XInput mode.\nPlease use Auto-Detect calibration to switch to XInput mode.", text_color="#ff5555").pack(pady=10)
+        else:
+            self.hw_chord_rows = []
+            hw_list = ctk.CTkScrollableFrame(self.hw_chords_frame, height=120, corner_radius=0)
+            hw_list.pack(fill="both", expand=True, padx=5, pady=5)
+            
+            for k, v in self.config.items('hardware_chords'):
+                parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
+                if 'chord' in parts and 'action' in parts:
+                    self.add_hw_chord_row(hw_list, parts['chord'], parts['action'], parts.get('delayed', ''), parts.get('mode', 'auto'))
+            
+            btn_add_hw = ctk.CTkButton(self.hw_chords_frame, text="+ Add Hardware Chord", command=lambda: self.add_hw_chord_row(hw_list, "", "", "", "auto"))
+            btn_add_hw.pack(pady=5)
             
         # Shift Layer Settings
         shift_frame = ctk.CTkFrame(self.tab_advanced)
@@ -2517,6 +2548,39 @@ class App(ctk.CTk):
         
         row_data = {"name": ent_name, "in": ent_in, "out": ent_out, "frame": row_f}
         self.chord_rows.append(row_data)
+        
+    def add_hw_chord_row(self, parent_frame, chord_val, action_val, delayed_val, mode_val):
+        row_f = ctk.CTkFrame(parent_frame)
+        row_f.pack(fill="x", pady=2)
+        
+        ctk.CTkLabel(row_f, text="Chord:").pack(side="left", padx=2)
+        ent_chord = ctk.CTkEntry(row_f, width=80)
+        ent_chord.insert(0, chord_val)
+        ent_chord.pack(side="left", padx=2)
+        
+        ctk.CTkLabel(row_f, text="Delayed:").pack(side="left", padx=2)
+        ent_delayed = ctk.CTkEntry(row_f, width=60)
+        ent_delayed.insert(0, delayed_val)
+        ent_delayed.pack(side="left", padx=2)
+        
+        ctk.CTkLabel(row_f, text="Action:").pack(side="left", padx=2)
+        ent_action = ctk.CTkEntry(row_f, width=60)
+        ent_action.insert(0, action_val)
+        ent_action.pack(side="left", padx=2)
+        
+        ctk.CTkLabel(row_f, text="Mode:").pack(side="left", padx=2)
+        mode_var = ctk.StringVar(value=mode_val)
+        opt_mode = ctk.CTkOptionMenu(row_f, values=["auto", "0ms", "50ms", "100ms"], variable=mode_var, width=80)
+        opt_mode.pack(side="left", padx=2)
+        
+        def delete_row():
+            row_f.destroy()
+            self.hw_chord_rows.remove(row_data)
+        btn_del = ctk.CTkButton(row_f, text="X", width=25, fg_color="#990000", hover_color="#660000", command=delete_row)
+        btn_del.pack(side="right", padx=2)
+        
+        row_data = {"chord": ent_chord, "action": ent_action, "delayed": ent_delayed, "mode": mode_var, "frame": row_f}
+        self.hw_chord_rows.append(row_data)
 
     def save_advanced(self):
         # Save Shift Layer
@@ -2528,6 +2592,22 @@ class App(ctk.CTk):
                 self.config.remove_option('shift_layer', 'trigger_button')
                 
         self.config.set('shift_layer', 'mode', self.shift_mode_var.get())
+        
+        # Save Hardware Chords
+        self.config.remove_section('hardware_chords')
+        self.config.add_section('hardware_chords')
+        
+        if hasattr(self, 'hw_chord_rows'):
+            for i, row in enumerate(self.hw_chord_rows):
+                chord = row['chord'].get().strip()
+                action = row['action'].get().strip()
+                delayed = row['delayed'].get().strip()
+                mode = row['mode'].get()
+                if chord and action:
+                    val = f"chord={chord}; action={action}; mode={mode}"
+                    if delayed:
+                        val += f"; delayed={delayed}"
+                    self.config.set('hardware_chords', f"hw_{i}", val)
         
         # Save Chords & Macros
         self.config.remove_section('chords')
