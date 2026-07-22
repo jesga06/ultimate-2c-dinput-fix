@@ -430,7 +430,6 @@ class App(ctk.CTk):
         self.tabview.pack(padx=20, pady=20, fill="both", expand=True)
 
         self.tab_dashboard = self.tabview.add("Dashboard")
-        self.tab_profile = self.tabview.add("Profile")
         self.tab_remapping = self.tabview.add("Remapping")
         self.tab_analog = self.tabview.add("Tuning")
         self.tab_advanced = self.tabview.add("Advanced")
@@ -438,7 +437,6 @@ class App(ctk.CTk):
         self.tab_customization = self.tabview.add("Customization")
 
         self.setup_dashboard()
-        self.setup_profile()
         self.setup_remapping()
         self.setup_analog_tuning()
         self.setup_advanced()
@@ -3104,71 +3102,6 @@ class App(ctk.CTk):
         with open(self.daemon_config_file, 'w') as f:
             self.daemon_config.write(f)
 
-    def setup_profile(self):
-        self.profile_scroll = ctk.CTkScrollableFrame(self.tab_profile, fg_color="transparent", corner_radius=0)
-        self.profile_scroll.pack(fill="both", expand=True)
-
-        lbl = ctk.CTkLabel(self.profile_scroll, text="Profile Validation & Diff", font=ctk.CTkFont(size=20, weight="bold"))
-        lbl.pack(pady=(20, 10))
-        
-        main_frame = ctk.CTkFrame(self.profile_scroll, fg_color="transparent")
-        main_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        import os
-        import glob
-        profiles = [os.path.basename(p) for p in glob.glob("profiles/*.json")]
-        if not profiles:
-            profiles = ["No profiles found"]
-            
-        p1_var = ctk.StringVar(value=profiles[0])
-        p2_var = ctk.StringVar(value=profiles[0])
-        
-        # Profile 1 Selection
-        p1_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        p1_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(p1_frame, text="Profile 1 (Base):", width=120, anchor="w").pack(side="left")
-        ctk.CTkOptionMenu(p1_frame, values=profiles, variable=p1_var).pack(side="left", fill="x", expand=True)
-        
-        # Profile 2 Selection
-        p2_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        p2_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(p2_frame, text="Profile 2 (Compare):", width=120, anchor="w").pack(side="left")
-        ctk.CTkOptionMenu(p2_frame, values=profiles, variable=p2_var).pack(side="left", fill="x", expand=True)
-        
-        # Buttons
-        btn_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=10)
-        
-        output_txt = ctk.CTkTextbox(main_frame, height=300)
-        output_txt.pack(fill="both", expand=True, pady=10)
-        
-        def run_validate():
-            import profile_tools
-            p_path = os.path.join("profiles", p1_var.get())
-            res = profile_tools.validate_hid_map(p_path)
-            output_txt.delete("0.0", "end")
-            output_txt.insert("0.0", res)
-            
-        def run_diff():
-            import profile_tools
-            p1_path = os.path.join("profiles", p1_var.get())
-            p2_path = os.path.join("profiles", p2_var.get())
-            res = profile_tools.diff_hid_maps(p1_path, p2_path)
-            output_txt.delete("0.0", "end")
-            output_txt.insert("0.0", res)
-            
-        def export_output():
-            from tkinter import filedialog, messagebox
-            fpath = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt")])
-            if fpath:
-                with open(fpath, 'w') as f:
-                    f.write(output_txt.get("0.0", "end"))
-                messagebox.showinfo("Exported", f"Output exported to {fpath}")
-        
-        ctk.CTkButton(btn_frame, text="Validate Profile 1", command=run_validate).pack(side="left", padx=5, expand=True)
-        ctk.CTkButton(btn_frame, text="Diff Profiles (1 vs 2)", command=run_diff).pack(side="left", padx=5, expand=True)
-        ctk.CTkButton(btn_frame, text="Export Output", command=export_output).pack(side="left", padx=5, expand=True)
-
     def setup_utilities(self):
         self.utilities_scroll = ctk.CTkScrollableFrame(self.tab_utilities, fg_color="transparent", corner_radius=0)
         self.utilities_scroll.pack(fill="both", expand=True)
@@ -3259,27 +3192,6 @@ class App(ctk.CTk):
             messagebox.showinfo("Downloading", "Downloading community HID maps in background...")
             
         ctk.CTkButton(comm_frame, text="Update Community HID Maps", command=update_community_hid_maps, fg_color="#005580", hover_color="#00334d").pack(pady=(10, 10))
-
-        # Recording & Playback Frame
-        rec_frame = ctk.CTkFrame(main_frame)
-        rec_frame.pack(fill="x", pady=10)
-        
-        ctk.CTkLabel(rec_frame, text="Input Recording & Playback", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
-        ctk.CTkLabel(rec_frame, text="Record your controller inputs and play them back perfectly.").pack()
-        
-        rec_btn_frame = ctk.CTkFrame(rec_frame, fg_color="transparent")
-        rec_btn_frame.pack(pady=10)
-        
-        def send_record_cmd(cmd):
-            try:
-                with open("record_cmd.txt", "w") as f:
-                    f.write(cmd)
-            except: pass
-            
-        ctk.CTkButton(rec_btn_frame, text="Start Recording", command=lambda: send_record_cmd("record_start"), fg_color="#8a2020", hover_color="#5a1010").pack(side="left", padx=5)
-        ctk.CTkButton(rec_btn_frame, text="Stop Recording", command=lambda: send_record_cmd("record_stop"), fg_color="#444444").pack(side="left", padx=5)
-        ctk.CTkButton(rec_btn_frame, text="Start Playback", command=lambda: send_record_cmd("play_start"), fg_color="#206a20", hover_color="#104a10").pack(side="left", padx=5)
-        ctk.CTkButton(rec_btn_frame, text="Stop Playback", command=lambda: send_record_cmd("play_stop"), fg_color="#444444").pack(side="left", padx=5)
 
         self.update_utilities_loop()
         
