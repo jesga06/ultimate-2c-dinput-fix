@@ -15,6 +15,7 @@ import time
 import random
 import tkinter as tk
 from logger_setup import setup_logger
+from single_instance import ensure_single_instance
 from hid_reader import HIDReader, RawHIDReport
 from decoder import Decoder, ControllerState
 from circularity_modal import CircularityCalibrationModal
@@ -3272,6 +3273,8 @@ class App(ctk.CTk):
 
 
 if __name__ == "__main__":
+    ensure_single_instance('gui', 48125)
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--debug', '-d',
@@ -3280,6 +3283,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--append-log',
         action='store_true',
+        default=True,
         help='Append to log file instead of overwriting')
     args = parser.parse_args()
 
