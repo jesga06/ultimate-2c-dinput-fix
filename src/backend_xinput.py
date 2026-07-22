@@ -107,6 +107,13 @@ class XInputBackend(BaseInputBackend):
         if not self.xinput:
             return False
         
+        # If already connected to a valid slot, verify it
+        if self.connected_slot >= 0:
+            if self.get_connection_state():
+                return True
+            else:
+                self.connected_slot = -1
+
         # Scan slots 0-3
         state = XINPUT_STATE()
         for i in range(4):
@@ -120,7 +127,8 @@ class XInputBackend(BaseInputBackend):
         if self.connected_slot < 0 or not self.xinput:
             return False
         state = XINPUT_STATE()
-        return self.XInputGetState(self.connected_slot, ctypes.byref(state)) == 0
+        res = self.XInputGetState(self.connected_slot, ctypes.byref(state))
+        return res == 0
 
     def shutdown(self):
         self.is_running = False
@@ -144,23 +152,38 @@ class XInputBackend(BaseInputBackend):
     def poll(self):
         if logger:
             logger.debug("[ENTER] backend_xinput poll loop started")
-        if not self.initialize():
-            logger.warning("No XInput controller connected.")
-            return
-
+            
         self.is_running = True
         sleep_interval = 1.0 / self.poll_rate_hz
-        
         state = XINPUT_STATE()
-        get_state_func = self.XInputGetStateEx if self.XInputGetStateEx else self.XInputGetState
+        
+        consecutive_errors = 0
+        max_consecutive_errors = 20  # ~40ms tolerance before declaring disconnect
 
         logger.info("XInput polling loop started.")
         while self.is_running:
+            # Check connection if disconnected or uninitialized
+            if self.connected_slot < 0 or not self.get_connection_state():
+                if not self.initialize():
+                    time.sleep(1.0) # Retry reconnection every second
+                    continue
+                else:
+                    consecutive_errors = 0
+                    logger.info(f"XInput backend re-connected on slot {self.connected_slot}")
+
             start_t = time.time()
-            if get_state_func(self.connected_slot, ctypes.byref(state)) == 0:
-                # Check if packet changed to avoid redundant processing if desired, 
-                # but we usually just process state anyway to drive chords/macros timing
-                
+            get_state_func = self.XInputGetStateEx if self.XInputGetStateEx else self.XInputGetState
+            res = get_state_func(self.connected_slot, ctypes.byref(state))
+
+            # Fallback to standard XInputGetState if XInputGetStateEx failed
+            if res != 0 and get_state_func == self.XInputGetStateEx:
+                logger.warning("XInputGetStateEx failed; falling back to standard XInputGetState.")
+                self.XInputGetStateEx = None
+                get_state_func = self.XInputGetState
+                res = get_state_func(self.connected_slot, ctypes.byref(state))
+
+            if res == 0:
+                consecutive_errors = 0
                 gp = state.Gamepad
                 cs = ControllerState()
                 
@@ -193,10 +216,11 @@ class XInputBackend(BaseInputBackend):
                 if self.callback:
                     self.callback(cs)
             else:
-                # Disconnected
-                self.is_running = False
-                logger.info("XInput controller disconnected.")
-                break
+                consecutive_errors += 1
+                if consecutive_errors >= max_consecutive_errors:
+                    logger.warning(f"XInput controller on slot {self.connected_slot} lost connection after {consecutive_errors} consecutive errors.")
+                    self.connected_slot = -1
+                    consecutive_errors = 0
                 
             elapsed = time.time() - start_t
             time.sleep(max(0, sleep_interval - elapsed))
@@ -204,3 +228,4 @@ class XInputBackend(BaseInputBackend):
     def start_polling_thread(self):
         self._thread = threading.Thread(target=self.poll, daemon=True)
         self._thread.start()
+
