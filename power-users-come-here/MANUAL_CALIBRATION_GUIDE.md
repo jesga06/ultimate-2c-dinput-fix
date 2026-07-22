@@ -37,6 +37,6 @@ The tool will now simultaneously read from all the interfaces you selected and m
 ## Troubleshooting Triggers
 If you receive the warning `WARNING: No trigger signal detected!`:
 - This means the script was unable to find a byte that smoothly ramps up in value when you press the trigger, and it also failed to detect a digital button press.
-- Make sure your controller is set to **DInput mode**. Many controllers act entirely differently in XInput mode.
+- Make sure your controller is set to **DInput mode** when performing DInput HID calibration. (UR-XD supports both XInput and DInput backends, but HID map creation specifically decodes DInput packet data).
 - If you have trigger stops enabled or your controller only has digital triggers (like the Nintendo Switch Pro controller), the tool should automatically detect them via the digital fallback. If it fails, press the trigger more firmly and ensure it's registering.
 - Make sure the correct interface was selected! Some controllers send the analog trigger data on Interface 1, but digital button data on Interface 0. Use the raw dump mode to verify!

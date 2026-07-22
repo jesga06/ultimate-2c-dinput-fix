@@ -427,7 +427,7 @@ def main():
         pystray.MenuItem('Show Console', show_console_action),
         pystray.MenuItem('Quit', quit_app)
     )
-    icon = pystray.Icon("dinput_wrapper", image, "UR-XD Wrapper", menu)
+    icon = pystray.Icon("ur-xd", image, "UR-XD Wrapper", menu)
 
     try:
         icon.run()

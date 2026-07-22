@@ -104,7 +104,7 @@ class Calibrator:
 
     def scan_devices(self, test_only=False):
         print("==================================================================")
-        print("NOTICE: Please ensure your controller is set to DInput mode (not XInput).")
+        print("NOTICE: Please ensure your controller is connected. If calibrating DInput HID maps, set your controller to DInput mode.")
         print("If you just switched modes, select the option to rescan devices.")
         print("==================================================================\n")
         print("Scanning for HID devices...")
