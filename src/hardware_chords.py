@@ -62,14 +62,24 @@ class HardwareChordEngine:
 
     def _get_button_state(self, state: ControllerState, btn: str) -> bool:
         if hasattr(state, btn):
-            return getattr(state, btn)
+            val = getattr(state, btn)
+            if isinstance(val, (float, int)):
+                return val > 0.1
+            return bool(val)
         if btn in state.extra_inputs:
-            return state.extra_inputs[btn]
+            val = state.extra_inputs[btn]
+            if isinstance(val, (float, int)):
+                return val > 0.1
+            return bool(val)
         return False
 
     def _set_button_state(self, state: ControllerState, btn: str, val: bool):
         if hasattr(state, btn):
-            setattr(state, btn, val)
+            current = getattr(state, btn)
+            if isinstance(current, float):
+                setattr(state, btn, 1.0 if val else 0.0)
+            else:
+                setattr(state, btn, val)
         else:
             state.extra_inputs[btn] = val
 
@@ -89,8 +99,8 @@ class HardwareChordEngine:
         
         # Track currently pressed buttons for this frame
         current_pressed = set()
-        for btn in ['a', 'b', 'x', 'y', 'lb', 'rb', 'select', 'start', 'home', 'l3', 'r3', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']:
-            if getattr(state, btn):
+        for btn in ['a', 'b', 'x', 'y', 'lb', 'rb', 'select', 'start', 'home', 'l3', 'r3', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'lt', 'rt']:
+            if self._get_button_state(state, btn):
                 current_pressed.add(btn)
         for btn, is_pressed in state.extra_inputs.items():
             if is_pressed:
