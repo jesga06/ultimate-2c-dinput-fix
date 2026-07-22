@@ -24,7 +24,7 @@ Run calibration using `calibrate.bat` (or via `tools_and_diagnostics.bat`) to co
 Run `tools_and_diagnostics.bat` for an interactive CLI menu covering developer utilities, debugging launchers, and diagnostic suites.
 * **Full Issue Reporter:** Automates 6 diagnostic steps and packages logs into `issue_report.zip`.
 * **Debug Launchers:** Launch the wrapper daemon or calibration wizard with verbose debug logging enabled.
-* **Interactive Layout Builder:** Launch `scratch/interactive_layout_builder.py` directly from the menu.
+* **Interactive Layout Builder:** Launch `technical-stuff/interactive_layout_builder.py` directly from the menu.
 * **Individual Diagnostic Scripts:** Run any of the 6 diagnostic scripts individually without terminal navigation.
 * **Environment Maintenance:** Quickly install or repair Python dependencies from `requirements.txt`.
 * **Quick-Launch Test:** Launches directly into the testing panel for your calibrated controller, bypassing the setup wizard using the `--test-only` argument.
@@ -38,7 +38,7 @@ Run `tools_and_diagnostics.bat` for an interactive CLI menu covering developer u
 ## ⚙️ Advanced Remapping GUI (`src/gui.py`)
 Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the system tray).
 * **Proportional Gamepad Test Dashboard:** Auto-scaling, responsive button layout mapping physical and extra paddles symmetrically or asymmetrically based on active controller resources.
-* **Interactive Button Layout Builder (`scratch/interactive_layout_builder.py`):** Standalone drag-and-drop builder to visually customize gamepad button layouts with a configurable background grid slider (5px to 20px) and automatic snap-to-grid positioning.
+* **Interactive Button Layout Builder (`technical-stuff/interactive_layout_builder.py`):** Standalone drag-and-drop builder to visually customize gamepad button layouts with a configurable background grid slider (5px to 20px) and automatic snap-to-grid positioning.
 * **Interactive Recorder Modal:**
   * **Keyboard Combos:** Records complex multi-key combinations (e.g., `Ctrl + Shift + Alt + Z`) as you press them.
   * **Mouse Clicks:** Captures clicks for Middle, Left, Right, Mouse4, and Mouse5. Left-clicks inside the recorder are ignored for UI protection.

@@ -114,10 +114,10 @@ cls
 echo Starting Interactive Layout Builder...
 set PYTHON_CMD=python
 if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-if exist "scratch\interactive_layout_builder.py" (
-    %PYTHON_CMD% scratch\interactive_layout_builder.py
+if exist "technical-stuff\interactive_layout_builder.py" (
+    %PYTHON_CMD% technical-stuff\interactive_layout_builder.py
 ) else (
-    echo [ERROR] scratch\interactive_layout_builder.py not found.
+    echo [ERROR] technical-stuff\interactive_layout_builder.py not found.
 )
 pause
 goto MENU

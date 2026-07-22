@@ -42,7 +42,7 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
 - **Composite HID Interface Merging:** Concurrently monitors and merges inputs from controllers that split telemetry onto separate HID endpoints (such as the Machenike G5 Pro).
 - **Smart Reconnection:** Recover connection automatically if your physical controller gets disconnected, actively scanning for 20 seconds before closing safely.
 - **Live Reloading:** Your mapping changes are applied instantly in the background without needing to restart the app.
-- **And Much More!** Check out the full list of features in the [Features List](featurelist.md).
+- **And Much More!** Check out the full list of features in the [Features List](FEATURELIST.md).
 
 ## Requirements
 - Python 3
@@ -70,7 +70,7 @@ If your controller doesn't have a profile generated yet:
 5. Follow the step-by-step CLI prompts (e.g., press A, push Left Stick Up, etc.) to baseline and map your device. You can skip buttons by pressing `s` or undo the previous step by pressing `u` on your keyboard.
 6. Once finished, a custom JSON HID map will be automatically saved in the `profiles/` directory.
 
-> *For advanced configurations or troubleshooting multi-interface controllers, see the [Manual Calibration Guide](power-users-come-here/MANUAL_CALIBRATION_GUIDE.md).*
+> *For advanced configurations or troubleshooting multi-interface controllers, see the [Manual Calibration Guide](technical-stuff/MANUAL_CALIBRATION_GUIDE.md).*
 
 ### Step 3: Run the Background Daemon
 To start intercepting inputs in the background:
@@ -117,7 +117,7 @@ r4 = keyboard:f13
 - **Double Inputs in Games:** If you remap a standard button (like 'A'), the app blocks the original 'A' press from reaching the game to prevent double inputs. If you are still seeing double inputs, verify the background daemon is running and Steam Input is not interfering.
 - **Calibration Tool Fails Due to Two Axes Moving:** Some controllers report movement on two separate axes simultaneously when squeezing a single trigger (due to hardware quirks). The calibration tool expects isolated movement. If this happens to you, the tool may misidentify the trigger axis. You may need to manually edit the resulting `profiles/` JSON file or use a different controller.
 - **Dashboard Buttons Misaligned or Overlapping:** You can interactively align, position, and grid-snap buttons for your gamepad layout using the Interactive Layout Builder tool:
-   1. Run `python scratch/interactive_layout_builder.py` in PowerShell or Command Prompt.
+   1. Run `python technical-stuff/interactive_layout_builder.py` in PowerShell or Command Prompt.
    2. Switch between **Xbox** and **PlayStation** layout templates.
    3. Adjust the **Grid Slider** (5px to 20px) to display background grid lines and enable automatic snap-to-grid alignment.
    4. Drag buttons to their desired positions and click **Save Layout** to automatically update `resources/button_layout.json`.
