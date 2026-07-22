@@ -271,4 +271,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Updated `VirtualPad` button blocking to check `layer_base` and `layer_shift` in addition to legacy `extra_buttons`.
   - Standardized stick Y-axis polarity across backends to positive-UP, preventing inverted stick input on virtual controllers.
   - Added `lt` and `rt` trigger support to `HardwareChordEngine`.
-- **GUI Real-Time Telemetry Listener:** Added a UDP broadcast receiver thread to `gui.py` listening on port 9999 (plus standalone `XInputBackend` fallback), ensuring the dashboard buttons, tuning bars, and response curve cursors update in real time when XInput controllers are connected.
+- **GUI Real-Time Telemetry Listener & Flickering Resolution:**
+  - Added a UDP broadcast receiver thread to `gui.py` listening on port 9999 (plus standalone `XInputBackend` fallback), ensuring the dashboard buttons, tuning bars, and response curve cursors update in real time when XInput controllers are connected.
+  - Eliminated GUI input flickering caused by concurrent thread contention between the daemon's UDP broadcast and the GUI's standalone background listener by introducing daemon stream priority.
+  - Added a 0.39% (+/- 128 raw units) hardware rest noise snap in `backend_xinput.py` so untouched XInput sticks report clean `0.0` center alignment rather than uncentered noise (`0.00317`).
