@@ -664,7 +664,7 @@ class Calibrator:
             ("dpad", "hat", "Press the D-Pad UP (Assuming standard Hat switch)")
         ]
 
-        # Extra buttons handling for specific remapping targets
+        # Extra buttons handling for specific remapping targets or full DInput calibration
         if remapping_targets is not None:
             filtered_steps = [s for s in steps if s[0] in remapping_targets]
             standard_names = {s[0] for s in steps}
@@ -672,6 +672,16 @@ class Calibrator:
                 if t not in standard_names:
                     filtered_steps.append((t, "buttons", f"Press the '{t}' extra button"))
             steps = filtered_steps
+        else:
+            # For full DInput calibration, prompt if user wants to calibrate physical extra buttons
+            try:
+                extra_ans = input("\nDoes your controller have physical extra buttons/paddles to calibrate? (e.g. m1, m2, c, z) [y/N]: ").strip().lower()
+                if extra_ans in ['y', 'yes']:
+                    extra_names = input("Enter extra button names separated by commas (e.g. m1, m2, l4, r4): ").strip().lower()
+                    for name in [x.strip() for x in extra_names.split(',') if x.strip()]:
+                        steps.append((name, "buttons", f"Press the '{name}' extra button"))
+            except Exception:
+                pass
 
         i = 0
         while i < len(steps):
