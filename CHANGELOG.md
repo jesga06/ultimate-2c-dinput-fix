@@ -306,6 +306,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Resolved an issue where launching the GUI or a duplicate daemon instance in non-debug mode truncated `wrapper.log` to 0 bytes and left only 2–3 startup log lines.
   - Enforced `--append-log` mode when spawning `gui.py` from `main.py` and set `append=True` as the default in `gui.py`.
 - **Math Utils `clamp_int` Attribute Fix:** Added the missing `clamp_int` helper function to `src/math_utils.py`, resolving an `AttributeError` when scaling normalized float stick/trigger values to integer ranges in `VirtualPad`.
+- **Dashboard Extra Buttons Grid Restoration:** Fixed an issue in `src/gui.py` where `_build_dashboard_layout` omitted calling `_get_extra_buttons`, causing physical DInput extra buttons and Hardware Chord targets to be omitted from the Dashboard tab while still appearing in Remapping.
 - **VirtualPad Macro State Initialization:** Initialized `self.macro_pressed_buttons` set in `VirtualPad.__init__` and cleared it in `reload_config()`, fixing an `AttributeError` when evaluating trigger and button states during real-time input processing.
 
 
