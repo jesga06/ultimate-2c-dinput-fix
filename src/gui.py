@@ -782,14 +782,21 @@ class App(ctk.CTk):
                 self.dashboard_btns[btn] = b
             
         # Extra buttons grid below
-        standard_buttons = set(layout_dict.keys())
-        extra_btns = []
-        
-        backend_mode = 'auto'
-        if hasattr(self, 'daemon_config') and self.daemon_config.has_option('backend', 'mode'):
-            backend_mode = self.daemon_config.get('backend', 'mode').lower()
+    def get_backend_mode(self):
+        if hasattr(self, 'daemon_config') and self.daemon_config:
+            if self.daemon_config.has_option('settings', 'mode'):
+                return self.daemon_config.get('settings', 'mode').lower()
+            if self.daemon_config.has_option('backend', 'mode'):
+                return self.daemon_config.get('backend', 'mode').lower()
+        if hasattr(self, 'config') and self.config:
+            if self.config.has_option('backend', 'mode'):
+                return self.config.get('backend', 'mode').lower()
+        return 'auto'
 
-        is_xinput = backend_mode == 'xinput' or (backend_mode == 'auto' and self.config.has_section('hardware_chords') and len(self.config.items('hardware_chords')) > 0)
+    def _get_extra_buttons(self, standard_buttons):
+        extra_btns = []
+        backend_mode = self.get_backend_mode()
+        is_xinput = backend_mode == 'xinput'
 
         if is_xinput:
             # In XInput mode, extra buttons are ONLY the hardware chord action targets
@@ -1093,11 +1100,8 @@ class App(ctk.CTk):
         existing_extras = set()
         standard_buttons = set(face_buttons + dpad_buttons + stick_buttons + system_buttons)
         
-        backend_mode = 'auto'
-        if hasattr(self, 'daemon_config') and self.daemon_config.has_option('backend', 'mode'):
-            backend_mode = self.daemon_config.get('backend', 'mode').lower()
-
-        is_xinput = backend_mode == 'xinput' or (backend_mode == 'auto' and self.config.has_section('hardware_chords') and len(self.config.items('hardware_chords')) > 0)
+        backend_mode = self.get_backend_mode()
+        is_xinput = backend_mode == 'xinput'
 
         if is_xinput:
             # In XInput mode, extra buttons are ONLY the hardware chord action targets
@@ -2432,9 +2436,20 @@ class App(ctk.CTk):
                     "1. WHAT ARE HARDWARE CHORDS?\n"
                     "Hardware Chords combine physical controller buttons into a single virtual extra button (like M1, M2, L4, or R4).\n\n"
                     "2. WHAT IS INPUT SUPPRESSION?\n"
-                    "Normally, pressing a back paddle or button combination sends ALL of those buttons to your game. "
-                    "With Hardware Chords, the original base buttons (like LB and Start) are BLOCKED from reaching the game, and only the new extra button (like M1) is sent.\n\n"
-                    "3. STEP-BY-STEP SETUP GUIDE:\n"
+                    "Normally, pressing a button combination sends ALL of those buttons to your game. "
+                    "With Hardware Chords, the physical combination gets CONSUMED by UR-XD (blocked from reaching the game). "
+                    "Instead, the combination becomes a 'virtual' key (like M1 or L4) which you can freely remap to keyboard keys, mouse actions, or macros in the Remapping tab!\n\n"
+                    "3. RECOMMENDED VS. NOT-RECOMMENDED COMBINATIONS:\n"
+                    "* What to look for: Pick physical button combinations that are NOT normally pressed together during normal gameplay so you don't accidentally trigger them.\n"
+                    "* RECOMMENDED:\n"
+                    "  - 'dpad_up + lb' (rarely held simultaneously)\n"
+                    "  - 'dpad_up + start' or 'dpad_left + select'\n"
+                    "  - 'dpad_down + r3' (directional pad + stick click)\n"
+                    "* NOT RECOMMENDED:\n"
+                    "  - 'a + b' or 'x + y' (frequently pressed quickly or together in games)\n"
+                    "  - 'lt + rt' (holding both triggers to aim + shoot is common in FPS games)\n"
+                    "  - 'l3 + r3' (sprinting while meleeing)\n\n"
+                    "4. STEP-BY-STEP SETUP GUIDE:\n"
                     "* Step 1: Ensure your controller is in XInput mode.\n"
                     "* Step 2: Under 'Hardware Chords (Input Suppression)', click '+ Add Hardware Chord'.\n"
                     "* Step 3: 'Chord:' - Enter the controller buttons you press together (example: dpad_up, lb or dpad_up dpad_left dpad_right).\n"
@@ -2531,7 +2546,7 @@ class App(ctk.CTk):
         if not self.config.has_section('hardware_chords'):
             self.config.add_section('hardware_chords')
             
-        backend_mode = self.daemon_config.get('backend', 'mode', fallback='auto')
+        backend_mode = self.get_backend_mode()
         
         self.advanced_scroll = ctk.CTkScrollableFrame(self.tab_advanced, fg_color="transparent", corner_radius=0)
         self.advanced_scroll.pack(fill="both", expand=True)
