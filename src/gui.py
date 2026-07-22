@@ -2651,26 +2651,39 @@ class App(ctk.CTk):
         self.shift_trig_var = ctk.StringVar(value=self.config.get('shift_layer', 'trigger_button', fallback=''))
         base_buttons = self.get_profile_mapped_keys()
         
+        def check_home_hold_warning():
+            trig_val = self.shift_trig_var.get().strip().lower()
+            mode_val = self.shift_mode_var.get().strip().lower()
+            if trig_val in ['home', 'guide'] and mode_val == 'hold':
+                import tkinter.messagebox
+                tkinter.messagebox.showwarning(
+                    "Recommended Setting Notice",
+                    "Holding the Home button for several seconds may force turn off your controller or trigger OS shortcuts.\n\n"
+                    "It is strongly recommended to set the Shift Mode to 'toggle' instead of 'hold' when using the Home button as your Shift Trigger."
+                )
+
         def on_shift_trig_changed(val):
-            val = val.strip()
-            if val and self.config.has_option('extra_buttons', val):
+            val_clean = val.strip()
+            if val_clean and self.config.has_option('extra_buttons', val_clean):
                 import tkinter.messagebox
                 tkinter.messagebox.showwarning(
                     "Shift Trigger Conflict",
-                    f"The button '{val}' is currently mapped to an action.\n\n"
+                    f"The button '{val_clean}' is currently mapped to an action.\n\n"
                     "It will be cleared and blocked from XInput so it can act as the Shift Trigger."
                 )
-                self.config.remove_option('extra_buttons', val)
+                self.config.remove_option('extra_buttons', val_clean)
                 if not self.config.has_section('block_xinput'):
                     self.config.add_section('block_xinput')
-                if self.config.has_option('block_xinput', val):
-                    self.config.remove_option('block_xinput', val)
+                if self.config.has_option('block_xinput', val_clean):
+                    self.config.remove_option('block_xinput', val_clean)
                 
                 # Update UI elements in remapping tab if they exist
-                if hasattr(self, 'entries') and val in self.entries:
-                    self.entries[val].delete(0, 'end')
-                    self.block_vars[val].set(True)
-                    self.block_checkboxes[val].configure(state="disabled")
+                if hasattr(self, 'entries') and val_clean in self.entries:
+                    self.entries[val_clean].delete(0, 'end')
+                    self.block_vars[val_clean].set(True)
+                    self.block_checkboxes[val_clean].configure(state="disabled")
+            
+            check_home_hold_warning()
             self.save_advanced()
             
         self.trig_menu = ctk.CTkOptionMenu(trig_frame, values=base_buttons, variable=self.shift_trig_var, command=on_shift_trig_changed)
@@ -2687,7 +2700,12 @@ class App(ctk.CTk):
         ctk.CTkLabel(mode_frame, text="Mode:", width=120, anchor="w").pack(side="left")
         
         self.shift_mode_var = ctk.StringVar(value=self.config.get('shift_layer', 'mode', fallback='hold'))
-        mode_menu = ctk.CTkOptionMenu(mode_frame, values=["hold", "toggle"], variable=self.shift_mode_var, command=lambda _: self.save_advanced())
+        
+        def on_shift_mode_changed(val):
+            check_home_hold_warning()
+            self.save_advanced()
+
+        mode_menu = ctk.CTkOptionMenu(mode_frame, values=["hold", "toggle"], variable=self.shift_mode_var, command=on_shift_mode_changed)
         mode_menu.pack(side="left")
 
         # Chords Setting
