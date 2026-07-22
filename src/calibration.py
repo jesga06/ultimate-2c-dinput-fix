@@ -1080,10 +1080,8 @@ class Calibrator:
     def save_profile(self):
         try:
             os.makedirs("profiles", exist_ok=True)
-            filename = f"profiles/{
-                self.profile['vid']}_{
-                self.profile['pid']}.json".lower()
-            with open(filename, 'w') as f:
+            filename = f"profiles/{self.profile['vid']}_{self.profile['pid']}.json".lower()
+            with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(self.profile, f, indent=4)
             print(f"\nProfile saved to {filename}")
             if logger: logger.info(f"Profile saved to {filename}")
@@ -1194,7 +1192,7 @@ class Calibrator:
             temp_path = "profiles/temp_test.json"
             try:
                 os.makedirs("profiles", exist_ok=True)
-                with open(temp_path, 'w') as f:
+                with open(temp_path, 'w', encoding='utf-8') as f:
                     json.dump(self.profile, f)
             except Exception as e:
                 print(f"Error creating temp profile for test mode: {e}")
@@ -1235,12 +1233,11 @@ class Calibrator:
                     lbl = test_labels.get(b, b.upper())
                     print(f"{lbl}: {'[X]' if val else '[ ]'}", end="  ")
                 print("\n\nD-Pad:")
-                print(
-                    f"UP: {
-                        '[X]' if state.dpad_up else '[ ]'}  DOWN: {
-                        '[X]' if state.dpad_down else '[ ]'}  LEFT: {
-                        '[X]' if state.dpad_left else '[ ]'}  RIGHT: {
-                        '[X]' if state.dpad_right else '[ ]'}")
+                up_str = '[X]' if state.dpad_up else '[ ]'
+                down_str = '[X]' if state.dpad_down else '[ ]'
+                left_str = '[X]' if state.dpad_left else '[ ]'
+                right_str = '[X]' if state.dpad_right else '[ ]'
+                print(f"UP: {up_str}  DOWN: {down_str}  LEFT: {left_str}  RIGHT: {right_str}")
                 print("\nAxes:")
 
                 grid_size = 5
@@ -1286,21 +1283,10 @@ class Calibrator:
                 lt_name = test_labels.get('lt', 'LT')
                 rt_name = test_labels.get('rt', 'RT')
 
-                print(
-                    f"Left Stick (LX:{
-                        state.lx:5.2f}, LY:{
-                        state.ly:5.2f})   Right Stick (RX:{
-                        state.rx:5.2f}, RY:{
-                        state.ry:5.2f})   {lt_name}:{
-                        state.lt:4.2f}   {rt_name}:{
-                            state.rt:4.2f}")
+                print(f"Left Stick (LX:{state.lx:5.2f}, LY:{state.ly:5.2f})   Right Stick (RX:{state.rx:5.2f}, RY:{state.ry:5.2f})   {lt_name}:{state.lt:4.2f}   {rt_name}:{state.rt:4.2f}")
                 for i in range(grid_size):
-                    print(
-                        f"  {
-                            l_grid[i]:<10}                    {
-                            r_grid[i]:<10}                 {
-                            lt_bar[i]}        {
-                            rt_bar[i]}")
+                    print(f"  {l_grid[i]:<10}                    {r_grid[i]:<10}                 {lt_bar[i]}        {rt_bar[i]}")
+
 
                 if state.extra_inputs:
                     print("\nExtra Inputs:")
