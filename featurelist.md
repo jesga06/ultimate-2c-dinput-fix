@@ -160,3 +160,4 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 * **XInput Calibration Safety:** Implemented string matching to safely recommend the correct endpoint interface for XInput controllers during calibration.
 * **Static Gray Box Fix:** Resolved a UI overlapping issue in CustomTkinter where `extra_frame` created a static gray box overlaying the dashboard buttons by packing it outside the main layout canvas.
 * **Virtual Controller Latching Fix:** Resolved a critical bug where the wrapper daemon would accidentally latch onto the virtual Xbox 360 controller spawned by `vgamepad` instead of the physical controller, causing inputs to fail silently.
+* **Virtual Controller Tuned Output Pipeline:** Fixed raw input override in `VirtualPad.process()`, ensuring all configured stick circularity corrections, response curves, deadzones, and digital triggers properly pass to the virtual controller.
