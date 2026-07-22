@@ -12,29 +12,56 @@ echo  PRIMARY DIAGNOSTICS AND SETUP
 echo  [1] Run Full Issue Reporter (Generates issue_report.zip)
 echo  [2] Install / Repair Python Dependencies
 echo.
+echo  CALIBRATION AND TESTING
+echo  [3] Launch Calibration Wizard
+echo  [4] Test Calibrated Input (Live ASCII Visualizer)
+echo.
 echo  DEBUG MODE LAUNCHERS
-echo  [3] Launch Wrapper in Debug Mode (Console Output)
-echo  [4] Launch Calibration Wizard in Debug Mode
+echo  [5] Launch Wrapper in Debug Mode (Console Output)
+echo  [6] Launch Calibration Wizard in Debug Mode
 echo.
 echo  DEVELOPER AND UTILITY TOOLS
-echo  [5] Launch Interactive Layout Builder (CustomTkinter GUI)
-echo  [6] Run Individual Diagnostic Script
+echo  [7] Launch Interactive Layout Builder (CustomTkinter GUI)
+echo  [8] Run Individual Diagnostic Script
 echo.
 echo  [0] Exit
 echo.
 echo ======================================================================
-set /p CHOICE="Select an option [0-6]: "
+set /p CHOICE="Select an option [0-8]: "
 
 if "%CHOICE%"=="1" goto ISSUE_REPORT
 if "%CHOICE%"=="2" goto INSTALL_REQS
-if "%CHOICE%"=="3" goto WRAPPER_DEBUG
-if "%CHOICE%"=="4" goto CALIBRATE_DEBUG
-if "%CHOICE%"=="5" goto LAYOUT_BUILDER
-if "%CHOICE%"=="6" goto INDIVIDUAL_DIAG
+if "%CHOICE%"=="3" goto CALIBRATE
+if "%CHOICE%"=="4" goto TEST_CALIBRATION
+if "%CHOICE%"=="5" goto WRAPPER_DEBUG
+if "%CHOICE%"=="6" goto CALIBRATE_DEBUG
+if "%CHOICE%"=="7" goto LAYOUT_BUILDER
+if "%CHOICE%"=="8" goto INDIVIDUAL_DIAG
 if "%CHOICE%"=="0" exit /b 0
 
 echo Invalid choice. Please try again.
 timeout /t 2 >nul
+goto MENU
+
+:CALIBRATE
+cls
+if exist "calibrate.bat" (
+    call calibrate.bat
+) else (
+    set PYTHON_CMD=python
+    if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
+    %PYTHON_CMD% src\calibration.py
+    pause
+)
+goto MENU
+
+:TEST_CALIBRATION
+cls
+echo Starting Live Input Test Visualizer...
+set PYTHON_CMD=python
+if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
+%PYTHON_CMD% src\calibration.py --test-only
+pause
 goto MENU
 
 :ISSUE_REPORT
