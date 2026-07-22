@@ -1,11 +1,23 @@
 import math
+from typing import List, Tuple
+import curves
 
-def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0, sensitivity: float = 1.0, custom_eq: str = ""):
+def process_analog_stick(
+    x: float,
+    y: float,
+    inner_dz: float,
+    anti_dz: float,
+    curve_type: str,
+    power: float,
+    rest_dz: float = 0.0,
+    sensitivity: float = 1.0,
+    custom_eq: str = ""
+) -> Tuple[float, float]:
     """
     Processes an analog stick's X and Y coordinates.
     Applies a radial inner deadzone.
     Applies a rest deadzone (secondary buffer to prevent anti-deadzone from activating on drift).
-    Applies a mathematical response curve to the *magnitude* to preserve circular diagonals.
+    Applies a mathematical response curve to the magnitude to preserve circular diagonals.
     Applies an anti-deadzone offset to the magnitude.
     Returns the new (x, y).
     """
@@ -30,8 +42,7 @@ def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, cu
     else:
         norm_mag = 0.0
     
-    import curves
-    # Apply curve to normalized magnitude
+    # Apply response curve to normalized magnitude
     norm_mag = curves.evaluate_curve(norm_mag, curve_type, power, custom_eq)
         
     # Apply anti-deadzone
@@ -44,7 +55,16 @@ def process_analog_stick(x: float, y: float, inner_dz: float, anti_dz: float, cu
         return x * ratio * sensitivity, y * ratio * sensitivity
     return 0.0, 0.0
 
-def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str, power: float, rest_dz: float = 0.0, sensitivity: float = 1.0, custom_eq: str = ""):
+def process_trigger(
+    val: float,
+    inner_dz: float,
+    anti_dz: float,
+    curve_type: str,
+    power: float,
+    rest_dz: float = 0.0,
+    sensitivity: float = 1.0,
+    custom_eq: str = ""
+) -> float:
     """
     Processes an analog trigger's 1D value [0.0, 1.0].
     Applies an inner deadzone.
@@ -69,7 +89,6 @@ def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str
     else:
         norm_val = 0.0
     
-    import curves
     # Apply curve
     norm_val = curves.evaluate_curve(norm_val, curve_type, power, custom_eq)
         
@@ -78,10 +97,17 @@ def process_trigger(val: float, inner_dz: float, anti_dz: float, curve_type: str
     final_val *= sensitivity
     return max(0.0, min(1.0, final_val))
 
-def apply_circularity_correction(x: float, y: float, center_x: float, center_y: float, bounds_data: list):
+def apply_circularity_correction(
+    x: float,
+    y: float,
+    center_x: float,
+    center_y: float,
+    bounds_data: List[float]
+) -> Tuple[float, float]:
     """
     Applies circularity correction to an analog stick.
     bounds_data: list of 360 floats representing max radius at each degree (0-359).
+    Uses sub-degree linear interpolation between adjacent degree bounds.
     """
     if not bounds_data or len(bounds_data) != 360:
         return x, y
@@ -90,42 +116,48 @@ def apply_circularity_correction(x: float, y: float, center_x: float, center_y: 
     dy = y - center_y
     r = math.sqrt(dx**2 + dy**2)
     
-    if r == 0:
+    if r == 0.0:
         return 0.0, 0.0
         
-    theta = int(math.degrees(math.atan2(dy, dx))) % 360
-    r_max = bounds_data[theta]
+    deg_float = math.degrees(math.atan2(dy, dx)) % 360.0
+    idx_lower = int(deg_float)
+    idx_upper = (idx_lower + 1) % 360
+    frac = deg_float - idx_lower
+
+    r_max = (1.0 - frac) * bounds_data[idx_lower] + frac * bounds_data[idx_upper]
     
-    if r_max <= 0:
+    if r_max <= 0.0:
         return x, y
         
     # Scale by (R_max * 0.98) to ensure we overshoot slightly (guarantee hitting 1.0)
     adjusted_r_max = r_max * 0.98
     
-    new_r = r / adjusted_r_max
-    
-    # Cap to unit circle
-    new_r = min(new_r, 1.0)
+    new_r = min(r / adjusted_r_max, 1.0)
     
     new_x = new_r * (dx / r)
     new_y = new_r * (dy / r)
     
     return new_x, new_y
 
-def calculate_circularity_error(bounds_data: list):
+def calculate_circularity_error(bounds_data: List[float]) -> float:
     """
-    Calculates the average deviation from a perfect circle (radius 1.0).
+    Calculates the average percentage deviation from a perfect unit circle (radius 1.0).
     """
     if not bounds_data:
         return 0.0
         
-    total_deviation = 0.0
-    for r in bounds_data:
-        total_deviation += abs(r - 1.0)
-        
+    total_deviation = sum(abs(r - 1.0) for r in bounds_data)
     return (total_deviation / len(bounds_data)) * 100.0
 
-def apply_warped_stick_correction(x: float, y: float, threshold_pct: float):
+def _scale_warped_axis(val: float, o_max: float) -> float:
+    """Module-level helper to scale axis values against warped threshold maximums."""
+    if val == 0.0:
+        return 0.0
+    sign = 1.0 if val >= 0.0 else -1.0
+    scaled = abs(val) / o_max
+    return sign * min(scaled, 1.0)
+
+def apply_warped_stick_correction(x: float, y: float, threshold_pct: float) -> Tuple[float, float]:
     """
     Checks stick axis coordinates against a user-configurable threshold (e.g., 5-10% deviation).
     Dynamically scales outputs on weak/asymmetric directions to hit 1.0 without hard-clipping.
@@ -136,20 +168,13 @@ def apply_warped_stick_correction(x: float, y: float, threshold_pct: float):
     threshold_val = threshold_pct / 100.0
     outer_max = 1.0 - threshold_val
     
-    if outer_max <= 0:
+    if outer_max <= 0.0:
         return x, y
         
-    def scale_axis(val, o_max):
-        sign = 1 if val >= 0 else -1
-        abs_val = abs(val)
-        if abs_val == 0:
-            return 0.0
-        scaled = abs_val / o_max
-        return sign * min(scaled, 1.0)
-        
-    return scale_axis(x, outer_max), scale_axis(y, outer_max)
+    return _scale_warped_axis(x, outer_max), _scale_warped_axis(y, outer_max)
 
 def clamp_int(val: int, min_val: int, max_val: int) -> int:
     """Clamps an integer value to the range [min_val, max_val]."""
     return max(min_val, min(max_val, val))
+
 
