@@ -164,8 +164,12 @@ class Decoder:
                     norm_val = shifted_val / float(max_val - 1)
                     if cfg.get('center', False):  # e.g., lx, ly usually center at 0
                         norm_val = (norm_val * 2.0) - 1.0
+                        # Standard HID Y-axis decreases when moving UP (0 at top, 255 at bottom).
+                        # Invert Y by default for ly/ry so positive is UP (+1.0), matching XInput.
+                        if input_name in ('ly', 'ry'):
+                            norm_val = -norm_val
 
-                # Inversion
+                # Inversion override
                 if cfg.get('invert', False):
                     norm_val = -norm_val
 

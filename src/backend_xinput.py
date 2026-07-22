@@ -58,6 +58,7 @@ class XInputBackend(BaseInputBackend):
         super().__init__()
         self._load_xinput()
         self.connected_slot = -1
+        self.target_slot = -1
         self.is_running = False
         self._thread = None
         self.poll_rate_hz = 500
@@ -107,18 +108,18 @@ class XInputBackend(BaseInputBackend):
         if not self.xinput:
             return False
         
-        # If already connected to a valid slot, verify it
-        if self.connected_slot >= 0:
-            if self.get_connection_state():
+        state = XINPUT_STATE()
+        # If a target slot was previously established, check if physical controller reconnected to it
+        if self.target_slot >= 0:
+            if self.XInputGetState(self.target_slot, ctypes.byref(state)) == 0:
+                self.connected_slot = self.target_slot
                 return True
-            else:
-                self.connected_slot = -1
 
         # Scan slots 0-3
-        state = XINPUT_STATE()
         for i in range(4):
             if self.XInputGetState(i, ctypes.byref(state)) == 0:
                 self.connected_slot = i
+                self.target_slot = i
                 logger.info(f"XInput controller found on slot {i}")
                 return True
         return False
