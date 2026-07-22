@@ -14,6 +14,9 @@ Run calibration using `calibrate.bat` (or via `tools_and_diagnostics.bat`) to co
 * **Robust Hat Switch Detection:** Filters neutral-to-direction transitions to map D-Pad inputs cleanly.
 * **Gyro/Motion Sensor Filter:** Prompts users to identify if the controller streams telemetry continuously to filter out sensor drift.
 * **Vibration/Rumble Probing:** Guided wizard (`_calibrate_rumble()`) to cycle through output bytes to detect rumble motor indices (currently disabled by default).
+* **XInput API Modes:** Choose between full DInput HID discovery, XInput configuration, or Auto-Detect mode.
+* **Auto-Select Gamepad:** Skips the manual device menu in the calibration process if only one controller is detected on the system.
+* **XInput Setup Flow:** Intelligently registers extra physical buttons without interfering with standardized XInput protocols.
 
 ---
 
