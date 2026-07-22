@@ -658,8 +658,11 @@ class App(ctk.CTk):
             logger.debug("[EXIT] save_config() completed.")
 
     def setup_dashboard(self):
+        self.dashboard_scroll = ctk.CTkScrollableFrame(self.tab_dashboard, fg_color="transparent", corner_radius=0)
+        self.dashboard_scroll.pack(fill="both", expand=True)
+
         self.status_label = ctk.CTkLabel(
-            self.tab_dashboard,
+            self.dashboard_scroll,
             text="Status: Unknown",
             font=ctk.CTkFont(
                 size=20,
@@ -667,13 +670,13 @@ class App(ctk.CTk):
         self.status_label.pack(pady=(15, 2))
 
         self.device_label = ctk.CTkLabel(
-            self.tab_dashboard,
+            self.dashboard_scroll,
             text="Device: -",
             font=ctk.CTkFont(
                 size=16))
         self.device_label.pack(pady=2)
 
-        layout_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
+        layout_frame = ctk.CTkFrame(self.dashboard_scroll, fg_color="transparent")
         layout_frame.pack(pady=(2, 5))
 
         self.layout_label = ctk.CTkLabel(
@@ -706,18 +709,18 @@ class App(ctk.CTk):
         
         # Bottom widgets packed first so they claim space
         version_lbl = ctk.CTkLabel(
-            self.tab_dashboard,
+            self.dashboard_scroll,
             text="v2.2.0",
             text_color="gray50",
             font=ctk.CTkFont(size=11))
         version_lbl.pack(side="bottom", pady=(2, 10))
         self.version_lbl = version_lbl
         
-        self.extra_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
+        self.extra_frame = ctk.CTkFrame(self.dashboard_scroll, fg_color="transparent")
         # Do not pack extra_frame by default unless extra buttons exist
 
         # Expanding widget packed last so it takes the remaining cavity
-        self.layout_canvas = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
+        self.layout_canvas = ctk.CTkFrame(self.dashboard_scroll, fg_color="transparent", height=320)
         self.layout_canvas.pack(fill="both", expand=True, padx=20, pady=5)
         
         # Load layout
@@ -912,17 +915,20 @@ class App(ctk.CTk):
             self.trig_menu.configure(values=keys)
 
     def setup_remapping(self):
-        # Configure columns and rows in tab_remapping for expansion
-        self.tab_remapping.grid_columnconfigure(0, weight=1)
-        self.tab_remapping.grid_columnconfigure(1, weight=1)
-        self.tab_remapping.grid_rowconfigure(0, weight=1)
-        self.tab_remapping.grid_rowconfigure(1, weight=1)
+        self.remapping_scroll = ctk.CTkScrollableFrame(self.tab_remapping, fg_color="transparent", corner_radius=0)
+        self.remapping_scroll.pack(fill="both", expand=True)
+
+        # Configure columns and rows in remapping_scroll for expansion
+        self.remapping_scroll.grid_columnconfigure(0, weight=1)
+        self.remapping_scroll.grid_columnconfigure(1, weight=1)
+        self.remapping_scroll.grid_rowconfigure(0, weight=1)
+        self.remapping_scroll.grid_rowconfigure(1, weight=1)
 
         # Create 4 quadrants using normal Frames to avoid resize lag
-        self.frame_face = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
-        self.frame_dpad = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
-        self.frame_sticks = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
-        self.frame_system = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
+        self.frame_face = ctk.CTkFrame(self.remapping_scroll, corner_radius=0)
+        self.frame_dpad = ctk.CTkFrame(self.remapping_scroll, corner_radius=0)
+        self.frame_sticks = ctk.CTkFrame(self.remapping_scroll, corner_radius=0)
+        self.frame_system = ctk.CTkFrame(self.remapping_scroll, corner_radius=0)
 
         # Labels for the frames since CTkFrame doesn't have label_text
         for f, title in [(self.frame_face, "Face Buttons"), (self.frame_dpad, "D-Pad"),
@@ -938,7 +944,7 @@ class App(ctk.CTk):
         self.frame_system.grid(row=1, column=1, padx=10, pady=10, sticky="n")
 
         # Info Guide
-        info_frame = ctk.CTkFrame(self.tab_remapping, fg_color="transparent")
+        info_frame = ctk.CTkFrame(self.remapping_scroll, fg_color="transparent")
         info_frame.grid(row=2, column=0, columnspan=2, pady=(10, 20))
         
         info_btn = ctk.CTkButton(info_frame, text="?  Remapping Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12))
@@ -2382,8 +2388,11 @@ class App(ctk.CTk):
             
         backend_mode = self.daemon_config.get('backend', 'mode', fallback='auto')
         
+        self.advanced_scroll = ctk.CTkScrollableFrame(self.tab_advanced, fg_color="transparent", corner_radius=0)
+        self.advanced_scroll.pack(fill="both", expand=True)
+
         # Hardware Chords Builder
-        self.hw_chords_frame = ctk.CTkFrame(self.tab_advanced)
+        self.hw_chords_frame = ctk.CTkFrame(self.advanced_scroll)
         self.hw_chords_frame.pack(fill="x", padx=20, pady=10)
         
         hdr_hw = ctk.CTkFrame(self.hw_chords_frame, fg_color="transparent")
@@ -2410,7 +2419,7 @@ class App(ctk.CTk):
             btn_add_hw.pack(pady=5)
             
         # Shift Layer Settings
-        shift_frame = ctk.CTkFrame(self.tab_advanced)
+        shift_frame = ctk.CTkFrame(self.advanced_scroll)
         shift_frame.pack(fill="x", padx=20, pady=10)
         
         ctk.CTkLabel(shift_frame, text="Shift Layer Settings", font=ctk.CTkFont(weight="bold")).pack(pady=5)
@@ -2468,7 +2477,7 @@ class App(ctk.CTk):
         mode_menu.pack(side="left")
 
         # Chords Setting
-        self.chords_frame = ctk.CTkFrame(self.tab_advanced)
+        self.chords_frame = ctk.CTkFrame(self.advanced_scroll)
         self.chords_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
         header_f = ctk.CTkFrame(self.chords_frame, fg_color="transparent")
@@ -2719,10 +2728,13 @@ class App(ctk.CTk):
             logger.info("Advanced configuration saved.")
 
     def setup_customization(self):
-        lbl = ctk.CTkLabel(self.tab_customization, text="UI Customization", font=ctk.CTkFont(size=20, weight="bold"))
+        self.customization_scroll = ctk.CTkScrollableFrame(self.tab_customization, fg_color="transparent", corner_radius=0)
+        self.customization_scroll.pack(fill="both", expand=True)
+
+        lbl = ctk.CTkLabel(self.customization_scroll, text="UI Customization", font=ctk.CTkFont(size=20, weight="bold"))
         lbl.pack(pady=(20, 10))
 
-        frame = ctk.CTkFrame(self.tab_customization)
+        frame = ctk.CTkFrame(self.customization_scroll)
         frame.pack(padx=20, pady=10, fill="x")
 
         # Appearance Mode
@@ -2842,10 +2854,13 @@ class App(ctk.CTk):
             self.daemon_config.write(f)
 
     def setup_profile(self):
-        lbl = ctk.CTkLabel(self.tab_profile, text="Profile Validation & Diff", font=ctk.CTkFont(size=20, weight="bold"))
+        self.profile_scroll = ctk.CTkScrollableFrame(self.tab_profile, fg_color="transparent", corner_radius=0)
+        self.profile_scroll.pack(fill="both", expand=True)
+
+        lbl = ctk.CTkLabel(self.profile_scroll, text="Profile Validation & Diff", font=ctk.CTkFont(size=20, weight="bold"))
         lbl.pack(pady=(20, 10))
         
-        main_frame = ctk.CTkFrame(self.tab_profile, fg_color="transparent")
+        main_frame = ctk.CTkFrame(self.profile_scroll, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
         import os
@@ -2904,10 +2919,13 @@ class App(ctk.CTk):
         ctk.CTkButton(btn_frame, text="Export Output", command=export_output).pack(side="left", padx=5, expand=True)
 
     def setup_utilities(self):
-        lbl = ctk.CTkLabel(self.tab_utilities, text="Utilities & Diagnostics", font=ctk.CTkFont(size=20, weight="bold"))
+        self.utilities_scroll = ctk.CTkScrollableFrame(self.tab_utilities, fg_color="transparent", corner_radius=0)
+        self.utilities_scroll.pack(fill="both", expand=True)
+
+        lbl = ctk.CTkLabel(self.utilities_scroll, text="Utilities & Diagnostics", font=ctk.CTkFont(size=20, weight="bold"))
         lbl.pack(pady=(20, 10))
         
-        main_frame = ctk.CTkFrame(self.tab_utilities, fg_color="transparent")
+        main_frame = ctk.CTkFrame(self.utilities_scroll, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
         # Latency Monitor Frame
