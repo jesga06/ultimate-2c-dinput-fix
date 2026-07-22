@@ -254,6 +254,12 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Removed the dedicated Profiles tab from the GUI and the "Input Recording & Playback" utility frame from the Utilities tab.
   - Decommissioned background state recording/playback routines from the daemon loop (`src/main.py`) and removed `src/state_record_play.py`.
   - These features were removed because they did not turn out as initially planned. They have been re-added to `workspace_ideas/to-do-list.md` for future architectural redesign and re-implementation.
+- **Macros Engine Upgrades (Name-Based Remapping, Gamepad Outputs & Optional Triggers):**
+  - Renamed standard chords to "Macros Engine" across the GUI, tutorials, and configuration labels.
+  - Added support for referencing macros by name directly in the Remapping tab (e.g. `macro:MyMacro` or `MyMacro`).
+  - Made input trigger chords optional for macros, allowing users to define standalone macros triggered solely via button remapping.
+  - Expanded macro outputs to support gamepad button presses (`gamepad:a`, `gamepad:lb`, etc.) alongside KBM actions and delays.
+  - Upgraded the macro recording modal (`[Rec]`) to record gamepad button presses and provide gamepad quick-add buttons when recording macro outputs.
 
 ### ⚙️ Under-the-Hood Changes
 - **Unified Verbose Debug Logging Expansion:** Expanded the `--debug` argument parsing and granular `logger.debug` tracing across all core processing scripts (`mapper.py`, `decoder.py`, `virtual_pad.py`, `hardware_chords.py`), backend scripts (`backend_dinput.py`, `backend_xinput.py`), and all 6 automated diagnostic scripts. Added full `sys.excepthook` stack trace injection for diagnostic scripts in debug mode.
