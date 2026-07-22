@@ -775,24 +775,32 @@ class App(ctk.CTk):
         # Extra buttons grid below
         standard_buttons = set(layout_dict.keys())
         extra_btns = []
-        for k in self.extra_buttons:
-            if k not in standard_buttons and k not in extra_btns:
-                extra_btns.append(k)
         
-        # Fallback to mapped ones in config if none found in profile
-        if self.config.has_section('extra_buttons'):
-            for k in self.config.options('extra_buttons'):
+        backend_mode = 'auto'
+        if hasattr(self, 'daemon_config') and self.daemon_config.has_option('backend', 'mode'):
+            backend_mode = self.daemon_config.get('backend', 'mode').lower()
+
+        is_xinput = backend_mode == 'xinput' or (backend_mode == 'auto' and self.config.has_section('hardware_chords') and len(self.config.items('hardware_chords')) > 0)
+
+        if is_xinput:
+            # In XInput mode, extra buttons are ONLY the hardware chord action targets
+            if self.config.has_section('hardware_chords'):
+                for k, v in self.config.items('hardware_chords'):
+                    parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
+                    if 'action' in parts:
+                        act = parts['action'].strip().lower()
+                        if act and act not in standard_buttons and act not in extra_btns:
+                            extra_btns.append(act)
+        else:
+            # In DInput mode, read from physical profile extra_buttons and config extra_buttons
+            for k in self.extra_buttons:
                 if k not in standard_buttons and k not in extra_btns:
                     extra_btns.append(k)
-
-        # Include synthetic action buttons from hardware_chords
-        if self.config.has_section('hardware_chords'):
-            for k, v in self.config.items('hardware_chords'):
-                parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
-                if 'action' in parts:
-                    act = parts['action'].strip().lower()
-                    if act and act not in standard_buttons and act not in extra_btns:
-                        extra_btns.append(act)
+            
+            if self.config.has_section('extra_buttons'):
+                for k in self.config.options('extra_buttons'):
+                    if k not in standard_buttons and k not in extra_btns:
+                        extra_btns.append(k)
 
         for widget in self.extra_frame.winfo_children():
             widget.destroy()
@@ -1076,24 +1084,31 @@ class App(ctk.CTk):
         existing_extras = set()
         standard_buttons = set(face_buttons + dpad_buttons + stick_buttons + system_buttons)
         
-        for k in self.extra_buttons:
-            if k not in standard_buttons:
-                existing_extras.add(k)
-                
-        # Fallback to currently mapped ones in config
-        if self.config.has_section('extra_buttons'):
-            for k in self.config.options('extra_buttons'):
+        backend_mode = 'auto'
+        if hasattr(self, 'daemon_config') and self.daemon_config.has_option('backend', 'mode'):
+            backend_mode = self.daemon_config.get('backend', 'mode').lower()
+
+        is_xinput = backend_mode == 'xinput' or (backend_mode == 'auto' and self.config.has_section('hardware_chords') and len(self.config.items('hardware_chords')) > 0)
+
+        if is_xinput:
+            # In XInput mode, extra buttons are ONLY the hardware chord action targets
+            if self.config.has_section('hardware_chords'):
+                for k, v in self.config.items('hardware_chords'):
+                    parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
+                    if 'action' in parts:
+                        act = parts['action'].strip().lower()
+                        if act and act not in standard_buttons:
+                            existing_extras.add(act)
+        else:
+            # In DInput mode, read from physical profile extra_buttons and config extra_buttons
+            for k in self.extra_buttons:
                 if k not in standard_buttons:
                     existing_extras.add(k)
-
-        # Include synthetic action buttons from hardware_chords
-        if self.config.has_section('hardware_chords'):
-            for k, v in self.config.items('hardware_chords'):
-                parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
-                if 'action' in parts:
-                    act = parts['action'].strip()
-                    if act and act not in standard_buttons:
-                        existing_extras.add(act)
+                    
+            if self.config.has_section('extra_buttons'):
+                for k in self.config.options('extra_buttons'):
+                    if k not in standard_buttons:
+                        existing_extras.add(k)
 
         existing_extras = sorted(list(existing_extras))
 
@@ -2386,6 +2401,8 @@ class App(ctk.CTk):
                     if btn in ['lt', 'rt']:
                         val = getattr(state, btn, 0.0)
                         is_pressed = val > 0.0
+                    elif hasattr(state, btn):
+                        is_pressed = getattr(state, btn)
                     elif btn in state.extra_inputs or (hasattr(state, 'extra_inputs') and (btn.lower() in state.extra_inputs or btn.upper() in state.extra_inputs)):
                         val_eb = state.extra_inputs.get(btn) or state.extra_inputs.get(btn.lower()) or state.extra_inputs.get(btn.upper())
                         if isinstance(val_eb, (float, int)):
