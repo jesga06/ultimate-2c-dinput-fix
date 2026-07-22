@@ -952,7 +952,7 @@ class App(ctk.CTk):
         
         info_btn = ctk.CTkButton(info_frame, text="?  Remapping Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12))
         info_btn.pack(side="top")
-        ToolTip(info_btn, "Mapping: Use the text box to enter a keyboard key or mouse click.\n⏺: Click to record a key combination interactively.\nBlock: Prevent the original controller button from being sent to the game.\nShift Map/S. Blk: Secondary mapping when the shift trigger is held.")
+        ToolTip(info_btn, "Mapping: Use the text box to enter a keyboard key or mouse click.\n[Rec]: Click to record a key combination interactively.\nBlock: Prevent the original controller button from being sent to the game.\nShift Map/S. Blk: Secondary mapping when the shift trigger is held.")
 
         self.entries = {}
         self.label_widgets = {}
@@ -1001,7 +1001,7 @@ class App(ctk.CTk):
 
             self.entries[btn] = entry
 
-            rec_btn = ctk.CTkButton(frame, text="⏺", width=25, corner_radius=0, command=lambda b=btn: self.start_recording(b))
+            rec_btn = ctk.CTkButton(frame, text="[R]", width=28, corner_radius=0, command=lambda b=btn: self.start_recording(b))
             rec_btn.grid(row=row_idx, column=2, padx=7, pady=2)
 
             # Checkbox for Block XInput
@@ -2389,7 +2389,7 @@ class App(ctk.CTk):
         guide_modal.attributes("-topmost", True)
         guide_modal.focus()
 
-        lbl_header = ctk.CTkLabel(guide_modal, text="📘 Chords & Hardware Chords Master Tutorial", font=ctk.CTkFont(size=18, weight="bold"))
+        lbl_header = ctk.CTkLabel(guide_modal, text="Chords & Hardware Chords Tutorial", font=ctk.CTkFont(size=18, weight="bold"))
         lbl_header.pack(pady=(15, 5))
 
         btn_bar = ctk.CTkFrame(guide_modal, fg_color="transparent")
@@ -2405,49 +2405,45 @@ class App(ctk.CTk):
             if t == "hw":
                 content = (
                     "=== HARDWARE CHORDS (INPUT SUPPRESSION) TUTORIAL ===\n\n"
-                    "1️⃣ WHAT ARE HARDWARE CHORDS?\n"
-                    "Hardware Chords operate at the controller firmware level with native Input Suppression (available in XInput backend mode).\n\n"
-                    "2️⃣ WHAT IS INPUT SUPPRESSION?\n"
-                    "When back paddles or firmware shortcuts output multi-button combos (e.g. LB + Start), standard software sends BOTH 'LB' and 'Start' to your game. "
-                    "With Hardware Chords, the underlying base buttons ('LB' and 'Start') are SUPPRESSED upstream before Windows or games see them, and a synthetic extra button (e.g. 'M1' or 'EXTRA_1') is created instead!\n\n"
-                    "3️⃣ HOW TO SET UP HARDWARE CHORDS (STEP-BY-STEP):\n"
-                    "• Step 1: Ensure your controller is running in XInput Mode (Auto-Detect calibration or XInput mode).\n"
-                    "• Step 2: Under Hardware Chords, click '+ Add Hardware Chord'.\n"
-                    "• Step 3: Base Chord Inputs: Enter the physical buttons pressed together (e.g., 'lb, start' or 'a, b').\n"
-                    "• Step 4: Synthetic Action: Select or type the target virtual extra button (e.g., 'M1', 'L4', 'R4').\n"
-                    "• Step 5: Buffer / Delay (ms): Enter an optional timing buffer (e.g., 50ms) to account for human thumb out-of-sync variance when pressing both buttons.\n"
-                    "• Step 6: Mode: Keep set to 'Auto' (or 'Hold' / 'Tap').\n"
-                    "• Step 7: Click 'Save Settings'. Pressing LB + Start now cleanly sends M1 without triggering LB or Start in-game!"
+                    "1. WHAT ARE HARDWARE CHORDS?\n"
+                    "Hardware Chords combine physical controller buttons into a single virtual extra button (like M1, M2, L4, or R4).\n\n"
+                    "2. WHAT IS INPUT SUPPRESSION?\n"
+                    "Normally, pressing a back paddle or button combination sends ALL of those buttons to your game. "
+                    "With Hardware Chords, the original base buttons (like LB and Start) are BLOCKED from reaching the game, and only the new extra button (like M1) is sent.\n\n"
+                    "3. STEP-BY-STEP SETUP GUIDE:\n"
+                    "* Step 1: Ensure your controller is in XInput mode.\n"
+                    "* Step 2: Under 'Hardware Chords (Input Suppression)', click '+ Add Hardware Chord'.\n"
+                    "* Step 3: 'Chord:' - Enter the controller buttons you press together (example: lb, start).\n"
+                    "* Step 4: 'Action:' - Enter the new extra button name you want to trigger (example: M1 or extra_1).\n"
+                    "* Step 5: 'Delayed:' - (Optional) Enter any button that should wait briefly to ensure both buttons are pressed together out-of-sync.\n"
+                    "* Step 6: 'Mode:' - Select timing delay: 'auto', '0ms', '50ms', or '100ms'.\n"
+                    "* Step 7: Click 'Save Settings' under Shift Layer Settings or Chords & Macros to save your config."
                 )
             elif t == "std":
                 content = (
-                    "=== STANDARD CHORDS & MACROS STUDIO TUTORIAL ===\n\n"
-                    "1️⃣ WHAT ARE STANDARD CHORDS & MACROS?\n"
-                    "Standard Chords allow mapping multi-button gamepad combinations (e.g. LB + RB) to automated keyboard hotkeys, mouse actions, or multi-step macro sequences.\n\n"
-                    "2️⃣ EXECUTION MODES:\n"
-                    "• Hold Mode: The macro sequence holds or loops continuously while the physical chord buttons are held down.\n"
-                    "• Press (Toggle) Mode: Pressing the chord once starts execution, and pressing it again toggles it off. Includes built-in stuck-key prevention safeguards.\n\n"
-                    "3️⃣ HOW TO SET UP CHORDS & MACROS (STEP-BY-STEP):\n"
-                    "• Step 1: Under Chords & Macros, click '+ Add Macro'.\n"
-                    "• Step 2: Macro Name: Give your macro a unique name (e.g., 'fast_heal' or 'emote_combo').\n"
-                    "• Step 3: Inputs: Enter the gamepad buttons forming the chord (e.g., 'lb, rb' or click ⏺ Record to press them on your controller).\n"
-                    "• Step 4: Outputs: Enter the action sequence (e.g., 'keyboard:h, wait:50, mouse:left' or click ⏺ Record).\n"
-                    "• Step 5: Mode: Choose between 'Hold' or 'Press' (Toggle).\n"
-                    "• Step 6: Click 'Save Settings'."
+                    "=== CHORDS & MACROS STUDIO TUTORIAL ===\n\n"
+                    "1. WHAT ARE CHORDS & MACROS?\n"
+                    "Chords & Macros let you trigger keyboard keys, mouse clicks, or multi-step macro sequences by pressing button combinations on your controller.\n\n"
+                    "2. STEP-BY-STEP SETUP GUIDE:\n"
+                    "* Step 1: Under 'Chords & Macros', click '+ Add Macro'.\n"
+                    "* Step 2: 'Name:' - Enter a short name for your macro (example: macro1).\n"
+                    "* Step 3: 'Inputs:' - Enter the controller buttons pressed together (example: lb, rb). You can also click '[GP]' to record buttons interactively.\n"
+                    "* Step 4: 'Outputs:' - Enter the keys or clicks to trigger (example: keyboard:h, wait:50, mouse:left). You can also click '[KBM]' to record keys and mouse clicks.\n"
+                    "* Step 5: Click 'Save Settings' to apply your macros."
                 )
             else:  # Overview / Both
                 content = (
-                    "=== CHORDS & HARDWARE CHORDS OVERVIEW & COMPARISON ===\n\n"
-                    "Both tools allow mapping multi-button gamepad combinations, but serve different purposes in your controller pipeline:\n\n"
-                    "1️⃣ HARDWARE CHORDS (Firmware Level / Upstream Input Suppression)\n"
-                    "• Best For: Controller back paddles or firmware button combos (e.g. LB + Start -> M1).\n"
-                    "• Key Feature: INPUT SUPPRESSION. Swallows base button presses so 'LB' and 'Start' do NOT leak into games while triggering synthetic extra buttons.\n"
-                    "• Requirements: Requires XInput backend mode.\n\n"
-                    "2️⃣ STANDARD CHORDS & MACROS STUDIO (Software Macro Engine)\n"
-                    "• Best For: Multi-step macros, keyboard hotkeys, and mouse commands triggered by gamepad combinations.\n"
-                    "• Key Feature: Supports Hold and Press (Toggle) modes, step delays (e.g. wait:50), keyboard/mouse output chains, and interactive key recording.\n\n"
-                    "3️⃣ SHIFT LAYER SETTINGS\n"
-                    "• Best For: Secondary layer remappings across all base buttons while holding or toggling a single Shift Trigger button."
+                    "=== CHORDS & HARDWARE CHORDS OVERVIEW ===\n\n"
+                    "Both features let you press button combinations on your controller, but they serve different purposes:\n\n"
+                    "1. HARDWARE CHORDS (INPUT SUPPRESSION)\n"
+                    "* Purpose: Turn button combinations (like LB + Start) into a new extra button (like M1), while BLOCKING the original buttons so they don't trigger in your game.\n"
+                    "* Example: Back paddles mapped to LB + Start will send M1 cleanly without pressing LB or Start in-game.\n"
+                    "* Requirements: Requires XInput backend mode.\n\n"
+                    "2. CHORDS & MACROS STUDIO\n"
+                    "* Purpose: Map gamepad combinations (like LB + RB) to automated keyboard keys, mouse clicks, or timed macro sequences.\n"
+                    "* Example: Pressing LB + RB can press 'H', wait 50ms, and click left mouse button.\n\n"
+                    "3. SHIFT LAYER SETTINGS\n"
+                    "* Purpose: Holding or toggling a chosen Trigger Button switches all your other buttons to a secondary set of mappings."
                 )
 
             txt.insert("0.0", content)
@@ -2484,7 +2480,7 @@ class App(ctk.CTk):
         guide_hdr = ctk.CTkFrame(guide_box, fg_color="transparent")
         guide_hdr.pack(fill="x", padx=10, pady=(8, 2))
         
-        ctk.CTkLabel(guide_hdr, text="📘 Chords & Hardware Chords Tutorial", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
+        ctk.CTkLabel(guide_hdr, text="Chords & Hardware Chords Tutorial", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
         
         btn_open_guide = ctk.CTkButton(
             guide_hdr,
@@ -2502,8 +2498,8 @@ class App(ctk.CTk):
         summary_lbl = ctk.CTkLabel(
             guide_box,
             text=(
-                "• Hardware Chords (Input Suppression): Firmware-level combinations (e.g. LB+Start -> M1) that swallow base inputs so they don't leak into games.\n"
-                "• Chords & Macros Studio: Software-level combinations (e.g. LB+RB) mapped to keyboard/mouse sequences, wait steps, or toggle modes."
+                "- Hardware Chords (Input Suppression): Map button combinations (e.g. LB+Start -> M1) and block the original buttons from triggering in games.\n"
+                "- Chords & Macros Studio: Map button combinations (e.g. LB+RB) to keyboard keys, mouse clicks, wait delays, or macro sequences."
             ),
             font=ctk.CTkFont(size=12),
             justify="left",
@@ -2722,7 +2718,7 @@ class App(ctk.CTk):
         ent_in.insert(0, inputs_val)
         ent_in.pack(side="left", padx=2)
         
-        btn_rec_in = ctk.CTkButton(row1, text="⏺ GP", width=40, command=lambda: self.start_macro_recording(ent_in, 'inputs'))
+        btn_rec_in = ctk.CTkButton(row1, text="[GP]", width=45, command=lambda: self.start_macro_recording(ent_in, 'inputs'))
         btn_rec_in.pack(side="left", padx=2)
         
         def delete_row():
@@ -2739,7 +2735,7 @@ class App(ctk.CTk):
         ent_out.insert(0, outputs_val)
         ent_out.pack(side="left", fill="x", expand=True, padx=2)
         
-        btn_rec_out = ctk.CTkButton(row2, text="⏺ KBM", width=40, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
+        btn_rec_out = ctk.CTkButton(row2, text="[KBM]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
         btn_rec_out.pack(side="right", padx=2)
         
         row_data = {"name": ent_name, "in": ent_in, "out": ent_out, "frame": row_f}
