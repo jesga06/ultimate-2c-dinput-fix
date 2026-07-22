@@ -139,39 +139,45 @@ class Calibrator:
                 continue
 
             dev_list = list(unique_devices.values())
-            print("\nSelect your controller:")
-            for i, d in enumerate(dev_list):
-                print(f"[{i}] VID:{d['vid']:04X} PID:{d['pid']:04X} - {d['name']}")
-            print(f"[{len(dev_list)}] Rescan for devices")
-            print("Choice (or 'q' to quit): ", end="")
-            sys.stdout.flush()
-
-            import msvcrt
-            typed_input = ""
-            selected_group = None
-            while selected_group is None:
-                if msvcrt.kbhit():
-                    char = msvcrt.getwche()
-                    if char == '\r':
-                        if typed_input == 'q': return False
-                        try:
-                            choice = int(typed_input)
-                            if choice == len(dev_list):
-                                break # Rescan
-                            elif 0 <= choice < len(dev_list):
-                                selected_group = dev_list[choice]
-                            else:
-                                print("\nInvalid choice. Try again.")
+            
+            if len(dev_list) == 1:
+                selected_group = dev_list[0]
+                print(f"\nAuto-selected only connected controller: VID:{selected_group['vid']:04X} PID:{selected_group['pid']:04X} - {selected_group['name']}")
+                time.sleep(1.5)
+            else:
+                print("\nSelect your controller:")
+                for i, d in enumerate(dev_list):
+                    print(f"[{i}] VID:{d['vid']:04X} PID:{d['pid']:04X} - {d['name']}")
+                print(f"[{len(dev_list)}] Rescan for devices")
+                print("Choice (or 'q' to quit): ", end="")
+                sys.stdout.flush()
+    
+                import msvcrt
+                typed_input = ""
+                selected_group = None
+                while selected_group is None:
+                    if msvcrt.kbhit():
+                        char = msvcrt.getwche()
+                        if char == '\r':
+                            if typed_input == 'q': return False
+                            try:
+                                choice = int(typed_input)
+                                if choice == len(dev_list):
+                                    break # Rescan
+                                elif 0 <= choice < len(dev_list):
+                                    selected_group = dev_list[choice]
+                                else:
+                                    print("\nInvalid choice. Try again.")
+                                    typed_input = ""
+                            except ValueError:
+                                print("\nInvalid input. Try again.")
                                 typed_input = ""
-                        except ValueError:
-                            print("\nInvalid input. Try again.")
-                            typed_input = ""
-                    else:
-                        typed_input += char
-                time.sleep(0.01)
-
-            if selected_group is None:
-                continue # Rescanning
+                        else:
+                            typed_input += char
+                    time.sleep(0.01)
+    
+                if selected_group is None:
+                    continue # Rescanning
 
             def make_handler(iface_num):
                 def handler(report: RawHIDReport):
