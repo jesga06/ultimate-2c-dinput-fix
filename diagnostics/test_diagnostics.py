@@ -8,10 +8,19 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(REPO_ROOT)
 sys.path.append(os.path.join(REPO_ROOT, "diagnostics"))
 
+# Mock hid module before loading diagnostic scripts if hidapi library is not loaded
+if 'hid' not in sys.modules:
+    try:
+        import hid
+    except ImportError:
+        mock_hid = MagicMock()
+        sys.modules['hid'] = mock_hid
+
 # Import the modules
 import importlib
 scanner_module = importlib.import_module("04_report_id_scanner")
 baseline_module = importlib.import_module("05_baseline_logic_test")
+
 
 class TestDiagnostics(unittest.TestCase):
     
