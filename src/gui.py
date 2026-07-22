@@ -776,23 +776,37 @@ class App(ctk.CTk):
         standard_buttons = set(layout_dict.keys())
         extra_btns = []
         for k in self.extra_buttons:
-            if k not in standard_buttons:
+            if k not in standard_buttons and k not in extra_btns:
                 extra_btns.append(k)
         
         # Fallback to mapped ones in config if none found in profile
-        if not extra_btns and self.config.has_section('extra_buttons'):
+        if self.config.has_section('extra_buttons'):
             for k in self.config.options('extra_buttons'):
-                if k not in standard_buttons:
+                if k not in standard_buttons and k not in extra_btns:
                     extra_btns.append(k)
-                    
+
+        # Include synthetic action buttons from hardware_chords
+        if self.config.has_section('hardware_chords'):
+            for k, v in self.config.items('hardware_chords'):
+                parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
+                if 'action' in parts:
+                    act = parts['action'].strip().lower()
+                    if act and act not in standard_buttons and act not in extra_btns:
+                        extra_btns.append(act)
+
         for widget in self.extra_frame.winfo_children():
             widget.destroy()
         
         if extra_btns:
-            self.extra_frame.pack(fill="x", side="bottom", pady=2, before=self.version_lbl)
+            self.extra_frame.pack(fill="x", side="bottom", pady=5, before=self.version_lbl)
+            
+            # Centered sub-container frame
+            inner_extra_f = ctk.CTkFrame(self.extra_frame, fg_color="transparent")
+            inner_extra_f.pack(anchor="center", pady=2)
+            
             for i, eb in enumerate(extra_btns):
-                b = ctk.CTkButton(self.extra_frame, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444")
-                b.grid(row=i//4, column=i%4, padx=5, pady=5)
+                b = ctk.CTkButton(inner_extra_f, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444", width=80, height=28)
+                b.grid(row=i//6, column=i%6, padx=4, pady=4)
                 self.dashboard_btns[eb] = b
         else:
             self.extra_frame.pack_forget()
@@ -2372,10 +2386,12 @@ class App(ctk.CTk):
                     if btn in ['lt', 'rt']:
                         val = getattr(state, btn, 0.0)
                         is_pressed = val > 0.0
-                    elif hasattr(state, btn):
-                        is_pressed = getattr(state, btn)
-                    elif btn in state.extra_inputs:
-                        is_pressed = state.extra_inputs[btn]
+                    elif btn in state.extra_inputs or (hasattr(state, 'extra_inputs') and (btn.lower() in state.extra_inputs or btn.upper() in state.extra_inputs)):
+                        val_eb = state.extra_inputs.get(btn) or state.extra_inputs.get(btn.lower()) or state.extra_inputs.get(btn.upper())
+                        if isinstance(val_eb, (float, int)):
+                            is_pressed = val_eb > 0.1
+                        else:
+                            is_pressed = bool(val_eb)
                         
                     if isinstance(widget, dict) and "canvas" in widget:
                         c = widget["canvas"]
@@ -3010,9 +3026,11 @@ class App(ctk.CTk):
             
         self.save_config()
         
-        # Refresh Remapping tab so newly added hardware chord actions appear in System & Extras
+        # Refresh Remapping tab and Dashboard so newly added hardware chord actions appear immediately
         if hasattr(self, 'remapping_scroll'):
             self.setup_remapping()
+        if hasattr(self, 'extra_frame'):
+            self._build_dashboard_layout()
         
         if logger:
             logger.info("Advanced configuration saved.")
