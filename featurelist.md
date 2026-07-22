@@ -56,6 +56,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
     * **Circularity Info Modal:** Info popup detailing forced circularity calculations and before vs. after routing options.
 * **Live Connection Status:** Displays whether the background daemon is currently "Connected" or "Disconnected", along with the active controller's name.
 * **Chords & Macros Studio (Advanced Tab):** Record sequences of gamepad inputs and output key/mouse events, choose between toggle (press) and hold execution, with integrated stuck-key protection.
+* **Hardware Chords Builder (Advanced Tab):** Safely remap firmware-level hardware chords (e.g. `LB + Start`) using input suppression. Synthesizes virtual extra buttons without leaking base inputs into the game. (Only available in XInput mode).
 * **Shift Layer Remapping:** Configure dynamic shift mappings and shift blocking for every button, expanding total layout mapping possibilities. Shift trigger keys dynamically adapt to your controller's profile.
 * **Transition Screen Overlay:** Smooth color-interpolated canvas fades (250ms in/out, 900ms hold) with randomized community quotes and a rotating vector loading spinner.
 * **Button Name Normalization:** Standardizes and forces all client-side button names to uppercase across all configurations and UI elements.
@@ -64,7 +65,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 ---
 
 ## 🖥️ Daemon Background Wrapper Process (`src/main.py`)
-* **XInput Emulation:** Utilizes `vgamepad` to instantiate a virtual Xbox 360 controller on Windows, compatible with Steam and almost all PC games.
+* **XInput First Dual-Backend Emulation:** Utilizes a native `ctypes` backend to poll gamepads in XInput mode (unlocking physical vibration and avoiding generic generic HID limits) while maintaining a fallback DInput backend. Outputs to `vgamepad` virtual Xbox 360 controller.
 * **Tray Icon Application:** Runs quietly in the system tray, keeping your desktop clean.
 * **Auto-Reloading Config:** A background thread polls `config.ini` every 5 seconds and updates the active mappings on-the-fly without needing a restart.
 * **Tray Restore Utility:** The "Show Console" action uses native Windows API calls (`SW_RESTORE` + `SetForegroundWindow`) to bring the minimized CLI window back to the front immediately.
@@ -72,6 +73,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Silent Boot Mode:** Supports launching the daemon silently using the `--boot` argument, which suppresses the GUI from auto-opening (perfect for Windows startup integration).
 * **Composite HID Interface Support:** Captures and merges inputs from multi-interface USB devices (e.g. Machenike G5 Pro) concurrently, binding profiles to `interfaceNumber_reportId` keys.
 * **Multi-Reader Concurrency:** Spawns distinct polling threads for each active HID reader matching the target controller profile interfaces.
+* **Hardware Chords Engine:** Processes physical combinations upstream of the Mapper, swallowing native inputs (Input Suppression) and buffering delays to cleanly present synthetic inputs down the line.
 * **True Radial Deadzone Math:** Computes response curves and deadzones directly on the stick vector magnitude instead of individual axes, yielding a perfectly circular range.
 * **Smart Reconnection Guard:** Halts reconnection attempts if a controller fails immediately (under 2 seconds) due to persistent OS-level locks.
 

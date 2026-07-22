@@ -222,6 +222,16 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Guided wizard now actively tracks clockwise/counter-clockwise spins, requiring 3 full rotations in both directions before unlocking completion.
   - Integrated real-time velocity checking that flashes a warning ("Too Fast! Slow down.") if rotation speed is too high.
   - Refactored wizard completion to offer explicit "Apply Changes" and "Discard" options.
+- **Hardware Chords & Input Suppression:**
+  - Added a comprehensive Hardware Chords Builder to the Advanced Tab in the GUI. This allows mapping your controller's firmware chords (e.g. `LB + Start`) to synthesize virtual extra buttons upstream in the pipeline.
+  - Implemented Input Suppression logic to prevent temporal bleeding. Constituent buttons used in chords are suppressed/consumed automatically, so the base action (e.g. `LB`) is not executed when a chord is triggered.
+  - Integrated adjustable timing margins (0ms, 50ms, 100ms) for reliable chord execution.
+- **XInput First Dual-Backend Architecture:**
+  - Expanded the daemon to utilize a hot-swappable dual-backend abstraction (`backend_base.py`, `backend_xinput.py`, `backend_dinput.py`).
+  - Implemented an XInput backend using `ctypes` bindings for `xinput1_4.dll` to natively read gamepads in XInput mode. This exposes hardware vibration/rumble directly without vendor-specific undocumented protocols.
+  - Revamped the calibration wizard to offer a choice between "DInput (Full Calibration)", "XInput Setup", and an "Auto-Detect Mode".
+  - Auto-Detect Mode seamlessly queries XInput states for specific simultaneous button presses (like `A + B`) to verify the operating mode.
+  - Conditional GUI locking: Hardware Chords are actively editable when the controller is in XInput mode, but explicitly locked out when in DInput mode where physical extra buttons are normally available natively.
 - **Warped Stick Correction:** Added a "Warp Threshold" slider (0-20%) that dynamically stretches weak thumbstick axes to reach 1.0 maximum deflection without hard-clipping.
 - **Proportional Gamepad Test Dashboard & Layout Builder:** Added a responsive, auto-scaling gamepad layout dashboard mapping physical and extra buttons based on configured layout resources (Xbox, PlayStation, etc.). Includes an interactive drag-and-drop Layout Builder tool (`scratch/interactive_layout_builder.py`) equipped with a configurable background grid slider (5px to 20px) and automatic snap-to-grid alignment.
 - **Interactive Recorder Save Targets:** Added explicit "Save Standard" and "Save Shift Map" buttons inside the mapping recorder to assign inputs to standard or shift layers.
@@ -233,5 +243,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 
 ### ⚙️ Under-the-Hood Changes
 - **Circularity On-Finish Callbacks:** Programmed an `on_finish` callback flow to refresh GUI plots and configuration states immediately when circularity changes are applied.
+- **Hardware Chords Engine Unification:** Re-architected `main.py` pipeline sequence to `HardwareChordEngine -> Mapper -> VirtualPad`, ensuring synthesized extra buttons seamlessly enter the mapper as standard input vectors.
+- **Profile Mode Specificity:** Upgraded `config_manager.py` to route backend-specific configurations automatically (e.g. loading `{device}_xinput.json` or `{device}_dinput.json` based on the active backend mode).
 - **Diagonal Response Curve Math:** Refactored graph rendering to mathematically evaluate diagonal deflection vectors across warped stick corrections, circularity boundaries (before/after), deadzones, and sensitivities.
 - **Dynamic Extra Button Parsing:** The GUI now parses `extra_buttons` directly from the active HID map dynamically at launch, properly recognizing all supported extra buttons from downloaded community profiles instead of failing to populate them when they aren't yet mapped in the user's config file.
