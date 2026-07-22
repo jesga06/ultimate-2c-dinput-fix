@@ -2264,14 +2264,14 @@ class App(ctk.CTk):
             return "#1f538d"
 
     def update_curve_cursor(self, canvas, raw_magnitude, out_magnitude):
-        """Overlays a dynamic theme accent dot on the response curve canvas at the current input/output."""
+        """Overlays an input cursor dot on the response curve canvas at the current input/output."""
         canvas.delete("cursor")
         width = 180
         height = 180
         x_px = raw_magnitude * width
         y_px = height - (out_magnitude * height)
-        acc = self._get_accent_color()
-        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill=acc, outline="white", width=1, tags="cursor")
+        _, inv = get_accent_colors()
+        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill=inv, outline="white", width=1, tags="cursor")
 
     def update_trigger_curve_cursor(self, canvas, raw_val, out_val):
         """Overlays a white vertical line + dot on the trigger response curve at current input."""
@@ -2280,11 +2280,11 @@ class App(ctk.CTk):
         height = 180
         x_px = raw_val * width
         y_px = height - (out_val * height)
-        acc = self._get_accent_color()
+        _, inv = get_accent_colors()
         # Vertical guide line from bottom to the curve point
         canvas.create_line(x_px, height, x_px, y_px, fill="#FFFFFF", dash=(2, 2), tags="cursor")
         # Dot at the curve point
-        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill=acc, outline="white", width=1, tags="cursor")
+        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill=inv, outline="white", width=1, tags="cursor")
 
     def update_position_loop(self):
         # 60fps refresh
