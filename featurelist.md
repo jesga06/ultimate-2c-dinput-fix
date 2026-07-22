@@ -2,7 +2,7 @@
 
 
 ## 🎮 Interactive Calibration Wizard (`src/calibration.py`)
-Run calibration using `calibrate.bat` or `calibrate_debug.bat` to configure and profile a new gamepad.
+Run calibration using `calibrate.bat` (or via `tools_and_diagnostics.bat`) to configure and profile a new gamepad.
 * **Auto-Device Detection:** Detects and highlights physical gamepads automatically as soon as you press a button or move a stick.
 * **Guided Step-by-Step Profiling:** Walks you through mapping buttons, bump triggers, analog stick axis offsets, and the D-Pad Hat switch. Includes robust fallback detection for digital triggers.
 * **Custom Extra Buttons:** Supports profiling a custom number of additional buttons (e.g. L4, R4, M1, M2 back paddles) with personalized names.
@@ -17,8 +17,13 @@ Run calibration using `calibrate.bat` or `calibrate_debug.bat` to configure and 
 
 ---
 
-## 🔍 Flicker-Free Live Test Mode (`test_calibration.bat`)
-Run the test tool directly using `test_calibration.bat` to verify your gamepad inputs.
+## 🛠️ Tools & Diagnostics Menu (`tools_and_diagnostics.bat`)
+Run `tools_and_diagnostics.bat` for an interactive CLI menu covering developer utilities, debugging launchers, and diagnostic suites.
+* **Full Issue Reporter:** Automates 6 diagnostic steps and packages logs into `issue_report.zip`.
+* **Debug Launchers:** Launch the wrapper daemon or calibration wizard with verbose debug logging enabled.
+* **Interactive Layout Builder:** Launch `scratch/interactive_layout_builder.py` directly from the menu.
+* **Individual Diagnostic Scripts:** Run any of the 6 diagnostic scripts individually without terminal navigation.
+* **Environment Maintenance:** Quickly install or repair Python dependencies from `requirements.txt`.
 * **Quick-Launch Test:** Launches directly into the testing panel for your calibrated controller, bypassing the setup wizard using the `--test-only` argument.
 * **2D ASCII Thumbstick Visualizers:** Displays a 5x5 ASCII coordinate grid for the Left Stick (LS) and Right Stick (RS) in real-time, showing range, deadzones, and stick coordinates.
 * **Analog Trigger Level-Bars:** Fills vertical meters (`█` / `▒`) showing trigger press pressure instead of simple integer readouts.

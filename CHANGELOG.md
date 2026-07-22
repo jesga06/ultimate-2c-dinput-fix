@@ -239,6 +239,10 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Digital Trigger response Graph:** The Tuning tab now displays trigger curves in digital mode as a clean step-function based on deadzone thresholds.
 - **Tuning Graphs & Sensitivity Real-time Updates:** Bind sensitivity sliders to dynamically redraw stick and trigger graphs.
 - **Retroactive Button Name Normalization:** Standardize all button names to uppercase client-side and retroactively across configuration settings.
+- **Consolidated Batch Launchers & Tools Menu:**
+  - Added absolute path locking (`cd /d "%~dp0"`) to `run_wrapper.bat` and `calibrate.bat` so end users can launch them via shortcuts or double-clicks without terminal errors.
+  - Added an interactive `tools_and_diagnostics.bat` entry point grouping all auxiliary tools, debug launchers, standalone Python utilities (such as the Interactive Layout Builder), dependency installation scripts, and individual diagnostic steps in a clean menu.
+  - Cleaned up redundant standalone `.bat` files (`run_wrapper_debug.bat`, `calibrate_debug.bat`, `test_calibration.bat`, `install_requirements.bat`).
 - **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
 
 ### ⚙️ Under-the-Hood Changes
