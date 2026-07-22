@@ -2723,9 +2723,7 @@ class App(ctk.CTk):
                     m_name = v.split('macro:', 1)[1]
                     macro_triggers[m_name] = k
 
-        loaded_macros = set()
         for m_name, m_steps in macros_data.items():
-            loaded_macros.add(m_name)
             out_str_parts = []
             for step in m_steps:
                 action = step.get('action')
@@ -2737,15 +2735,9 @@ class App(ctk.CTk):
                     out_str_parts.append(f"release:{step.get('key')}")
             
             out_str = ", ".join(out_str_parts)
-            input_trig = macro_triggers.get(m_name, "")
-            self.add_chord_row(m_name, input_trig, out_str)
+            self.add_chord_row(m_name, out_str)
 
-        # Fallback for any chord entries not in macros.json yet
-        for m_name, input_trig in macro_triggers.items():
-            if m_name not in loaded_macros:
-                self.add_chord_row(m_name, input_trig, "")
-            
-        btn_add = ctk.CTkButton(self.chords_frame, text="+ Add Macro", command=lambda: self.add_chord_row("", "", ""))
+        btn_add = ctk.CTkButton(self.chords_frame, text="+ Add Macro", command=lambda: self.add_chord_row("", ""))
         btn_add.pack(pady=5)
         
         save_btn = ctk.CTkButton(self.chords_frame, text="Save Settings", command=self.save_advanced)
@@ -2790,6 +2782,8 @@ class App(ctk.CTk):
                 
             def on_click(x, y, button, pressed):
                 if pressed:
+                    if button.name == 'left':
+                        return # Ignore left-clicks so UI interaction is not hijacked
                     if button.name == 'x1': b_name = 'mouse4'
                     elif button.name == 'x2': b_name = 'mouse5'
                     else: b_name = button.name
@@ -2889,7 +2883,7 @@ class App(ctk.CTk):
             
         ctk.CTkButton(btn_bar, text="Save", width=100, command=save_and_close).pack(side="left", padx=5)
 
-    def add_chord_row(self, name_val, inputs_val, outputs_val):
+    def add_chord_row(self, name_val, outputs_val):
         row_f = ctk.CTkFrame(self.chord_list_frame)
         row_f.pack(fill="x", pady=2)
         
@@ -2897,66 +2891,15 @@ class App(ctk.CTk):
         row1.pack(fill="x", padx=2, pady=2)
         
         ctk.CTkLabel(row1, text="Name:").pack(side="left", padx=2)
-        ent_name = ctk.CTkEntry(row1, width=90, placeholder_text="e.g. macro1")
+        ent_name = ctk.CTkEntry(row1, width=120, placeholder_text="e.g. macro1")
         if name_val:
             ent_name.insert(0, name_val)
         ent_name.pack(side="left", padx=2)
         
-        ctk.CTkLabel(row1, text="Inputs:").pack(side="left", padx=2)
-        ent_in = ctk.CTkEntry(row1, width=110, placeholder_text="e.g. lb, rb")
-        if inputs_val:
-            ent_in.insert(0, inputs_val)
-        ent_in.pack(side="left", padx=2)
-        
-        btn_rec_in = ctk.CTkButton(row1, text="[GP]", width=45, command=lambda: self.start_macro_recording(ent_in, 'inputs'))
-        btn_rec_in.pack(side="left", padx=2)
-        
         def delete_row():
             row_f.destroy()
-            self.chord_rows.remove(row_data)
-        btn_del = ctk.CTkButton(row1, text="X", width=25, fg_color="#990000", hover_color="#660000", command=delete_row)
-        btn_del.pack(side="right", padx=2)
-        
-        row2 = ctk.CTkFrame(row_f, fg_color="transparent")
-        row2.pack(fill="x", padx=2, pady=2)
-        
-        ctk.CTkLabel(row2, text="Outputs:").pack(side="left", padx=2)
-        ent_out = ctk.CTkEntry(row2, placeholder_text="e.g. keyboard:h, wait:50, mouse:left")
-        if outputs_val:
-            ent_out.insert(0, outputs_val)
-        ent_out.pack(side="left", fill="x", expand=True, padx=2)
-        
-        btn_rec_out = ctk.CTkButton(row2, text="[KBM]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
-        btn_rec_out.pack(side="right", padx=2)
-        
-        row_data = {"chord": ent_chord, "action": ent_action, "delayed": ent_delayed, "mode": mode_var, "frame": row_f}
-        self.hw_chord_rows.append(row_data)
-
-    def add_chord_row(self, name_val, inputs_val, outputs_val):
-        row_f = ctk.CTkFrame(self.chord_list_frame)
-        row_f.pack(fill="x", pady=2)
-        
-        row1 = ctk.CTkFrame(row_f, fg_color="transparent")
-        row1.pack(fill="x", padx=2, pady=2)
-        
-        ctk.CTkLabel(row1, text="Name:").pack(side="left", padx=2)
-        ent_name = ctk.CTkEntry(row1, width=90, placeholder_text="e.g. macro1")
-        if name_val:
-            ent_name.insert(0, name_val)
-        ent_name.pack(side="left", padx=2)
-        
-        ctk.CTkLabel(row1, text="Inputs (Opt):").pack(side="left", padx=2)
-        ent_in = ctk.CTkEntry(row1, width=110, placeholder_text="Opt. trigger e.g. lb+rb")
-        if inputs_val:
-            ent_in.insert(0, inputs_val)
-        ent_in.pack(side="left", padx=2)
-        
-        btn_rec_in = ctk.CTkButton(row1, text="[GP]", width=45, command=lambda: self.start_macro_recording(ent_in, 'inputs'))
-        btn_rec_in.pack(side="left", padx=2)
-        
-        def delete_row():
-            row_f.destroy()
-            self.chord_rows.remove(row_data)
+            if row_data in self.chord_rows:
+                self.chord_rows.remove(row_data)
         btn_del = ctk.CTkButton(row1, text="X", width=25, fg_color="#990000", hover_color="#660000", command=delete_row)
         btn_del.pack(side="right", padx=2)
         
@@ -2972,7 +2915,7 @@ class App(ctk.CTk):
         btn_rec_out = ctk.CTkButton(row2, text="[Rec]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
         btn_rec_out.pack(side="right", padx=2)
         
-        row_data = {"name": ent_name, "in": ent_in, "out": ent_out, "frame": row_f}
+        row_data = {"name": ent_name, "out": ent_out, "frame": row_f}
         self.chord_rows.append(row_data)
         
     def add_hw_chord_row(self, parent_frame, chord_val, action_val, delayed_val, mode_val):
@@ -3039,17 +2982,11 @@ class App(ctk.CTk):
                     self.config.set('hardware_chords', f"hw_{i}", val)
         
         # Save Macros
-        self.config.remove_section('chords')
-        self.config.add_section('chords')
-        
         macros_dict = {}
         for row in self.chord_rows:
             name = row["name"].get().strip()
-            inputs = row["in"].get().strip()
             outputs = row["out"].get().strip()
             if name and outputs:
-                if inputs:
-                    self.config.set('chords', inputs, f"macro:{name}")
                 
                 steps = []
                 # parse outputs like: "press:keyboard:h, wait:50, release:keyboard:h, keyboard:j"
