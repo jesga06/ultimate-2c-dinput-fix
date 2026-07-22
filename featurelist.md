@@ -70,7 +70,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Transition Screen Overlay:** Smooth color-interpolated canvas fades (250ms in/out, 900ms hold) with randomized community quotes and a rotating vector loading spinner.
 * **Button Name Normalization:** Standardizes and forces all client-side button names to uppercase across all configurations and UI elements.
 * **Dynamic Color Legends:** Tooltips and legends automatically reference color schemes based on the active GUI theme.
-* **Vertically Scrollable GUI Tabs:** All tabs (Dashboard, Profile, Remapping, Tuning, Advanced, Utilities, Customization) are wrapped in `CTkScrollableFrame` containers, guaranteeing that all UI options and diagnostic tools remain visible and scrollable vertically regardless of window dimensions.
+* **Vertically Scrollable GUI Tabs:** All tabs (Dashboard, Remapping, Tuning, Advanced, Utilities, Customization) are wrapped in `CTkScrollableFrame` containers, guaranteeing that all UI options and diagnostic tools remain visible and scrollable vertically regardless of window dimensions.
 * **Interactive Chords & Hardware Chords Tutorial & Recording:** Prominent tutorial banner card and interactive modal guide (`open_chords_guide_modal`) providing step-by-step tutorials, execution modes, Save Settings warnings, D-Pad ghost text templates, automatic extra button population in the Remapping tab, and a live gamepad/KBM macro recorder.
 
 ---
@@ -141,7 +141,7 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 
 ## 🔬 Calibration & Profile Hub
 * **Calibration Confidence Engine:** Post-calibration, the wizard evaluates your hardware's resting exactness, deadzone thresholds, and perfect circularity, grading it as Excellent, Good, or Poor.
-* **Profile Diff/Comparison:** Instantly compare your active custom profile against the system's baseline settings using a built-in git-style split view to detect regressions.
+* **Dashboard Profile Validation:** Validate active custom profiles against system schemas or community maps directly from the Dashboard layout panel.
 * **Profile Exporting:** Easily export your generated JSON configurations (with or without custom bindings) to share with others.
 
 ---

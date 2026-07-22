@@ -3,6 +3,7 @@
 - **Vibration Diagnostic Test:** Diagnostic tool `07_vibration_test.py` to test and identify rumble payloads.
 - **HidHide Integration (Double Input Fix)**: Automated integration with Nefarius HidHide to completely hide physical gamepads from other applications. Includes automatic executable whitelisting and dynamic cloaking that cleanly reverts its changes when the wrapper daemon closes.
 - **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and gamepad HID reverse engineering tools.
+- **Profiles Tab Redesign (Validation & Diff):** Redesign and re-implement profile validation and side-by-side HID map diffing in a dedicated GUI view.
 - **Analog-to-Mouse & WASD Mapping:** Support for high-frequency translation of stick deflection to mouse deltas or WASD keystrokes.
 - **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
 - **Windows Startup Integration:** Registry integration to launch the wrapper daemon silently on boot.
@@ -248,6 +249,10 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
 - **Vertically Scrollable GUI Tabs:** Wrapped all GUI tabs (Dashboard, Profile, Remapping, Tuning, Advanced, Utilities, Customization) in vertical `CTkScrollableFrame` containers, ensuring all controls and diagnostics remain fully accessible and visible via scrolling regardless of window size.
 - **Chords & Hardware Chords Master Tutorial, Ghost Text & Recording Fixes:** Refined the Advanced Tab tutorial card and interactive modal guide (`open_chords_guide_modal`) with clear descriptions, exact GUI field names, D-Pad placeholder text (`dpad_up`, `dpad_down`), and explicit Save Settings warnings. Fixed Hardware Chord action buttons not appearing in the Remapping tab, and upgraded the macro recorder modal with live gamepad polling, mouse click/scroll listeners, and quick-add buttons.
+- **Removal of Profiles Tab & Input Recording Utility:**
+  - Removed the dedicated Profiles tab from the GUI and the "Input Recording & Playback" utility frame from the Utilities tab.
+  - Decommissioned background state recording/playback routines from the daemon loop (`src/main.py`) and removed `src/state_record_play.py`.
+  - These features were removed because they did not turn out as initially planned. They have been re-added to `workspace_ideas/to-do-list.md` for future architectural redesign and re-implementation.
 
 ### ⚙️ Under-the-Hood Changes
 - **Unified Verbose Debug Logging Expansion:** Expanded the `--debug` argument parsing and granular `logger.debug` tracing across all core processing scripts (`mapper.py`, `decoder.py`, `virtual_pad.py`, `hardware_chords.py`), backend scripts (`backend_dinput.py`, `backend_xinput.py`), and all 6 automated diagnostic scripts. Added full `sys.excepthook` stack trace injection for diagnostic scripts in debug mode.
