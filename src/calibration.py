@@ -377,6 +377,7 @@ class Calibrator:
             with open('config.ini', 'w') as f: config.write(f)
             print("Backend set to XInput. Please use the GUI to configure your Hardware Chords.")
             time.sleep(3)
+            for _, r in getattr(self, 'readers', []): r.stop()
         else:
             print("\nFailed to detect XInput mode. Falling back to DInput calibration...")
             time.sleep(2)
@@ -388,7 +389,7 @@ class Calibrator:
             config.set('backend', 'mode', 'dinput')
             with open('config.ini', 'w') as f: config.write(f)
             
-            self._run_dinput_calibration(test_only=False)
+            self._continue_dinput_calibration()
 
     def run(self, test_only=False):
         cls()
@@ -396,54 +397,11 @@ class Calibrator:
             print("==================================================================")
             print("                       UR-XD SETUP & CALIBRATION")
             print("==================================================================")
-            print("\nPlease select the operating mode for your controller:")
-            print("[1] DInput (DirectInput) - Full Calibration (Builds HID Map)")
-            print("[2] XInput - Setup Hardware Chords for XInput Mode")
-            print("[3] Auto-Detect Mode - Automatically checks XInput vs DInput")
-            print("Choice (or 'q' to quit): ", end="")
-            sys.stdout.flush()
-            
-            mode_choice = None
-            import msvcrt
-            typed_input = ""
-            while mode_choice is None:
-                if msvcrt.kbhit():
-                    char = msvcrt.getwche()
-                    if char == '\r':
-                        if typed_input == 'q': return
-                        if typed_input in ("1", "2", "3"):
-                            mode_choice = typed_input
-                        else:
-                            print("\nInvalid choice. [1-3] only.")
-                            typed_input = ""
-                    else:
-                        typed_input += char
-                time.sleep(0.01)
-
-            if mode_choice == "2":
-                print("\n\n--- XInput Mode Setup ---")
-                import configparser
-                config = configparser.ConfigParser()
-                if os.path.exists('config.ini'): config.read('config.ini')
-                if not config.has_section('backend'): config.add_section('backend')
-                config.set('backend', 'mode', 'xinput')
-                with open('config.ini', 'w') as f: config.write(f)
-                print("Backend set to XInput. Please use the GUI to configure your Hardware Chords.")
-                time.sleep(3)
-                return
-            elif mode_choice == "3":
-                self.setup_auto_detect()
-                return
-
-        self._run_dinput_calibration(test_only)
-
-    def _run_dinput_calibration(self, test_only=False):
-        if not test_only:
-            print("\n==================================================================")
             print("NOTICE: Please disable any 'no dead-zone' (raw/instant) joystick")
             print("configurations on your controller before starting calibration.")
             print("Immensely increased joystick sensitivity may disrupt calibration.")
             print("==================================================================\n")
+
         if not self.scan_devices(test_only=test_only):
             return
 
@@ -458,6 +416,62 @@ class Calibrator:
                 for _, r in self.readers: r.stop()
             return
 
+        print("\n==================================================================")
+        print(f"Device Selected: {self.profile.get('name', 'Gamepad')} (VID:{self.profile['vid']:04X} PID:{self.profile['pid']:04X})")
+        print("==================================================================")
+        print("\nPlease select the operating mode for your controller:")
+        print("[1] DInput (DirectInput) - Full Calibration (Builds HID Map)")
+        print("[2] XInput - Setup Hardware Chords for XInput Mode")
+        print("[3] Auto-Detect Mode - Automatically checks XInput vs DInput")
+        print("Choice (or 'q' to quit): ", end="")
+        sys.stdout.flush()
+        
+        mode_choice = None
+        import msvcrt
+        typed_input = ""
+        while mode_choice is None:
+            if msvcrt.kbhit():
+                char = msvcrt.getwche()
+                if char == '\r':
+                    if typed_input == 'q':
+                        for _, r in getattr(self, 'readers', []): r.stop()
+                        return
+                    if typed_input in ("1", "2", "3"):
+                        mode_choice = typed_input
+                    else:
+                        print("\nInvalid choice. [1-3] only.")
+                        typed_input = ""
+                else:
+                    typed_input += char
+            time.sleep(0.01)
+
+        if mode_choice == "2":
+            print("\n\n--- XInput Mode Setup ---")
+            import configparser
+            config = configparser.ConfigParser()
+            if os.path.exists('config.ini'): config.read('config.ini')
+            if not config.has_section('backend'): config.add_section('backend')
+            config.set('backend', 'mode', 'xinput')
+            with open('config.ini', 'w') as f: config.write(f)
+            print("Backend set to XInput. Please use the GUI to configure your Hardware Chords.")
+            time.sleep(3)
+            for _, r in getattr(self, 'readers', []): r.stop()
+            return
+        elif mode_choice == "3":
+            self.setup_auto_detect()
+            return
+
+        # Option 1: DInput mode selected
+        import configparser
+        config = configparser.ConfigParser()
+        if os.path.exists('config.ini'): config.read('config.ini')
+        if not config.has_section('backend'): config.add_section('backend')
+        config.set('backend', 'mode', 'dinput')
+        with open('config.ini', 'w') as f: config.write(f)
+
+        self._continue_dinput_calibration()
+
+    def _continue_dinput_calibration(self):
         remapping_targets = None
         profile_path = getattr(self, 'profile_path', f"profiles/{self.profile['vid']}_{self.profile['pid']}.json".lower())
         
