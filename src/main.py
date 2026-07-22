@@ -290,7 +290,6 @@ def main():
                     req_ifaces.append(req_iface)
     except Exception as e:
         logger.error(f"Failed to parse profile to check interface: {e}", exc_info=True)
-rue)
 
     # Determine Backend Mode
     backend_mode = controller_config.data.get('backend', {}).get('mode', 'auto')
