@@ -29,6 +29,7 @@ import ctypes
 import argparse
 import subprocess
 from logger_setup import setup_logger
+from single_instance import ensure_single_instance
 
 is_debug_mode = False
 logger = None
@@ -63,9 +64,10 @@ def open_config(icon, item):
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         gui_path = os.path.join(script_dir, 'gui.py')
-        cmd = [sys.executable, gui_path]
+        cmd = [sys.executable, gui_path, '--append-log']
         if is_debug_mode:
-            cmd.extend(['--debug', '--append-log'])
+            cmd.append('--debug')
+        if logger:
             logger.debug(f"  [DEBUG] Launching GUI with cmd: {cmd}")
         p = subprocess.Popen(cmd)
         gui_processes.append(p)
@@ -124,6 +126,8 @@ def main():
     launches the configuration file poller, and runs the system tray icon loop.
     """
     global is_debug_mode, logger
+
+    ensure_single_instance('main', 48124)
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
