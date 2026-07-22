@@ -656,10 +656,11 @@ class App(ctk.CTk):
             text="v2.2.0",
             text_color="gray50",
             font=ctk.CTkFont(size=11))
-        version_lbl.pack(side="bottom", pady=(2, 5))
+        version_lbl.pack(side="bottom", pady=(2, 10))
+        self.version_lbl = version_lbl
         
         self.extra_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
-        self.extra_frame.pack(fill="x", side="bottom", pady=2)
+        # Do not pack extra_frame by default unless extra buttons exist
 
         # Expanding widget packed last so it takes the remaining cavity
         self.layout_canvas = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
@@ -727,10 +728,14 @@ class App(ctk.CTk):
         for widget in self.extra_frame.winfo_children():
             widget.destroy()
         
-        for i, eb in enumerate(extra_btns):
-            b = ctk.CTkButton(self.extra_frame, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444")
-            b.grid(row=i//4, column=i%4, padx=5, pady=5)
-            self.dashboard_btns[eb] = b
+        if extra_btns:
+            self.extra_frame.pack(fill="x", side="bottom", pady=2, before=self.version_lbl)
+            for i, eb in enumerate(extra_btns):
+                b = ctk.CTkButton(self.extra_frame, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444")
+                b.grid(row=i//4, column=i%4, padx=5, pady=5)
+                self.dashboard_btns[eb] = b
+        else:
+            self.extra_frame.pack_forget()
 
     def on_dashboard_resize(self, event):
         w = event.width
@@ -739,8 +744,8 @@ class App(ctk.CTk):
             return
             
         # Keep buttons square/proportional and prevent overlap
-        base_size = min(w, h) * 0.12  # 12% of the smallest dimension
-        base_size = max(30, min(base_size, 80)) # clamp between 30 and 80 pixels
+        base_size = min(w, h) * 0.14  # 14% of smallest dimension
+        base_size = max(42, min(base_size, 90)) # clamp between 42 and 90 pixels
         
         font_size = max(8, int(base_size * 0.25))
         fnt = ctk.CTkFont(size=font_size, weight="bold")
