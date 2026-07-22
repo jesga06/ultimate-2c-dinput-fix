@@ -5,6 +5,7 @@ Implements Input Suppression (consuming constituent buttons) and adaptive delay 
 """
 import time
 import logging
+import re
 from decoder import ControllerState
 
 logger = logging.getLogger('hardware_chords')
@@ -31,14 +32,12 @@ class HardwareChordEngine:
         
         if config.has_section('hardware_chords'):
             for key, val in config.items('hardware_chords'):
-                # Format expected (for this example, assuming val is JSON string or dict)
-                # But since configparser stores strings, let's parse standard string format:
-                # "chord=lb+select; delayed=select; mode=auto; action=l4"
                 parts = dict(p.strip().split('=') for p in val.split(';') if '=' in p)
                 if 'chord' in parts and 'action' in parts:
-                    chord_keys = set(parts['chord'].lower().split('+'))
-                    delay_mode = parts.get('mode', 'auto').lower()
-                    delayed_member = parts.get('delayed', '').lower()
+                    chord_keys = set(k.strip() for k in re.split(r'[\+,\s]+', parts['chord'].lower()) if k.strip())
+                    delay_mode = parts.get('mode', 'auto').strip().lower()
+                    delayed_member = parts.get('delayed', '').strip().lower()
+                    action_name = parts['action'].strip().lower()
                     
                     try:
                         manual_delay = float(delay_mode.replace('ms', '')) / 1000.0 if delay_mode != 'auto' else 0.0
@@ -52,36 +51,33 @@ class HardwareChordEngine:
                         'delayed': delayed_member,
                         'mode': delay_mode,
                         'manual_delay': manual_delay,
-                        'action': parts['action'].lower()
+                        'action': action_name
                     })
-                    
-        # Support for impossible hat states e.g., Left+Right (0x08)
-        # Since we use boolean dpad fields, "left+right" would be:
-        # "chord=dpad_left+dpad_right; action=m1"
-        # We can handle them identically as chords without delay, or very short delay.
 
     def _get_button_state(self, state: ControllerState, btn: str) -> bool:
-        if hasattr(state, btn):
-            val = getattr(state, btn)
+        btn_lower = btn.strip().lower()
+        if hasattr(state, btn_lower):
+            val = getattr(state, btn_lower)
             if isinstance(val, (float, int)):
                 return val > 0.1
             return bool(val)
-        if btn in state.extra_inputs:
-            val = state.extra_inputs[btn]
+        if btn_lower in state.extra_inputs:
+            val = state.extra_inputs[btn_lower]
             if isinstance(val, (float, int)):
                 return val > 0.1
             return bool(val)
         return False
 
     def _set_button_state(self, state: ControllerState, btn: str, val: bool):
-        if hasattr(state, btn):
-            current = getattr(state, btn)
+        btn_lower = btn.strip().lower()
+        if hasattr(state, btn_lower):
+            current = getattr(state, btn_lower)
             if isinstance(current, float):
-                setattr(state, btn, 1.0 if val else 0.0)
+                setattr(state, btn_lower, 1.0 if val else 0.0)
             else:
-                setattr(state, btn, val)
+                setattr(state, btn_lower, val)
         else:
-            state.extra_inputs[btn] = val
+            state.extra_inputs[btn_lower] = val
 
     def record_poll_interval(self):
         now = time.time()

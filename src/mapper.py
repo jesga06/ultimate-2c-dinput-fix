@@ -110,6 +110,9 @@ class Mapper:
             self.macro_executor.execute_or_toggle(macro_name)
 
     def _press(self, mapping):
+        if not mapping:
+            return
+
         if mapping.startswith('macro:'):
             self._execute_macro(mapping.split(':', 1)[1])
             return
@@ -140,8 +143,23 @@ class Mapper:
                         self.keyboard.press(KeyCode.from_char(key_name))
                 except Exception as e:
                     logger.error(f"Failed to press key {key_name}: {e}", exc_info=True)
+        else:
+            # Fallback for plain key strings without explicit keyboard: prefix
+            keys = mapping.split('+')
+            for key_name in keys:
+                key_name = key_name.strip()
+                try:
+                    if hasattr(Key, key_name):
+                        self.keyboard.press(getattr(Key, key_name))
+                    else:
+                        self.keyboard.press(KeyCode.from_char(key_name))
+                except Exception as e:
+                    logger.error(f"Failed to press key {key_name}: {e}", exc_info=True)
 
     def _release(self, mapping):
+        if not mapping:
+            return
+
         if mapping.startswith('macro:'):
             return
 
@@ -158,6 +176,18 @@ class Mapper:
                 self.mouse.release(getattr(MouseButton, btn_name))
         elif mapping.startswith('keyboard:'):
             keys = mapping.split(':', 1)[1].split('+')
+            for key_name in reversed(keys):
+                key_name = key_name.strip()
+                try:
+                    if hasattr(Key, key_name):
+                        self.keyboard.release(getattr(Key, key_name))
+                    else:
+                        self.keyboard.release(KeyCode.from_char(key_name))
+                except Exception as e:
+                    logger.error(f"Failed to release key {key_name}: {e}", exc_info=True)
+        else:
+            # Fallback for plain key strings without explicit keyboard: prefix
+            keys = mapping.split('+')
             for key_name in reversed(keys):
                 key_name = key_name.strip()
                 try:
@@ -198,7 +228,20 @@ class Mapper:
             all_buttons[btn_name] = getattr(state, btn_name)
         all_buttons['lt'] = state.lt > 0
         all_buttons['rt'] = state.rt > 0
-        all_buttons.update(state.extra_inputs)
+        
+        # Pre-populate all known extra buttons from mappings and prev_state to False
+        extra_keys = set(self.mappings['layer_base'].keys()) | set(self.mappings['layer_shift'].keys()) | set(self.prev_state.keys())
+        for k in extra_keys:
+            if k not in all_buttons:
+                all_buttons[k] = False
+                
+        # Now update with active extra_inputs (matching lowercase keys)
+        for eb_name, eb_val in state.extra_inputs.items():
+            eb_lower = eb_name.lower()
+            if isinstance(eb_val, (float, int)):
+                all_buttons[eb_lower] = eb_val > 0.1
+            else:
+                all_buttons[eb_lower] = bool(eb_val)
 
         # Handle Shift Transition
         if self.shift_button:

@@ -2414,7 +2414,10 @@ class App(ctk.CTk):
             txt.configure(state="normal")
             txt.delete("0.0", "end")
 
-            save_warning = "*** IMPORTANT NOTE: After creating or editing Hardware Chords or Chords & Macros, scroll down to the bottom of the section and click 'Save Settings' for your changes to apply! ***\n\n"
+            save_warning = (
+                "*** IMPORTANT NOTE: After creating or editing Hardware Chords or Chords & Macros, scroll down to the bottom of the section and click 'Save Settings' for your changes to apply! ***\n"
+                "*** CHORD BUTTON DELIMITERS: Buttons in a chord can be separated by commas (,), pluses (+), or spaces. Examples: 'dpad_up, lb', 'dpad_up + lb', 'dpad_up dpad_left dpad_right'. ***\n\n"
+            )
 
             if t == "hw":
                 content = (
@@ -2428,7 +2431,7 @@ class App(ctk.CTk):
                     "3. STEP-BY-STEP SETUP GUIDE:\n"
                     "* Step 1: Ensure your controller is in XInput mode.\n"
                     "* Step 2: Under 'Hardware Chords (Input Suppression)', click '+ Add Hardware Chord'.\n"
-                    "* Step 3: 'Chord:' - Enter the controller buttons you press together (example: dpad_up, lb).\n"
+                    "* Step 3: 'Chord:' - Enter the controller buttons you press together (example: dpad_up, lb or dpad_up dpad_left dpad_right).\n"
                     "* Step 4: 'Action:' - Enter the new extra button name you want to trigger (example: M1 or extra_1).\n"
                     "* Step 5: 'Delayed:' - (Optional) Enter any button that should wait briefly to ensure both buttons are pressed together out-of-sync (example: dpad_up).\n"
                     "* Step 6: 'Mode:' - Select timing delay: 'auto', '0ms', '50ms', or '100ms'.\n"
@@ -2443,7 +2446,7 @@ class App(ctk.CTk):
                     "2. STEP-BY-STEP SETUP GUIDE:\n"
                     "* Step 1: Under 'Chords & Macros', click '+ Add Macro'.\n"
                     "* Step 2: 'Name:' - Enter a short name for your macro (example: macro1).\n"
-                    "* Step 3: 'Inputs:' - Enter the controller buttons pressed together (example: dpad_down, rb). You can also click '[GP]' to record controller button presses automatically.\n"
+                    "* Step 3: 'Inputs:' - Enter the controller buttons pressed together (example: dpad_down, rb or dpad_up, lb). You can also click '[GP]' to record controller button presses automatically.\n"
                     "* Step 4: 'Outputs:' - Enter the keys or clicks to trigger (example: keyboard:h, wait:50, mouse:left). You can also click '[KBM]' to record keys, mouse clicks, or wheel scrolls.\n"
                     "* Step 5: Scroll down and click 'Save Settings' at the bottom of the section to apply your macros!"
                 )
@@ -2517,6 +2520,7 @@ class App(ctk.CTk):
             text=(
                 "- Hardware Chords (Input Suppression): Map button combinations (e.g. dpad_up+lb -> M1) and block original buttons from triggering in games.\n"
                 "- Chords & Macros Studio: Map button combinations (e.g. dpad_down+rb) to keyboard keys, mouse clicks, wait delays, or macro sequences.\n"
+                "- Chord Delimiters: Buttons can be separated by commas (,), pluses (+), or spaces (e.g. 'dpad_up, lb' or 'dpad_up dpad_left dpad_right').\n"
                 "- IMPORTANT: Always scroll down and click 'Save Settings' at the bottom of the section after editing for changes to apply!"
             ),
             font=ctk.CTkFont(size=12),
