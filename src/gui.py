@@ -688,6 +688,17 @@ class App(ctk.CTk):
                 weight="bold"))
         self.layout_label.pack(side="left", padx=10)
 
+        backend_mode = "AUTO"
+        if hasattr(self, 'daemon_config') and self.daemon_config.has_option('settings', 'mode'):
+            backend_mode = self.daemon_config.get('settings', 'mode').upper()
+        self.backend_label = ctk.CTkLabel(
+            layout_frame,
+            text=f"Mode: {backend_mode}",
+            font=ctk.CTkFont(
+                size=14,
+                weight="bold"))
+        self.backend_label.pack(side="left", padx=10)
+
         def on_validate():
             import profile_tools
             from tkinter import messagebox
@@ -2237,14 +2248,22 @@ class App(ctk.CTk):
         if out_h > 0:
             canvas.create_rectangle(33, height - out_h, 55, height, fill=acc, outline="")
 
+    def _get_accent_color(self):
+        try:
+            accent = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
+            return accent[1] if isinstance(accent, (list, tuple)) else accent
+        except:
+            return "#1f538d"
+
     def update_curve_cursor(self, canvas, raw_magnitude, out_magnitude):
-        """Overlays a cyan dot on the response curve canvas at the current input/output."""
+        """Overlays a dynamic theme accent dot on the response curve canvas at the current input/output."""
         canvas.delete("cursor")
         width = 180
         height = 180
         x_px = raw_magnitude * width
         y_px = height - (out_magnitude * height)
-        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill="#00D4FF", outline="white", width=1, tags="cursor")
+        acc = self._get_accent_color()
+        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill=acc, outline="white", width=1, tags="cursor")
 
     def update_trigger_curve_cursor(self, canvas, raw_val, out_val):
         """Overlays a white vertical line + dot on the trigger response curve at current input."""
@@ -2253,10 +2272,11 @@ class App(ctk.CTk):
         height = 180
         x_px = raw_val * width
         y_px = height - (out_val * height)
+        acc = self._get_accent_color()
         # Vertical guide line from bottom to the curve point
         canvas.create_line(x_px, height, x_px, y_px, fill="#FFFFFF", dash=(2, 2), tags="cursor")
         # Dot at the curve point
-        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill="#FFFFFF", outline="#00D4FF", width=1, tags="cursor")
+        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill=acc, outline="white", width=1, tags="cursor")
 
     def update_position_loop(self):
         # 60fps refresh
