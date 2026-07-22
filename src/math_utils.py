@@ -148,3 +148,8 @@ def apply_warped_stick_correction(x: float, y: float, threshold_pct: float):
         return sign * min(scaled, 1.0)
         
     return scale_axis(x, outer_max), scale_axis(y, outer_max)
+
+def clamp_int(val: int, min_val: int, max_val: int) -> int:
+    """Clamps an integer value to the range [min_val, max_val]."""
+    return max(min_val, min(max_val, val))
+
