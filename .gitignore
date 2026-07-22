@@ -3,7 +3,7 @@ __pycache__/
 status.json
 flake8*
 *.log
-.agents
+.*/
 diagnostics_logs/
 workspace_ideas/
 issue_report.zip
