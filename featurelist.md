@@ -117,7 +117,8 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 * **Comprehensive Daemon Logging:** Core scripts (`calibration.py`, `hid_reader.py`, `virtual_pad.py`, `decoder.py`, `mapper.py`) explicitly route errors, warnings, and state transitions to `wrapper.log` and `calibration.log` via module-level loggers, capturing background issues that would otherwise only print to a hidden terminal.
 * **Diagnostic Delta Filtering:** Tools like `03_raw_transport.py` and `04_report_id_scanner.py` track and compare HID packets frame-by-frame, writing outputs *only* when a byte state changes, eliminating log file bloat.
 * **Argparse Forwarding:** Launching the GUI from the tray forwards logs parameters (`--log` and `--append-log`), appending GUI logs into the wrapper's log for a sequential debugging timeline.
-* **Log Overwrite Safety:** Fresh log files (`wrapper.log` and `calibration.log`) are generated cleanly on every new startup to prevent file bloat.
+* **Log Overwrite Safety:** Fresh log files (`wrapper.log` and `calibration.log`) are generated cleanly on every new daemon startup to prevent file bloat.
+* **Single-Instance Process Guard (`src/single_instance.py`):** Uses localhost socket locking on ports 48124–48126 to prevent duplicate instances of `main.py`, `gui.py`, or `calibration.py` from running simultaneously. Preserves the oldest running process and prevents premature log truncation.
 * **HID Rate Limiting:** Filters and rate-limits raw HID byte streams to 0.5-second logging intervals.
 
 ---
