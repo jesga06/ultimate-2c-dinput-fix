@@ -16,7 +16,7 @@ import random
 import tkinter as tk
 from logger_setup import setup_logger
 from hid_reader import HIDReader, RawHIDReport
-from decoder import Decoder
+from decoder import Decoder, ControllerState
 from circularity_modal import CircularityCalibrationModal
 
 logger = None
@@ -497,8 +497,62 @@ class App(ctk.CTk):
         self.resize_timer = None
 
     def start_hid_polling(self):
+        # 1. UDP Broadcast Receiver Thread (Receives live telemetry from daemon)
+        def udp_listener():
+            import socket
+            import json
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("127.0.0.1", 9999))
+            except Exception as e:
+                if logger:
+                    logger.error(f"GUI UDP listener bind failed: {e}")
+                return
+            
+            sock.settimeout(0.5)
+            while True:
+                try:
+                    msg, _ = sock.recvfrom(4096)
+                    data = json.loads(msg.decode('utf-8'))
+                    cs = ControllerState()
+                    for k, v in data.items():
+                        if k == 'extra_inputs' and isinstance(v, dict):
+                            cs.extra_inputs = v
+                        elif hasattr(cs, k):
+                            setattr(cs, k, v)
+                        else:
+                            cs.extra_inputs[k] = v
+                    self.current_state = cs
+                except socket.timeout:
+                    continue
+                except Exception:
+                    pass
+
+        t_udp = threading.Thread(target=udp_listener, daemon=True)
+        t_udp.start()
+
+        # 2. Standalone Polling Fallback (when daemon is NOT running)
         def poll_thread():
-            # Scan for devices using the same logic as main.py
+            backend_mode = self.daemon_config.get('backend', 'mode', fallback='auto')
+            if backend_mode in ('xinput', 'auto'):
+                try:
+                    from backend_xinput import XInputBackend
+                    xb = XInputBackend()
+                    if xb.initialize():
+                        def xinput_handler(state):
+                            self.current_state = state
+                        xb.set_callback(xinput_handler)
+                        xb.start_polling_thread()
+                        self.xinput_backend = xb
+                        if logger:
+                            logger.info("GUI started XInput standalone listener.")
+                        return
+                except Exception as e:
+                    if logger:
+                        logger.warning(f"GUI XInput standalone listener failed: {e}")
+
+            # Scan for devices using DInput HID logic as fallback
             devices = HIDReader.get_all_devices()
             selected_vid = None
             selected_pid = None
@@ -2210,7 +2264,7 @@ class App(ctk.CTk):
             
             # Left Stick
             raw_lx, raw_ly = state.lx, state.ly
-            disp_raw_ly = -raw_ly
+            disp_raw_ly = raw_ly
             
             ls_circ_mode = self.config.get('analog_left', 'circularity_mode', fallback='disabled').lower()
             ls_circ_cx = self.config.getfloat('analog_left', 'circularity_center_x', fallback=0.0)
@@ -2236,7 +2290,7 @@ class App(ctk.CTk):
             self.update_curve_cursor(self.c_ls_curve, min(raw_mag, 1.0), min(out_mag, 1.0))
             
             # Right Stick
-            disp_raw_ry = -state.ry
+            disp_raw_ry = state.ry
             
             rs_circ_mode = self.config.get('analog_right', 'circularity_mode', fallback='disabled').lower()
             rs_circ_cx = self.config.getfloat('analog_right', 'circularity_center_x', fallback=0.0)
