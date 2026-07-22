@@ -73,7 +73,7 @@ class LayoutBuilder(ctk.CTk):
         
         self.layout_data = {}
         if os.path.exists(OUT_PATH):
-            with open(OUT_PATH, 'r') as f:
+            with open(OUT_PATH, 'r', encoding='utf-8') as f:
                 self.layout_data = json.load(f)
         else:
             print(f"File not found: {OUT_PATH}. Please ensure resources/button_layout.json exists.")
@@ -161,9 +161,10 @@ class LayoutBuilder(ctk.CTk):
         self.layout_data[self.current_layout][btn] = {"x": round(x, 3), "y": round(y, 3)}
         
     def save_layout(self):
-        with open(OUT_PATH, 'w') as f:
+        with open(OUT_PATH, 'w', encoding='utf-8') as f:
             json.dump(self.layout_data, f, indent=4)
         print(f"Saved layout to {OUT_PATH}")
+
 
 if __name__ == "__main__":
     app = LayoutBuilder()
