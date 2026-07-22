@@ -30,8 +30,8 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
 - **Customizable Tuning:** Adjust stick and trigger deadzones, response curves, and sensitivity dynamically via the Tuning tab to fine-tune your gameplay.
    - **Circularity Calibrator:** Calibrate circularity of analog sticks for a perfect circular output.
 - **Visual GUI Configuration:** A simple, dark-mode visual interface to easily map buttons without manual file editing.
-- **Universal Profiling:** Generate custom controller layout profiles (`profiles/`) for any generic HID controller using the interactive calibration tool.
-   - **Automatically downloads the community profile database on first run!**
+- **Universal Profiling:** Generate custom controller HID maps (`profiles/`) for any generic HID controller using the interactive calibration tool.
+   - **Automatically downloads the community HID map database on first run!**
 - **Background System Tray Operation:** Quietly sits in your system tray and hides the command prompt window.
 - **Full Button Remapping & Block:** Map *any* controller button (standard or extra paddle) to *any combination of* keyboard or mouse outputs; standard buttons are blocked from XInput when remapped to prevent double inputs
    - Cannot remap some hardware specific buttons, like Turbo.
@@ -54,7 +54,7 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
 ### Step 1: Install Requirements
 1. Install [Python 3.13](https://www.python.org/downloads/release/python-31314/) or higher.
 2. Install the [ViGEmBus](https://github.com/nefarius/ViGEmBus) driver.
-3. Install Python dependencies (run on PowerShell or CMD):
+3. Install Python dependencies (run on PowerShell or CMD, or via option 5 in `tools_and_diagnostics.bat`):
    ```powershell
    pip install -r requirements.txt
    ```
@@ -68,8 +68,7 @@ If your controller doesn't have a profile generated yet:
    - **Stage 2 (Manual Selection):** If no activity is auto-detected (or if you press **ENTER** immediately without pressing any buttons to force manual mode), you will be prompted to manually enter the index/indices (e.g., `0,1`) of the interface(s) you wish to use from the displayed list of endpoints.
 4. Select your preferred button layout (Xbox, PlayStation, or Nintendo) and indicate whether your device streams continuous gyroscope telemetry.
 5. Follow the step-by-step CLI prompts (e.g., press A, push Left Stick Up, etc.) to baseline and map your device. You can skip buttons by pressing `s` or undo the previous step by pressing `u` on your keyboard.
-6. When prompted, enter the number of extra buttons (e.g., paddles like L4/R4) your controller has and calibrate them.
-7. Once finished, a custom JSON profile will be automatically saved in the `profiles/` directory.
+6. Once finished, a custom JSON HID map will be automatically saved in the `profiles/` directory.
 
 > *For advanced configurations or troubleshooting multi-interface controllers, see the [Manual Calibration Guide](power-users-come-here/MANUAL_CALIBRATION_GUIDE.md).*
 

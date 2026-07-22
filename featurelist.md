@@ -74,7 +74,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
   * **Single-Container Latching & Cleanup:** Enforces clean container destruction (`winfo_children().destroy()`) before re-initializing tab scrollframes, preventing duplicate tab instances or split scrollbars.
 * **Macros Engine & Tutorial:** Prominent tutorial banner card and interactive modal guide (`open_chords_guide_modal`) providing step-by-step tutorials, execution modes, Save Settings warnings, multi-delimiter support, D-Pad ghost text templates, optional chord triggers, name-based macro referencing in Remapping (`macro:MyMacro` or `MyMacro`), gamepad/KBM output execution, and an upgraded live macro recorder modal.
 * **Remapping Tab Interactive Guide:** Info button tooltip and interactive modal (`open_remapping_guide_modal`) detailing keyboard/mouse mapping formats, macro referencing by name (`macro:MyMacro`), input blocking, and Shift layer behavior.
-* **Shift Layer Home Button Hold Warning:** Displays a recommendation warning modal when 'HOME' is selected as the Shift trigger in 'hold' mode, advising users to set Shift mode to 'toggle' to prevent controller force turn-off or OS shortcut triggers.
+* **Shift Layer Home Button Hold Warning:** Displays a recommendation warning modal when 'HOME' is selected as the Shift Key in 'hold' mode, advising users to set Shift mode to 'toggle' to prevent controller force turn-off or OS shortcut triggers.
 * **Dashboard Extra Buttons Centering & Telemetry Highlighting:** Centered horizontal extra buttons row on the Dashboard, added real-time active accent color illumination when buttons trigger, and restricted extra buttons in XInput mode exclusively to Hardware Chords to prevent duplicate entries.
 * **Streamlined Calibration Wizard:** Removed obsolete extra button prompts during device calibration and XInput registration in `src/calibration.py`, relying directly on Hardware Chords for extra button definitions.
 
@@ -141,14 +141,13 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 ## 🎨 UI & Customization Features
 * **Theme Manager:** Dynamically switch the entire application's color palette (White, Orange, Red, Yellow, Green, Blue, Purple) and immediately preview changes.
 * **System Font Override:** Supports overriding the default CustomTkinter font with any built-in system font (e.g. Arial, Consolas).
-* **Light/Dark Mode:** Seamless transitions between light and dark appearances dynamically applied across canvases and graphs.
+* **Enforced Global Dark Mode:** Global dark mode enforcement to prevent rendering artifacts and ensure optimal canvas contrast.
 
 ---
 
 ## 🔬 Calibration & Profile Hub
 * **Calibration Confidence Engine:** Post-calibration, the wizard evaluates your hardware's resting exactness, deadzone thresholds, and perfect circularity, grading it as Excellent, Good, or Poor.
-* **Dashboard Profile Validation:** Validate active custom profiles against system schemas or community maps directly from the Dashboard layout panel.
-* **Profile Exporting:** Easily export your generated JSON configurations (with or without custom bindings) to share with others.
+* **Dashboard HID Map Validation:** Validate active custom HID maps against system schemas or community maps directly from the Dashboard layout panel.
 
 ---
 
