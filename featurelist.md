@@ -74,7 +74,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
   * **Single-Container Latching & Cleanup:** Enforces clean container destruction (`winfo_children().destroy()`) before re-initializing tab scrollframes, preventing duplicate tab instances or split scrollbars.
 * **Macros Engine & Tutorial:** Prominent tutorial banner card and interactive modal guide (`open_chords_guide_modal`) providing step-by-step tutorials, execution modes, Save Settings warnings, multi-delimiter support, D-Pad ghost text templates, optional chord triggers, name-based macro referencing in Remapping (`macro:MyMacro` or `MyMacro`), gamepad/KBM output execution, and an upgraded live macro recorder modal.
 * **Remapping Tab Interactive Guide:** Info button tooltip and interactive modal (`open_remapping_guide_modal`) detailing keyboard/mouse mapping formats, macro referencing by name (`macro:MyMacro`), input blocking, and Shift layer behavior.
-* **Dashboard Extra Buttons Centering & Telemetry Highlighting:** Centered horizontal extra buttons row on the Dashboard and added real-time active accent color illumination when Hardware Chords trigger in XInput mode.
+* **Dashboard Extra Buttons Centering & Telemetry Highlighting:** Centered horizontal extra buttons row on the Dashboard, added real-time active accent color illumination when buttons trigger, and restricted extra buttons in XInput mode exclusively to Hardware Chords to prevent duplicate entries.
 
 ---
 
