@@ -54,7 +54,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
   * A **"Block XInput"** checkbox column next to each remapped action lets you toggle this behavior on or off. Unchecking it allows sending both the virtual controller signal and the remapped keyboard/mouse signal simultaneously.
 * **Tuning Tab (Sticks & Triggers):**
   * **Trigger Sensitivity:** Modify the sensitivity of analog triggers directly using sliders (values from 0.1 to 3.0) to fine-tune actuation limits.
-  * **Digital Triggers Mode:** A "Digital Trigger Mode" checkbox forces analog trigger values to act as binary buttons (0 or 255) on the virtual pad immediately upon input. Replaces standard curve display with a clean step-function.
+  * **Digital Triggers Mode:** A "Digital Trigger Mode" checkbox forces analog trigger values to act as binary buttons (0 or 255) on the virtual pad immediately upon input. Replaces standard curve display with a clean step-function in real time upon toggling.
   * **Warped Stick Correction:** "Warp Threshold" slider (0-20%) to independently scale weak stick axes to reach 1.0 maximum throw without hard-clipping.
   * **Analog Tuning Visualizer:** Displays real-time coordinate plotting with a 1.0 unit circular bounds grid and exact decimal labels for thumbsticks. Offers a toggleable 45º diagonal reference line.
   * **Circularity Calibrator:** A calibration wizard in the Tuning tab that records the maximum range of your stick and applies correction math to ensure a perfect 1.0 circular output.
