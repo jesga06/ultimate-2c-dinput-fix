@@ -610,17 +610,17 @@ class App(ctk.CTk):
             font=ctk.CTkFont(
                 size=20,
                 weight="bold"))
-        self.status_label.pack(pady=40)
+        self.status_label.pack(pady=(15, 2))
 
         self.device_label = ctk.CTkLabel(
             self.tab_dashboard,
             text="Device: -",
             font=ctk.CTkFont(
                 size=16))
-        self.device_label.pack(pady=10)
+        self.device_label.pack(pady=2)
 
         layout_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
-        layout_frame.pack(pady=20)
+        layout_frame.pack(pady=(2, 5))
 
         self.layout_label = ctk.CTkLabel(
             layout_frame,
@@ -656,14 +656,14 @@ class App(ctk.CTk):
             text="v2.2.0",
             text_color="gray50",
             font=ctk.CTkFont(size=11))
-        version_lbl.pack(side="bottom", pady=(0, 20))
+        version_lbl.pack(side="bottom", pady=(2, 5))
         
         self.extra_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
-        self.extra_frame.pack(fill="x", side="bottom", pady=10)
+        self.extra_frame.pack(fill="x", side="bottom", pady=2)
 
         # Expanding widget packed last so it takes the remaining cavity
         self.layout_canvas = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
-        self.layout_canvas.pack(fill="both", expand=True, padx=20, pady=10)
+        self.layout_canvas.pack(fill="both", expand=True, padx=20, pady=5)
         
         # Load layout
         import json, os
