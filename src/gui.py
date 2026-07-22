@@ -1416,6 +1416,10 @@ class App(ctk.CTk):
             f'digital_{btn}',
             'true' if is_digital else 'false')
         self.save_config()
+        if btn == "lt" and hasattr(self, "lt_dz"):
+            self.update_analog_config("trigger_left", self.lt_dz, self.lt_adz, self.lt_rest_dz, self.lt_curve, self.lt_exp, self.lt_sens, self.lt_custom)
+        elif btn == "rt" and hasattr(self, "rt_dz"):
+            self.update_analog_config("trigger_right", self.rt_dz, self.rt_adz, self.rt_rest_dz, self.rt_curve, self.rt_exp, self.rt_sens, self.rt_custom)
 
     def setup_analog_tuning(self):
         self.tuning_scroll = ctk.CTkScrollableFrame(self.tab_analog, fg_color="transparent", corner_radius=0)
@@ -1547,7 +1551,7 @@ class App(ctk.CTk):
             ctk.CTkLabel(custom_eq_frame, text="Custom Eq:", width=70, anchor="w").pack(side="left")
             custom_eq_entry = ctk.CTkEntry(custom_eq_frame, textvariable=custom_eq_var)
             custom_eq_entry.pack(side="left", fill="x", expand=True, padx=5)
-            custom_eq_entry.bind("<KeyRelease>", lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var))
+            custom_eq_entry.bind("<KeyRelease>", lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var))
             
             dotted_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
             ctk.CTkLabel(dotted_frame, text="Number of Dots:", width=100, anchor="w").pack(side="left")
@@ -1563,7 +1567,7 @@ class App(ctk.CTk):
                 except:
                     dots = [[i/(n-1), i/(n-1)] for i in range(n)]
                     custom_eq_var.set(json.dumps(dots))
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
 
             dots_str_var = ctk.StringVar(value="3")
             dots_menu = ctk.CTkOptionMenu(dotted_frame, values=["2", "3", "4", "5", "6", "7", "8"], variable=dots_str_var, command=lambda v: [num_dots_var.set(int(v)), update_dots_list()])
@@ -1577,7 +1581,7 @@ class App(ctk.CTk):
                 elif val == "dotted":
                     dotted_frame.pack(fill="x", pady=5, after=row_f)
                     update_dots_list()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
 
             ctk.CTkLabel(row_f, text="Curve Type:", width=90, anchor="w").pack(side="left")
             curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "custom", "dotted", "cubic", "sigmoid", "bezier"], variable=curve_var, command=on_curve_change)
@@ -1633,7 +1637,7 @@ class App(ctk.CTk):
                         new_x = min(new_x, dots[active_dot+1][0])
                     dots[active_dot] = [new_x, new_y]
                     custom_eq_var.set(json.dumps(dots))
-                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
                 except: pass
 
             def on_canvas_release(evt):
@@ -1721,6 +1725,7 @@ class App(ctk.CTk):
                     self.config.add_section(section)
                 self.config.set(section, 'circularity_mode', val)
                 self.save_config()
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
                 
             circ_menu = ctk.CTkOptionMenu(circ_frame, values=["disabled", "before", "after"], variable=circ_mode_var, command=update_circ_mode)
             circ_menu.pack(side="left", fill="x", expand=True, padx=5)
