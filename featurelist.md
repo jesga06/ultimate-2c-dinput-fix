@@ -104,6 +104,7 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 ---
 
 ## 🛠️ Diagnostics & Troubleshooting
+* **Universal Debug Flag & Tracing:** The `--debug` (or `-d`) flag is globally supported across all daemon entry points, core processing modules, GUI, and all 6 standalone diagnostic scripts. It enables granular logic tracing, exception stack traces via `sys.excepthook`, and state change logs.
 * **Unification of Logs:** A logging setup module (`src/logger_setup.py`) coordinates wrapper log pipelines.
 * **Comprehensive Daemon Logging:** Core scripts (`calibration.py`, `hid_reader.py`, `virtual_pad.py`, `decoder.py`, `mapper.py`) explicitly route errors, warnings, and state transitions to `wrapper.log` and `calibration.log` via module-level loggers, capturing background issues that would otherwise only print to a hidden terminal.
 * **Diagnostic Delta Filtering:** Tools like `03_raw_transport.py` and `04_report_id_scanner.py` track and compare HID packets frame-by-frame, writing outputs *only* when a byte state changes, eliminating log file bloat.

@@ -248,6 +248,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
 
 ### ⚙️ Under-the-Hood Changes
+- **Unified Verbose Debug Logging Expansion:** Expanded the `--debug` argument parsing and granular `logger.debug` tracing across all core processing scripts (`mapper.py`, `decoder.py`, `virtual_pad.py`, `hardware_chords.py`), backend scripts (`backend_dinput.py`, `backend_xinput.py`), and all 6 automated diagnostic scripts. Added full `sys.excepthook` stack trace injection for diagnostic scripts in debug mode.
 - **Circularity On-Finish Callbacks:** Programmed an `on_finish` callback flow to refresh GUI plots and configuration states immediately when circularity changes are applied.
 - **Hardware Chords Engine Unification:** Re-architected `main.py` pipeline sequence to `HardwareChordEngine -> Mapper -> VirtualPad`, ensuring synthesized extra buttons seamlessly enter the mapper as standard input vectors.
 - **XInput API Ordinal Fetch:** Resolved a ctypes `AttributeError` by correctly loading the undocumented XInput guide button state via ordinal `#100` rather than passing an integer to `getattr`.
