@@ -1,4 +1,4 @@
-# Universal Remapper & XInput from DInput Wrapper & Fixer
+# Universal Remapper, XInput/DInput Wrapper, ***and*** Fixer
 
 <p align="center">
   <img width="800" height="436" alt="test tool showcase" src="https://github.com/user-attachments/assets/a74b972a-b1af-4ca4-8a08-198873898827"/><br>
@@ -7,11 +7,13 @@
 
 
 
-Basically tries to fix DInput gamepads broken by bad descriptors.
+Fixes Windows controllers whose HID descriptors lie just enough to ruin your day.
 
-A lightweight utility that fixes incorrect DirectInput (DInput) ***specific*** behaviors—like broken analog triggers—on various Windows controllers (e.g., 8BitDo Ultimate 2C, Machenike G5 Pro) and adds support for custom back paddles, converting them into standard XInput controllers with fully customizable mouse/keyboard mapping.
+A lightweight utility that fixes incorrect DirectInput (DInput) ***specific*** behaviors—like broken analog triggers—on various Windows controllers (e.g., 8BitDo Ultimate 2C, Machenike G5 Pro) and adds support for custom extra buttons (such as back paddles), converting them into standard XInput controllers with fully customizable mouse/keyboard mapping.
 
 Some controllers expose perfectly valid input data but advertise incorrect HID descriptors, causing Windows and games to interpret inputs incorrectly. UR-XD bypasses the incomplete/wrong descriptor data, correctly parses the analog triggers and extra buttons, and exposes the fixed gamepad as a Virtual Xbox 360 controller using `vgamepad` (ViGEmBus). It even lets you remap the extra buttons!
+
+TL;DR: If your controller has digital triggers instead of analog, missing back buttons, or behaves differently in DInput than it should, UR-XD fixes those issues without requiring firmware modifications.
 
 For a detailed list of recent updates, architectural changes, and bug fixes, see the [CHANGELOG.md](CHANGELOG.md).
 
