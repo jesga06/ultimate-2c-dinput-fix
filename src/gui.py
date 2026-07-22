@@ -1807,23 +1807,12 @@ class App(ctk.CTk):
             circ_btn = ctk.CTkButton(circ_frame, text="Calibrate Circularity", command=open_circ_calib, fg_color="#1f538d")
             circ_btn.pack(side="right", padx=5)
 
-            circ_ref_var = ctk.BooleanVar(value=self.config.getboolean(section, 'show_circ_ref', fallback=True))
-            def update_circ_ref():
-                if not self.config.has_section(section):
-                    self.config.add_section(section)
-                self.config.set(section, 'show_circ_ref', 'true' if circ_ref_var.get() else 'false')
-                self.save_config()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
-                
-            circ_ref_cb = ctk.CTkCheckBox(circ_frame, text="45º Line", variable=circ_ref_var, command=update_circ_ref, width=60)
-            circ_ref_cb.pack(side="right", padx=5)
+            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, circ_mode_var, warp_var
 
-            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, circ_mode_var, circ_ref_var, warp_var
-
-        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom, self.ls_circ_mode, self.ls_circ_ref, self.ls_warp = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
+        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom, self.ls_circ_mode, self.ls_warp = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
         self.f_ls.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         
-        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom, self.rs_circ_mode, self.rs_circ_ref, self.rs_warp = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
+        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom, self.rs_circ_mode, self.rs_warp = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
         self.f_rs.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         def create_trigger_frame(parent, title, btn, section):
@@ -2088,13 +2077,12 @@ class App(ctk.CTk):
         self.f_rt.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
 
         # Initial draw
+        # Initial draw
         ls_cm = self.config.get('analog_left', 'circularity_mode', fallback='disabled')
-        ls_sr = self.config.getboolean('analog_left', 'show_circ_ref', fallback=True)
-        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get(), ls_cm, ls_sr, section="analog_left", warp_threshold=self.ls_warp.get())
+        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get(), ls_cm, section="analog_left", warp_threshold=self.ls_warp.get())
         
         rs_cm = self.config.get('analog_right', 'circularity_mode', fallback='disabled')
-        rs_sr = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
-        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get(), rs_cm, rs_sr, section="analog_right", warp_threshold=self.rs_warp.get())
+        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get(), rs_cm, section="analog_right", warp_threshold=self.rs_warp.get())
         
         lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
         self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_sens.get(), self.lt_custom.get(), digital=lt_dig)
@@ -2121,14 +2109,12 @@ class App(ctk.CTk):
         
         if section == "analog_left":
             circ_mode = self.config.get('analog_left', 'circularity_mode', fallback='disabled')
-            show_ref = self.config.getboolean('analog_left', 'show_circ_ref', fallback=True)
             warp = warp_var.get() if warp_var else 0.0
-            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_left", warp_threshold=warp)
+            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, section="analog_left", warp_threshold=warp)
         elif section == "analog_right":
             circ_mode = self.config.get('analog_right', 'circularity_mode', fallback='disabled')
-            show_ref = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
             warp = warp_var.get() if warp_var else 0.0
-            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_right", warp_threshold=warp)
+            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, section="analog_right", warp_threshold=warp)
         elif section == "trigger_left":
             lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
             self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=lt_dig)
@@ -2136,7 +2122,7 @@ class App(ctk.CTk):
             rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
             self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=rt_dig)
 
-    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", circ_mode="disabled", show_ref=True, section="", warp_threshold=0.0):
+    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", circ_mode="disabled", section="", warp_threshold=0.0):
         canvas.delete("all")
         width = 180
         height = 180
@@ -2146,43 +2132,6 @@ class App(ctk.CTk):
         
         import math
         import math_utils
-        
-        if show_ref:
-            circ_cx = 0.0
-            circ_cy = 0.0
-            circ_bounds = []
-            if section and circ_mode != "disabled" and self.config.has_section(section):
-                import json
-                circ_cx = float(self.config.get(section, 'circularity_cx', fallback='0.0'))
-                circ_cy = float(self.config.get(section, 'circularity_cy', fallback='0.0'))
-                try:
-                    circ_bounds = json.loads(self.config.get(section, 'circularity_bounds', fallback='[]'))
-                except:
-                    pass
-            
-            points45 = []
-            for x_px in range(width + 1):
-                input_val = x_px / width
-                in_x = input_val * 0.707106
-                in_y = input_val * 0.707106
-                
-                in_x, in_y = math_utils.apply_warped_stick_correction(in_x, in_y, warp_threshold)
-                
-                if circ_mode == 'before':
-                    in_x, in_y = math_utils.apply_circularity_correction(in_x, in_y, circ_cx, circ_cy, circ_bounds)
-                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
-                elif circ_mode == 'after':
-                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
-                    out_x, out_y = math_utils.apply_circularity_correction(out_x, out_y, circ_cx, circ_cy, circ_bounds)
-                else:
-                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
-                
-                out_mag = min(1.0, math.sqrt(out_x**2 + out_y**2))
-                y_px = height - (out_mag * height)
-                points45.append(x_px)
-                points45.append(y_px)
-            if points45:
-                canvas.create_line(points45, fill="#888888", dash=(4, 4), width=2)
                 
         points = []
         for x_px in range(width + 1):

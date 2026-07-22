@@ -217,7 +217,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 ## [2.2.0] - Unreleased
 ### 🎮 User-Facing Changes
 - **Circularity Calibration & Wizard Enhancements:**
-  - Added a toggleable 45º diagonal reference line on response graphs.
+  - Removed 45º diagonal reference line (causes too many issues and decreases curve readability).
   - Added a dashed circular bounds guide on crosshair displays mapping the 1.0 boundary in current theme colors (dark/light appearance matched).
   - Added an information overlay modal explaining circularity math and "Before" vs "After" processing configurations.
   - Guided wizard now actively tracks clockwise/counter-clockwise spins, requiring 3 full rotations in both directions before unlocking completion.
