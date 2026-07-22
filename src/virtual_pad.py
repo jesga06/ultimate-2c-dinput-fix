@@ -50,6 +50,7 @@ class VirtualPad:
 
         self.home_mapping = 'guide'
         self.blocked_buttons = set()
+        self.macro_pressed_buttons = set()
         self.rumble_callback = None
         
         # Register for force feedback notifications
@@ -76,6 +77,7 @@ class VirtualPad:
             logger.debug("[ENTER] virtual_pad reload_config()")
         self.home_mapping = 'guide'
         self.blocked_buttons.clear()
+        self.macro_pressed_buttons.clear()
 
         self.digital_lt = False
         self.digital_rt = False
