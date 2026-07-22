@@ -86,7 +86,7 @@ def show_console_action(icon, item):
 
 def write_status(state, device_name="None"):
     try:
-        with open('status.json', 'w') as f:
+        with open('status.json', 'w', encoding='utf-8') as f:
             json.dump({"status": state, "device": device_name}, f)
     except Exception as e:
         if logger:
@@ -115,7 +115,7 @@ def create_image():
 def load_config(filename='config.ini'):
     config = configparser.ConfigParser()
     if os.path.exists(filename):
-        config.read(filename)
+        config.read(filename, encoding='utf-8')
     return config
 
 
@@ -188,7 +188,7 @@ def main():
                 config.add_section('community')
             config.set('community', 'db_last_updated', str(time.time()))
             config.set('community', 'db_update_interval_days', str(DB_UPDATE_INTERVAL_DAYS))
-            with open(config_file, 'w') as f:
+            with open(config_file, 'w', encoding='utf-8') as f:
                 config.write(f)
             logger.info("Community database updated successfully.")
         except Exception as fe:
@@ -207,7 +207,7 @@ def main():
             selected_pid = pid
             hid_map_path = potential_hid_map
             try:
-                with open(hid_map_path, 'r') as f:
+                with open(hid_map_path, 'r', encoding='utf-8') as f:
                     map_data = json.load(f)
                     device_name = map_data.get('name', "Unknown Device")
             except:
@@ -274,14 +274,13 @@ def main():
     config.set('controller', 'last_device', device_name)
     # 'last_profile' key retained for backwards compatibility; now stores the HID map path
     config.set('controller', 'last_profile', hid_map_path)
-    with open(config_file, 'w') as f:
+    with open(config_file, 'w', encoding='utf-8') as f:
         config.write(f)
-
 
     # Load HID map to check for interface restriction
     req_ifaces = []
     try:
-        with open(hid_map_path, 'r') as f:
+        with open(hid_map_path, 'r', encoding='utf-8') as f:
             profile_data = json.load(f)
             if "interfaces" in profile_data:
                 req_ifaces = profile_data["interfaces"]
@@ -291,6 +290,7 @@ def main():
                     req_ifaces.append(req_iface)
     except Exception as e:
         logger.error(f"Failed to parse profile to check interface: {e}", exc_info=True)
+rue)
 
     # Determine Backend Mode
     backend_mode = controller_config.data.get('backend', {}).get('mode', 'auto')
