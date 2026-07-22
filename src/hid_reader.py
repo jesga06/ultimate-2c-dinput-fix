@@ -111,8 +111,7 @@ class HIDReader:
                 # If it failed immediately upon connecting, it's likely an OS permission issue (e.g. system keyboard)
                 # Don't try to reconnect to avoid infinite loops.
                 if time.time() - self._connected_time < 2.0:
-                    print(f"Read failed instantly on {self._last_product_name}. Stopping.")
-                    logger.error(f"Read failed instantly on {self._last_product_name}. Stopping.")
+                    logger.warning(f"Interface on {self._last_product_name} locked by OS (expected for system devices). Stopping thread.")
                     break
                     
                 print(f"\nDevice '{self._last_product_name}' disconnected or read error: {e}")
