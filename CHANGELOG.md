@@ -263,4 +263,10 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Diagnostic Tool Arguments:** Changed the incorrect --debug parameter to the supported --log parameter in tools_and_diagnostics.bat, restoring functionality for the debug wrappers.
 - **XInput Calibration Priority:** Updated the calibration wizards and diagnostic tools to highlight interfaces containing 'microsoft' or 'controller' in their name as the recommended endpoints to select for retrieving button data from XInput controllers.
 - **Static Gray Box Fix:** Fixed a UI overlapping issue in CustomTkinter where `extra_frame` created a static gray box overlaying the dashboard buttons by packing it outside the main layout canvas.
-- **XInput Controller Latching:** Resolved a critical bug where the wrapper daemon would accidentally latch onto the virtual Xbox 360 controller spawned by `vgamepad` instead of the physical controller, causing inputs to fail silently across the entire pipeline.
+- **XInput Controller Latching & Polling Resilience:**
+  - Resolved a critical bug where `XInputGetStateEx` (ordinal 100) failures would break out of the polling thread on frame 1, causing XInput controllers to report connected while reading zero inputs. Added fallback to standard `XInputGetState` and failure thresholding before marking disconnected.
+  - Implemented an automatic reconnection loop in `backend_xinput.py` that continuously retries slot binding when a controller drops instead of terminating the thread.
+  - Locked slot initialization to prevent the daemon from latching onto the virtual Xbox 360 controller created by `vgamepad`.
+  - Updated `VirtualPad` button blocking to check `layer_base` and `layer_shift` in addition to legacy `extra_buttons`.
+  - Standardized stick Y-axis polarity across backends to positive-UP, preventing inverted stick input on virtual controllers.
+  - Added `lt` and `rt` trigger support to `HardwareChordEngine`.
