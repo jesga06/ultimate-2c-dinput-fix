@@ -261,6 +261,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Made input trigger chords optional for macros, allowing users to define standalone macros triggered solely via button remapping.
   - Expanded macro outputs to support gamepad button presses (`gamepad:a`, `gamepad:lb`, etc.) alongside KBM actions and delays.
   - Upgraded the macro recording modal (`[Rec]`) to record gamepad button presses and provide gamepad quick-add buttons when recording macro outputs.
+  - Updated the Remapping tab info tooltip and added an interactive modal guide (`open_remapping_guide_modal`) documenting keyboard/mouse syntax, macro referencing (`macro:MyMacro`), input blocking, and Shift layer usage.
 
 ### ⚙️ Under-the-Hood Changes
 - **Unified Verbose Debug Logging Expansion:** Expanded the `--debug` argument parsing and granular `logger.debug` tracing across all core processing scripts (`mapper.py`, `decoder.py`, `virtual_pad.py`, `hardware_chords.py`), backend scripts (`backend_dinput.py`, `backend_xinput.py`), and all 6 automated diagnostic scripts. Added full `sys.excepthook` stack trace injection for diagnostic scripts in debug mode.
