@@ -69,6 +69,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Transition Screen Overlay:** Smooth color-interpolated canvas fades (250ms in/out, 900ms hold) with randomized community quotes and a rotating vector loading spinner.
 * **Button Name Normalization:** Standardizes and forces all client-side button names to uppercase across all configurations and UI elements.
 * **Dynamic Color Legends:** Tooltips and legends automatically reference color schemes based on the active GUI theme.
+* **Vertically Scrollable GUI Tabs:** All tabs (Dashboard, Profile, Remapping, Tuning, Advanced, Utilities, Customization) are wrapped in `CTkScrollableFrame` containers, guaranteeing that all UI options and diagnostic tools remain visible and scrollable vertically regardless of window dimensions.
 
 ---
 
