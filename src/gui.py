@@ -783,6 +783,9 @@ class App(ctk.CTk):
                 self.dashboard_btns[btn] = b
             
         # Extra buttons grid below
+        standard_buttons = set(layout_dict.keys())
+        self._get_extra_buttons(standard_buttons)
+
     def get_backend_mode(self):
         if hasattr(self, 'daemon_config') and self.daemon_config:
             if self.daemon_config.has_option('settings', 'mode'):
