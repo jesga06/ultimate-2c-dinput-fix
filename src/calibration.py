@@ -103,6 +103,8 @@ class Calibrator:
         self.latest_reports[str(report.report_id)] = report
 
     def scan_devices(self, test_only=False, skip_discovery=False):
+        if logger:
+            logger.debug(f"[ENTER] scan_devices(test_only={test_only}, skip_discovery={skip_discovery})")
         print("==================================================================")
         print("NOTICE: Please ensure your controller is connected. If calibrating DInput HID maps, set your controller to DInput mode.")
         print("If you just switched modes, select the option to rescan devices.")
@@ -407,6 +409,8 @@ class Calibrator:
             return False
 
     def run(self, test_only=False):
+        if logger:
+            logger.debug(f"[ENTER] run(test_only={test_only})")
         cls()
         if test_only:
             if not self.scan_devices(test_only=True):
@@ -521,6 +525,8 @@ class Calibrator:
         self._continue_dinput_calibration()
 
     def _continue_dinput_calibration(self):
+        if logger:
+            logger.debug("[ENTER] _continue_dinput_calibration()")
         remapping_targets = None
         profile_path = getattr(self, 'profile_path', f"profiles/{self.profile['vid']}_{self.profile['pid']}.json".lower())
         
@@ -702,7 +708,7 @@ class Calibrator:
                 if iface not in self.baselines: self.baselines[iface] = {}
                 for rep_id, rep in reps.items():
                     self.baselines[iface][rep_id] = list(rep.data)
-
+            
             done = False
             undo = False
 
@@ -1183,6 +1189,8 @@ class Calibrator:
             print("\nRumble setup failed: No motor bytes identified.")
 
     def test_mode(self, is_temp=False, profile_path=None):
+        if logger:
+            logger.debug(f"[ENTER] test_mode(is_temp={is_temp}, profile_path={profile_path})")
         print("\n--- Test Mode ---")
         print("Press Ctrl+C to exit test mode.")
         time.sleep(1.5)
@@ -1384,7 +1392,7 @@ def select_stdin():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--log',
+        '--debug', '-d',
         action='store_true',
         help='Enable verbose debugging logs')
     parser.add_argument(
@@ -1401,11 +1409,12 @@ if __name__ == "__main__":
     logger = setup_logger(
         'calibration',
         'calibration.log',
-        args.log,
+        args.debug,
         append=False)
 
-    if args.log:
+    if args.debug:
         logger.info("Calibration Tool started in debug mode")
+        logger.debug(f"[INIT] Parsed arguments: {args}")
 
     calibrator = Calibrator()
     if args.dump_raw:
