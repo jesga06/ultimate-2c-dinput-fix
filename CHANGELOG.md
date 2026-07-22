@@ -246,6 +246,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Added an interactive `tools_and_diagnostics.bat` entry point grouping all auxiliary tools, debug launchers, live input visualizer (`src/calibration.py --test-only`), standalone Python utilities (such as the Interactive Layout Builder), dependency installation scripts, and individual diagnostic steps in a clean menu.
   - Cleaned up redundant standalone `.bat` files (`run_wrapper_debug.bat`, `calibrate_debug.bat`, `test_calibration.bat`, `install_requirements.bat`).
 - **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
+- **Vertically Scrollable GUI Tabs:** Wrapped all GUI tabs (Dashboard, Profile, Remapping, Tuning, Advanced, Utilities, Customization) in vertical `CTkScrollableFrame` containers, ensuring all controls and diagnostics remain fully accessible and visible via scrolling regardless of window size.
 
 ### ⚙️ Under-the-Hood Changes
 - **Unified Verbose Debug Logging Expansion:** Expanded the `--debug` argument parsing and granular `logger.debug` tracing across all core processing scripts (`mapper.py`, `decoder.py`, `virtual_pad.py`, `hardware_chords.py`), backend scripts (`backend_dinput.py`, `backend_xinput.py`), and all 6 automated diagnostic scripts. Added full `sys.excepthook` stack trace injection for diagnostic scripts in debug mode.
