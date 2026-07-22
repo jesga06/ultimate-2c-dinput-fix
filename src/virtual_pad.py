@@ -11,6 +11,24 @@ import logging
 
 logger = logging.getLogger('virtual_pad')
 
+BUTTON_MAP = {
+    'a': vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
+    'b': vg.XUSB_BUTTON.XUSB_GAMEPAD_B,
+    'x': vg.XUSB_BUTTON.XUSB_GAMEPAD_X,
+    'y': vg.XUSB_BUTTON.XUSB_GAMEPAD_Y,
+    'lb': vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER,
+    'rb': vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER,
+    'select': vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK,
+    'start': vg.XUSB_BUTTON.XUSB_GAMEPAD_START,
+    'home': vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE,
+    'l3': vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB,
+    'r3': vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB,
+    'dpad_up': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_UP,
+    'dpad_down': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_DOWN,
+    'dpad_left': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_LEFT,
+    'dpad_right': vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT,
+}
+
 
 class VirtualPad:
     """
@@ -32,6 +50,7 @@ class VirtualPad:
 
         self.home_mapping = 'guide'
         self.blocked_buttons = set()
+        self.macro_pressed_buttons = set()
         self.rumble_callback = None
         
         # Register for force feedback notifications
@@ -39,10 +58,10 @@ class VirtualPad:
             self.gamepad.register_notification(self._vgamepad_notification_handler)
         except Exception as e:
             print(f"Warning: Could not register vgamepad notifications: {e}")
-            logger.warning(f"Could not register vgamepad notifications: {e}")
+            logger.warning(f"Could not register vgamepad notifications: {e}", exc_info=True)
 
-        if config:
-            self.reload_config(config)
+        # Always load default attributes (and apply config if provided)
+        self.reload_config(config)
 
     def set_rumble_callback(self, callback):
         """callback(left_motor: int, right_motor: int) -> 0-255"""
@@ -53,12 +72,54 @@ class VirtualPad:
             # large_motor and small_motor are 0-255
             self.rumble_callback(large_motor, small_motor)
 
-    def reload_config(self, config):
+    def reload_config(self, config=None):
+        if logger:
+            logger.debug("[ENTER] virtual_pad reload_config()")
         self.home_mapping = 'guide'
         self.blocked_buttons.clear()
+        self.macro_pressed_buttons.clear()
 
         self.digital_lt = False
         self.digital_rt = False
+        self.lt_inner = 0.05
+        self.lt_adz = 0.0
+        self.lt_curve = 'linear'
+        self.lt_power = 2.0
+        self.lt_rest_dz = 0.0
+        self.lt_sens = 1.0
+
+        self.rt_inner = 0.05
+        self.rt_adz = 0.0
+        self.rt_curve = 'linear'
+        self.rt_power = 2.0
+        self.rt_rest_dz = 0.0
+        self.rt_sens = 1.0
+
+        self.ls_inner = 0.05
+        self.ls_adz = 0.0
+        self.ls_curve = 'linear'
+        self.ls_power = 2.0
+        self.ls_rest_dz = 0.0
+        self.ls_sens = 1.0
+        self.ls_circ_mode = 'disabled'
+        self.ls_circ_cx = 0.0
+        self.ls_circ_cy = 0.0
+        self.ls_circ_bounds = None
+
+        self.rs_inner = 0.05
+        self.rs_adz = 0.0
+        self.rs_curve = 'linear'
+        self.rs_power = 2.0
+        self.rs_rest_dz = 0.0
+        self.rs_sens = 1.0
+        self.rs_circ_mode = 'disabled'
+        self.rs_circ_cx = 0.0
+        self.rs_circ_cy = 0.0
+        self.rs_circ_bounds = None
+
+        if not config:
+            return
+
         if config.has_section('settings'):
             if config.has_option('settings', 'digital_lt'):
                 self.digital_lt = config.get(
@@ -66,16 +127,6 @@ class VirtualPad:
             if config.has_option('settings', 'digital_rt'):
                 self.digital_rt = config.get(
                     'settings', 'digital_rt').lower() == 'true'
-
-        self.lt_inner = 0.05
-        self.lt_adz = 0.0
-        self.lt_curve = 'linear'
-        self.lt_power = 2.0
-        
-        self.rt_inner = 0.05
-        self.rt_adz = 0.0
-        self.rt_curve = 'linear'
-        self.rt_power = 2.0
 
         if config.has_section('trigger_left'):
             self.lt_inner = config.getfloat('trigger_left', 'deadzone', fallback=self.lt_inner)
@@ -92,16 +143,6 @@ class VirtualPad:
             self.rt_power = config.getfloat('trigger_right', 'exp_factor', fallback=self.rt_power)
             self.rt_rest_dz = config.getfloat('trigger_right', 'rest_deadzone', fallback=0.0)
             self.rt_sens = config.getfloat('trigger_right', 'sensitivity', fallback=1.0)
-
-        self.ls_inner = 0.05
-        self.ls_adz = 0.0
-        self.ls_curve = 'linear'
-        self.ls_power = 2.0
-        
-        self.rs_inner = 0.05
-        self.rs_adz = 0.0
-        self.rs_curve = 'linear'
-        self.rs_power = 2.0
 
         if config.has_section('analog_left'):
             self.ls_inner = config.getfloat('analog_left', 'deadzone', fallback=self.ls_inner)
@@ -129,6 +170,7 @@ class VirtualPad:
             bounds_str = config.get('analog_right', 'circularity_bounds', fallback='')
             self.rs_circ_bounds = [float(x) for x in bounds_str.split(',')] if bounds_str else None
 
+
         # Load block preferences (default to block if mapped, i.e. True)
         block_prefs = {}
         if config.has_section('block_xinput'):
@@ -137,24 +179,31 @@ class VirtualPad:
                 # explicitly false
                 block_prefs[key.lower()] = val.lower() != 'false'
 
-        if config.has_section('extra_buttons'):
-            for key, val in config.items('extra_buttons'):
-                key_lower = key.lower()
-                val_lower = val.lower()
-                if key_lower == 'home':
-                    self.home_mapping = val_lower
+        for section_name in ['layer_base', 'layer_shift', 'extra_buttons']:
+            if config.has_section(section_name):
+                for key, val in config.items(section_name):
+                    key_lower = key.lower()
+                    val_lower = val.lower()
+                    if key_lower == 'home':
+                        self.home_mapping = val_lower
 
-                # If a standard button/trigger is mapped, block it from being pressed on virtual pad
-                # unless explicitly opted out in block_xinput
-                if key_lower in ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'select',
-                                 'start', 'l3', 'r3', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'ls', 'rs']:
-                    should_block = block_prefs.get(key_lower, True)
-                    if should_block:
-                        self.blocked_buttons.add(key_lower)
-
+                    # If a standard button/trigger is mapped, block it from being pressed on virtual pad
+                    # unless explicitly opted out in block_xinput
+                    if key_lower in ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'select',
+                                     'start', 'l3', 'r3', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'ls', 'rs']:
+                        should_block = block_prefs.get(key_lower, True)
+                        if should_block:
+                            self.blocked_buttons.add(key_lower)
 
 
     def process(self, state: ControllerState):
+        """
+        Translates normalized float ControllerState values into vgamepad commands.
+        Clamps values, handles deadzones, inverts Y axis as needed, and respects blocked inputs.
+        """
+        if not self.gamepad:
+            return
+
         # Triggers
         lt_val = math_utils.process_trigger(state.lt, self.lt_inner, self.lt_adz, self.lt_curve, self.lt_power, getattr(self, 'lt_rest_dz', 0.0), getattr(self, 'lt_sens', 1.0))
         if getattr(self, 'digital_lt', False):
@@ -166,20 +215,23 @@ class VirtualPad:
 
         if 'lt' in self.blocked_buttons:
             self.gamepad.left_trigger_float(value_float=0.0)
+        elif 'lt' in self.macro_pressed_buttons:
+            self.gamepad.left_trigger_float(value_float=1.0)
         else:
             self.gamepad.left_trigger_float(value_float=lt_val)
 
         if 'rt' in self.blocked_buttons:
             self.gamepad.right_trigger_float(value_float=0.0)
+        elif 'rt' in self.macro_pressed_buttons:
+            self.gamepad.right_trigger_float(value_float=1.0)
         else:
             self.gamepad.right_trigger_float(value_float=rt_val)
 
-        # Sticks
-        # Invert Y axes so up is positive
+        # Sticks (Standard ControllerState polarity: positive UP)
         lx_val = state.lx
-        ly_val = -state.ly
+        ly_val = state.ly
         rx_val = state.rx
-        ry_val = -state.ry
+        ry_val = state.ry
         
         if 'ls' in self.blocked_buttons:
             lx_val, ly_val = 0.0, 0.0
@@ -205,18 +257,22 @@ class VirtualPad:
             else:
                 rx_val, ry_val = math_utils.process_analog_stick(rx_val, ry_val, self.rs_inner, self.rs_adz, self.rs_curve, self.rs_power, getattr(self, 'rs_rest_dz', 0.0), getattr(self, 'rs_sens', 1.0))
 
-        self.gamepad.left_joystick_float(x_value_float=lx_val, y_value_float=ly_val)
-        self.gamepad.right_joystick_float(x_value_float=rx_val, y_value_float=ry_val)
+        # Joysticks: Scale float (-1.0 to 1.0) to XInput int (-32768 to 32767)
+        lx_int = math_utils.clamp_int(int(lx_val * 32767), -32768, 32767)
+        ly_int = math_utils.clamp_int(int(ly_val * 32767), -32768, 32767)
+        rx_int = math_utils.clamp_int(int(rx_val * 32767), -32768, 32767)
+        ry_int = math_utils.clamp_int(int(ry_val * 32767), -32768, 32767)
 
-        # Helper to conditionally press buttons
-        def handle_btn(btn_name, is_pressed, vg_btn):
-            if btn_name in self.blocked_buttons:
-                self.gamepad.release_button(button=vg_btn)
-                return
-            if is_pressed:
-                self.gamepad.press_button(button=vg_btn)
+        self.gamepad.left_joystick(x_value=lx_int, y_value=ly_int)
+        self.gamepad.right_joystick(x_value=rx_int, y_value=ry_int)
+
+        # Helper function for pressing or releasing standard buttons
+        def handle_btn(btn_name, state_val, xusb_btn):
+            active = (state_val and btn_name not in self.blocked_buttons) or (btn_name in self.macro_pressed_buttons)
+            if active:
+                self.gamepad.press_button(button=xusb_btn)
             else:
-                self.gamepad.release_button(button=vg_btn)
+                self.gamepad.release_button(button=xusb_btn)
 
         # Buttons
         handle_btn('a', state.a, vg.XUSB_BUTTON.XUSB_GAMEPAD_A)
@@ -230,15 +286,17 @@ class VirtualPad:
 
         # Home button logic is special since it defaults to guide mapping
         if self.home_mapping == 'guide':
-            if state.home and 'home' not in self.blocked_buttons:
+            if ('home' in self.macro_pressed_buttons) or (state.home and 'home' not in self.blocked_buttons):
                 self.gamepad.press_button(
                     button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
             else:
                 self.gamepad.release_button(
                     button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
         else:
-            self.gamepad.release_button(
-                button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
+            if 'home' in self.macro_pressed_buttons:
+                self.gamepad.press_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
+            else:
+                self.gamepad.release_button(button=vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE)
 
         handle_btn('l3', state.l3, vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB)
         handle_btn('r3', state.r3, vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB)
@@ -262,3 +320,29 @@ class VirtualPad:
             vg.XUSB_BUTTON.XUSB_GAMEPAD_DPAD_RIGHT)
 
         self.gamepad.update()
+
+    def press_gamepad_button(self, btn_name):
+        btn = btn_name.lower().replace('gamepad:', '').strip()
+        self.macro_pressed_buttons.add(btn)
+        if btn == 'lt':
+            self.gamepad.left_trigger_float(value_float=1.0)
+            self.gamepad.update()
+        elif btn == 'rt':
+            self.gamepad.right_trigger_float(value_float=1.0)
+            self.gamepad.update()
+        elif btn in BUTTON_MAP:
+            self.gamepad.press_button(button=BUTTON_MAP[btn])
+            self.gamepad.update()
+
+    def release_gamepad_button(self, btn_name):
+        btn = btn_name.lower().replace('gamepad:', '').strip()
+        self.macro_pressed_buttons.discard(btn)
+        if btn == 'lt':
+            self.gamepad.left_trigger_float(value_float=0.0)
+            self.gamepad.update()
+        elif btn == 'rt':
+            self.gamepad.right_trigger_float(value_float=0.0)
+            self.gamepad.update()
+        elif btn in BUTTON_MAP:
+            self.gamepad.release_button(button=BUTTON_MAP[btn])
+            self.gamepad.update()

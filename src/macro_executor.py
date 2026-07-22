@@ -2,30 +2,41 @@ import json
 import threading
 import time
 import os
+import logging
+from typing import Dict, Any, List, Optional
+
+logger = logging.getLogger('macro_executor')
+
 
 class MacroExecutor:
-    def __init__(self, mapper):
+    """
+    Executes sequence macros (key press, release, wait) in a background thread.
+    Supports toggle on/off execution and graceful sequence interruption.
+    """
+
+    def __init__(self, mapper: Any):
         self.mapper = mapper
-        self.macros = {}
-        self.active_macro = None
+        self.macros: Dict[str, List[Dict[str, Any]]] = {}
+        self.active_macro: Optional[str] = None
         self.stop_event = threading.Event()
-        self.worker_thread = None
+        self.worker_thread: Optional[threading.Thread] = None
         self.lock = threading.Lock()
         
         self.load_macros()
         
-    def load_macros(self):
+    def load_macros(self) -> None:
         try:
             if os.path.exists('macros.json'):
-                with open('macros.json', 'r') as f:
+                with open('macros.json', 'r', encoding='utf-8') as f:
                     self.macros = json.load(f)
             else:
                 self.macros = {}
         except Exception as e:
             print(f"Error loading macros.json: {e}")
+            logger.error(f"Error loading macros.json: {e}", exc_info=True)
             self.macros = {}
             
-    def execute_or_toggle(self, macro_name):
+    def execute_or_toggle(self, macro_name: str) -> None:
         with self.lock:
             if self.active_macro == macro_name:
                 # Toggle off if pressed again
@@ -47,7 +58,7 @@ class MacroExecutor:
             self.worker_thread = threading.Thread(target=self._run_macro, args=(macro_name, sequence,), daemon=True)
             self.worker_thread.start()
             
-    def _run_macro(self, macro_name, sequence):
+    def _run_macro(self, macro_name: str, sequence: List[Dict[str, Any]]) -> None:
         for step in sequence:
             if self.stop_event.is_set():
                 break
@@ -74,3 +85,4 @@ class MacroExecutor:
         with self.lock:
             if self.active_macro == macro_name:
                 self.active_macro = None
+

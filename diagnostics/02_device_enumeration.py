@@ -1,6 +1,20 @@
 import sys
 import os
 import time
+import argparse
+import traceback
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--debug', '-d', action='store_true')
+args, _ = parser.parse_known_args()
+IS_DEBUG = args.debug
+
+if IS_DEBUG:
+    def debug_excepthook(exc_type, exc_value, exc_traceback):
+        print("[DEBUG TRACE]")
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
+    sys.excepthook = debug_excepthook
+
 import platform
 import hid
 
@@ -155,6 +169,8 @@ def main():
             print("  - If this is a multi-mode controller (e.g. 8BitDo/Machenike) and you want to use this wrapper")
             print("    to map extra buttons or paddles, please switch the controller's physical mode switch")
             print("    or key-combination to D-Input (DirectInput), Android, or Nintendo Switch mode.")
+            if "microsoft" in str(prod).lower() or "microsoft" in str(mfg).lower() or "controller" in str(prod).lower():
+                print("  [RECOMMENDED] This specific endpoint has 'microsoft' or 'controller' in its name, so it is the most likely one to contain actual button data if you are calibrating.")
 
         # Attempt to open to check for exclusive locks
         try:

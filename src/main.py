@@ -14,11 +14,14 @@ if sys.version_info[:2] not in ((3, 13), (3, 14)):
 import os
 import threading
 import json
-from hid_reader import HIDReader, RawHIDReport
-from decoder import Decoder
+from hid_reader import HIDReader
+from decoder import Decoder, ControllerState
 from mapper import Mapper
 from virtual_pad import VirtualPad
 from config_manager import ControllerConfig, get_sanitized_filename
+from hardware_chords import HardwareChordEngine
+from backend_dinput import DInputBackend
+from backend_xinput import XInputBackend
 
 import pystray
 from PIL import Image, ImageDraw
@@ -26,6 +29,7 @@ import ctypes
 import argparse
 import subprocess
 from logger_setup import setup_logger
+from single_instance import ensure_single_instance
 
 is_debug_mode = False
 logger = None
@@ -55,17 +59,23 @@ gui_processes = []
 
 
 def open_config(icon, item):
+    if logger:
+        logger.debug(f"[ENTER] open_config called with args: icon={icon}, item={item}")
     try:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         gui_path = os.path.join(script_dir, 'gui.py')
-        cmd = [sys.executable, gui_path]
+        cmd = [sys.executable, gui_path, '--append-log']
         if is_debug_mode:
-            cmd.extend(['--log', '--append-log'])
+            cmd.append('--debug')
+        if logger:
+            logger.debug(f"  [DEBUG] Launching GUI with cmd: {cmd}")
         p = subprocess.Popen(cmd)
         gui_processes.append(p)
+        if logger:
+            logger.debug(f"[EXIT] open_config completed successfully. PID: {p.pid}")
     except Exception as e:
         if logger:
-            logger.error(f"Failed to open GUI: {e}")
+            logger.error(f"Failed to open GUI: {e}", exc_info=True)
         else:
             print(f"Failed to open GUI: {e}")
 
@@ -76,7 +86,7 @@ def show_console_action(icon, item):
 
 def write_status(state, device_name="None"):
     try:
-        with open('status.json', 'w') as f:
+        with open('status.json', 'w', encoding='utf-8') as f:
             json.dump({"status": state, "device": device_name}, f)
     except Exception as e:
         if logger:
@@ -105,7 +115,7 @@ def create_image():
 def load_config(filename='config.ini'):
     config = configparser.ConfigParser()
     if os.path.exists(filename):
-        config.read(filename)
+        config.read(filename, encoding='utf-8')
     return config
 
 
@@ -117,9 +127,11 @@ def main():
     """
     global is_debug_mode, logger
 
+    ensure_single_instance('main', 48124)
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--log',
+        '--debug', '-d',
         action='store_true',
         help='Enable verbose debugging logs')
     parser.add_argument(
@@ -128,7 +140,7 @@ def main():
         help='Indicate wrapper was called by system initialization (prevents GUI auto-open)')
     args = parser.parse_args()
 
-    is_debug_mode = args.log
+    is_debug_mode = args.debug
     logger = setup_logger('main', 'wrapper.log', is_debug_mode)
 
     hide_console()
@@ -176,7 +188,7 @@ def main():
                 config.add_section('community')
             config.set('community', 'db_last_updated', str(time.time()))
             config.set('community', 'db_update_interval_days', str(DB_UPDATE_INTERVAL_DAYS))
-            with open(config_file, 'w') as f:
+            with open(config_file, 'w', encoding='utf-8') as f:
                 config.write(f)
             logger.info("Community database updated successfully.")
         except Exception as fe:
@@ -195,7 +207,7 @@ def main():
             selected_pid = pid
             hid_map_path = potential_hid_map
             try:
-                with open(hid_map_path, 'r') as f:
+                with open(hid_map_path, 'r', encoding='utf-8') as f:
                     map_data = json.load(f)
                     device_name = map_data.get('name', "Unknown Device")
             except:
@@ -235,12 +247,18 @@ def main():
             break
 
     if not hid_map_path:
-        logger.warning("No connected devices with a saved HID map found.")
-        logger.info(
-            "Please run calibration.py to generate a HID map for your controller.")
-        show_console()
-        time.sleep(5)
-        sys.exit(1)
+        # Check if XInput backend can initialize an XInput device directly
+        test_xinput = XInputBackend()
+        if test_xinput.initialize():
+            logger.info(f"XInput controller detected on slot {test_xinput.connected_slot} (no DInput HID map required).")
+            device_name = "XInput Gamepad"
+            hid_map_path = "profiles/default_xinput.json"
+        else:
+            logger.warning("No connected devices with a saved HID map or XInput slot found.")
+            logger.info("Please run calibration.py to generate a HID map for your controller.")
+            show_console()
+            time.sleep(5)
+            sys.exit(1)
 
     logger.info(f"Found matching HID map: {hid_map_path} ({device_name})")
 
@@ -256,29 +274,13 @@ def main():
     config.set('controller', 'last_device', device_name)
     # 'last_profile' key retained for backwards compatibility; now stores the HID map path
     config.set('controller', 'last_profile', hid_map_path)
-    with open(config_file, 'w') as f:
+    with open(config_file, 'w', encoding='utf-8') as f:
         config.write(f)
 
-    try:
-        mapper = Mapper(controller_config)
-        virtual_pad = VirtualPad(controller_config)
-        
-        # Initialize Macro Executor and inject it into mapper
-        from macro_executor import MacroExecutor
-        macro_executor = MacroExecutor(mapper)
-        mapper.macro_executor = macro_executor
-        
-    except Exception as e:
-        logger.error(f"Failed to initialize mapper or virtual pad: {e}")
-        logger.info("Please ensure ViGEmBus is installed.")
-        show_console()
-        time.sleep(5)
-        sys.exit(1)
-    
     # Load HID map to check for interface restriction
     req_ifaces = []
     try:
-        with open(hid_map_path, 'r') as f:
+        with open(hid_map_path, 'r', encoding='utf-8') as f:
             profile_data = json.load(f)
             if "interfaces" in profile_data:
                 req_ifaces = profile_data["interfaces"]
@@ -287,54 +289,62 @@ def main():
                 if req_iface != -1:
                     req_ifaces.append(req_iface)
     except Exception as e:
-        logger.error(f"Failed to parse profile to check interface: {e}")
+        logger.error(f"Failed to parse profile to check interface: {e}", exc_info=True)
 
-    readers = []
-    connected_names = []
+    # Determine Backend Mode
+    backend_mode = controller_config.data.get('backend', {}).get('mode', 'auto')
     
-    for d in devices:
-        if d.get('vendor_id', 0) == selected_vid and d.get('product_id', 0) == selected_pid:
-            iface_num = d.get('interface_number', -1)
-            if req_ifaces and iface_num not in req_ifaces:
-                continue
-            reader = HIDReader(device_path=d['path'], interface_number=iface_num)
-            if reader.connect():
-                readers.append(reader)
-                connected_names.append(d.get('product_string', 'Unknown'))
-                
-    if not readers:
-        write_status("Disconnected")
+    backend = None
+    if backend_mode in ('xinput', 'auto'):
+        backend = XInputBackend()
+        if not backend.initialize():
+            if backend_mode == 'xinput':
+                logger.error("XInput backend selected but no XInput device found.")
+                write_status("Disconnected")
+                show_console()
+                time.sleep(5)
+                sys.exit(1)
+            else:
+                logger.info("Auto mode: No XInput device found, falling back to DInput.")
+                backend = None
+        else:
+            logger.info("Using XInput Backend.")
+
+    if not backend:
+        backend = DInputBackend(hid_map_path, selected_vid, selected_pid, req_ifaces)
+        if not backend.initialize():
+            logger.error("Failed to initialize DInput backend.")
+            write_status("Disconnected")
+            show_console()
+            time.sleep(5)
+            sys.exit(1)
+        logger.info("Using DInput Backend.")
+        
+    try:
+        mapper = Mapper(controller_config)
+        virtual_pad = VirtualPad(controller_config)
+        
+        # Initialize Macro Executor and inject it into mapper
+        from macro_executor import MacroExecutor
+        macro_executor = MacroExecutor(mapper)
+        mapper.macro_executor = macro_executor
+        mapper.virtual_pad = virtual_pad
+        
+        # Initialize Hardware Chord Engine
+        hardware_chord_engine = HardwareChordEngine(controller_config)
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize mapper or virtual pad: {e}", exc_info=True)
+        logger.info("Please ensure ViGEmBus is installed.")
         show_console()
         time.sleep(5)
         sys.exit(1)
 
-    write_status("Connected", connected_names[0] if connected_names else "Unknown")
 
-    decoder = Decoder(hid_map_path)
+    write_status("Connected", device_name)
 
     def rumble_callback(left_motor, right_motor):
-        if not hasattr(decoder, "profile") or "rumble" not in decoder.profile:
-            return
-            
-        rumble_cfg = decoder.profile["rumble"]
-        template = list(rumble_cfg.get("template", []))
-        if not template:
-            return
-            
-        lm_byte = rumble_cfg.get("left_motor_byte", -1)
-        rm_byte = rumble_cfg.get("right_motor_byte", -1)
-        
-        # Scale 0.0-1.0 to 0-255
-        lm_val = int(left_motor * 255)
-        rm_val = int(right_motor * 255)
-        
-        if lm_byte >= 0 and lm_byte < len(template):
-            template[lm_byte] = lm_val
-        if rm_byte >= 0 and rm_byte < len(template):
-            template[rm_byte] = rm_val
-            
-        for r in readers:
-            r.send_output_report(template)
+        backend.set_vibration(left_motor / 255.0, right_motor / 255.0)
 
     virtual_pad.set_rumble_callback(rumble_callback)
 
@@ -342,60 +352,26 @@ def main():
 
     from utilities_backend import monitor
 
-    from state_record_play import StateRecorder, StatePlayer
-    recorder = StateRecorder("recording.json")
-    player = StatePlayer("recording.json")
-    
-    last_cmd_check = 0.0
-
-    def data_handler(report: RawHIDReport):
+    def data_handler(state: ControllerState):
         start_t = monitor.record_poll()
-        nonlocal last_log_time, last_cmd_check
+        nonlocal last_log_time
         current_time = time.time()
-        
-        if current_time - last_cmd_check > 0.1:
-            last_cmd_check = current_time
-            if os.path.exists("record_cmd.txt"):
-                try:
-                    with open("record_cmd.txt", "r") as f:
-                        cmd = f.read().strip()
-                    os.remove("record_cmd.txt")
-                    if cmd == "record_start":
-                        recorder.start()
-                    elif cmd == "record_stop":
-                        recorder.stop()
-                    elif cmd == "play_start":
-                        player.start()
-                    elif cmd == "play_stop":
-                        player.stop()
-                except: pass
-
-        if player.is_playing:
-            playback_state_dict = player.get_current_state()
-            if playback_state_dict:
-                state = ControllerState(**playback_state_dict)
-            else:
-                state = decoder.decode(report)
-        else:
-            state = decoder.decode(report)
-
-        if recorder.is_recording:
-            recorder.record_event(state.__dict__)
 
         if is_debug_mode and (current_time - last_log_time) >= 0.5:
-            logger.debug(f"RAW [{report.report_id:02X}]: {' | '.join(f'{x:02X}' for x in report.payload)}")
-            logger.debug(f"DECODED STATE: {state}")
+            logger.debug(f"[DATA HANDLER] Throttle boundary reached. DECODED STATE: {state}")
             last_log_time = current_time
 
+        # Pipeline: Hardware Chords -> Mapper -> VirtualPad
+        hardware_chord_engine.record_poll_interval()
+        state = hardware_chord_engine.process(state)
         mapper.process(state)
         virtual_pad.process(state)
         
         monitor.record_process(start_t)
         monitor.broadcast_state(state)
 
-    for r in readers:
-        r.set_callback(data_handler)
-        threading.Thread(target=r.start, daemon=True).start()
+    backend.set_callback(data_handler)
+    threading.Thread(target=backend.poll, daemon=True).start()
 
     logger.info("Running daemon in background...")
     # Background config poller
@@ -413,17 +389,15 @@ def main():
                         last_mtime = current_mtime
                         controller_config.load()
                         mapper.reload_config(controller_config)
+                        hardware_chord_engine.reload_config(controller_config)
                         virtual_pad.reload_config(controller_config)
                         macro_executor.load_macros()
                         logger.info("Controller config reloaded live!")
             except Exception as e:
-                logger.error(f"Error reloading config: {e}")
+                logger.error(f"Error reloading config: {e}", exc_info=True)
 
     t_poller = threading.Thread(target=config_poller, daemon=True)
     t_poller.start()
-
-    t_reader = threading.Thread(target=reader.start, daemon=True)
-    t_reader.start()
 
     logger.info("App is running in the system tray.")
 
@@ -439,14 +413,14 @@ def main():
         pystray.MenuItem('Show Console', show_console_action),
         pystray.MenuItem('Quit', quit_app)
     )
-    icon = pystray.Icon("dinput_wrapper", image, "UR-XD Wrapper", menu)
+    icon = pystray.Icon("ur-xd", image, "UR-XD Wrapper", menu)
 
     try:
         icon.run()
     except KeyboardInterrupt:
         pass
     finally:
-        reader.stop()
+        backend.shutdown()
         write_status("Disconnected")
         for p in gui_processes:
             try:

@@ -1,4 +1,4 @@
-# Universal Remapper & XInput from DInput Wrapper & Fixer
+# Universal Remapper, XInput/DInput Wrapper, ***and*** Fixer
 
 <p align="center">
   <img width="800" height="436" alt="test tool showcase" src="https://github.com/user-attachments/assets/a74b972a-b1af-4ca4-8a08-198873898827"/><br>
@@ -7,11 +7,13 @@
 
 
 
-Basically tries to fix DInput gamepads broken by bad descriptors.
+Fixes Windows controllers whose HID descriptors lie just enough to ruin your day.
 
-A lightweight utility that fixes incorrect DirectInput (DInput) ***specific*** behaviors—like broken analog triggers—on various Windows controllers (e.g., 8BitDo Ultimate 2C, Machenike G5 Pro) and adds support for custom back paddles, converting them into standard XInput controllers with fully customizable mouse/keyboard mapping.
+A lightweight utility that fixes incorrect DirectInput (DInput) ***specific*** behaviors—like broken analog triggers—on various Windows controllers (e.g., 8BitDo Ultimate 2C, Machenike G5 Pro) and adds support for custom extra buttons (such as back paddles), converting them into standard XInput controllers with fully customizable mouse/keyboard mapping.
 
 Some controllers expose perfectly valid input data but advertise incorrect HID descriptors, causing Windows and games to interpret inputs incorrectly. UR-XD bypasses the incomplete/wrong descriptor data, correctly parses the analog triggers and extra buttons, and exposes the fixed gamepad as a Virtual Xbox 360 controller using `vgamepad` (ViGEmBus). It even lets you remap the extra buttons!
+
+TL;DR: If your controller has digital triggers instead of analog, missing back buttons, or behaves differently in DInput than it should, UR-XD fixes those issues without requiring firmware modifications.
 
 For a detailed list of recent updates, architectural changes, and bug fixes, see the [CHANGELOG.md](CHANGELOG.md).
 
@@ -30,19 +32,19 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
 - **Customizable Tuning:** Adjust stick and trigger deadzones, response curves, and sensitivity dynamically via the Tuning tab to fine-tune your gameplay.
    - **Circularity Calibrator:** Calibrate circularity of analog sticks for a perfect circular output.
 - **Visual GUI Configuration:** A simple, dark-mode visual interface to easily map buttons without manual file editing.
-- **Universal Profiling:** Generate custom controller layout profiles (`profiles/`) for any generic HID controller using the interactive calibration tool.
-   - **Automatically downloads the community profile database on first run!**
+- **Universal Profiling:** Generate custom controller HID maps (`profiles/`) for any generic HID controller using the interactive calibration tool.
+   - **Automatically downloads the community HID map database on first run!**
 - **Background System Tray Operation:** Quietly sits in your system tray and hides the command prompt window.
 - **Full Button Remapping & Block:** Map *any* controller button (standard or extra paddle) to *any combination of* keyboard or mouse outputs; standard buttons are blocked from XInput when remapped to prevent double inputs
    - Cannot remap some hardware specific buttons, like Turbo.
    - Default config sets L4-R4 as Mouse4-Mouse 5, respectively. Home/Guide is set as ALT+UP
 - **Shift Layer Remapping:** Configure alternate mapping profiles toggled dynamically by a customizable modifier key.
-- **Chords & Macros Studio:** Record keyboard, mouse, and trigger macros directly in the GUI with support for press/hold states and stuck-key prevention.
+- **Macros Studio:** Record keyboard, mouse, and trigger macros directly in the GUI with support for press/hold states and stuck-key prevention.
 - **Automated Diagnostic Suite:** Built-in 6-step diagnostic tests and reporting wizard (`generate_issue_report.bat`) to inspect environments, raw byte packages, exclusive locks, and topology.
 - **Composite HID Interface Merging:** Concurrently monitors and merges inputs from controllers that split telemetry onto separate HID endpoints (such as the Machenike G5 Pro).
 - **Smart Reconnection:** Recover connection automatically if your physical controller gets disconnected, actively scanning for 20 seconds before closing safely.
 - **Live Reloading:** Your mapping changes are applied instantly in the background without needing to restart the app.
-- **And Much More!** Check out the full list of features in the [Features List](featurelist.md).
+- **And Much More!** Check out the full list of features in the [Features List](FEATURELIST.md).
 
 ## Requirements
 - Python 3
@@ -54,7 +56,7 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
 ### Step 1: Install Requirements
 1. Install [Python 3.13](https://www.python.org/downloads/release/python-31314/) or higher.
 2. Install the [ViGEmBus](https://github.com/nefarius/ViGEmBus) driver.
-3. Install Python dependencies (run on PowerShell or CMD):
+3. Install Python dependencies (run on PowerShell or CMD, or via option 5 in `tools_and_diagnostics.bat`):
    ```powershell
    pip install -r requirements.txt
    ```
@@ -68,10 +70,9 @@ If your controller doesn't have a profile generated yet:
    - **Stage 2 (Manual Selection):** If no activity is auto-detected (or if you press **ENTER** immediately without pressing any buttons to force manual mode), you will be prompted to manually enter the index/indices (e.g., `0,1`) of the interface(s) you wish to use from the displayed list of endpoints.
 4. Select your preferred button layout (Xbox, PlayStation, or Nintendo) and indicate whether your device streams continuous gyroscope telemetry.
 5. Follow the step-by-step CLI prompts (e.g., press A, push Left Stick Up, etc.) to baseline and map your device. You can skip buttons by pressing `s` or undo the previous step by pressing `u` on your keyboard.
-6. When prompted, enter the number of extra buttons (e.g., paddles like L4/R4) your controller has and calibrate them.
-7. Once finished, a custom JSON profile will be automatically saved in the `profiles/` directory.
+6. Once finished, a custom JSON HID map will be automatically saved in the `profiles/` directory.
 
-> *For advanced configurations or troubleshooting multi-interface controllers, see the [Manual Calibration Guide](power-users-come-here/MANUAL_CALIBRATION_GUIDE.md).*
+> *For advanced configurations or troubleshooting multi-interface controllers, see the [Manual Calibration Guide](technical-stuff/MANUAL_CALIBRATION_GUIDE.md).*
 
 ### Step 3: Run the Background Daemon
 To start intercepting inputs in the background:
@@ -117,6 +118,11 @@ r4 = keyboard:f13
 - **Changes in GUI Aren't Applying:** Ensure that **`run_wrapper.bat`** (the background daemon) is actively running in your system tray. The GUI only modifies the settings; the daemon actually applies them.
 - **Double Inputs in Games:** If you remap a standard button (like 'A'), the app blocks the original 'A' press from reaching the game to prevent double inputs. If you are still seeing double inputs, verify the background daemon is running and Steam Input is not interfering.
 - **Calibration Tool Fails Due to Two Axes Moving:** Some controllers report movement on two separate axes simultaneously when squeezing a single trigger (due to hardware quirks). The calibration tool expects isolated movement. If this happens to you, the tool may misidentify the trigger axis. You may need to manually edit the resulting `profiles/` JSON file or use a different controller.
+- **Dashboard Buttons Misaligned or Overlapping:** You can interactively align, position, and grid-snap buttons for your gamepad layout using the Interactive Layout Builder tool:
+   1. Run `python technical-stuff/interactive_layout_builder.py` in PowerShell or Command Prompt.
+   2. Switch between **Xbox** and **PlayStation** layout templates.
+   3. Adjust the **Grid Slider** (5px to 20px) to display background grid lines and enable automatic snap-to-grid alignment.
+   4. Drag buttons to their desired positions and click **Save Layout** to automatically update `resources/button_layout.json`.
 - **Tool doesn't work:**
    - Check whether you're actually using the Virtual Gamepad exposed by this tool, not your physical controller. The Virtual Gamepad will appear in Windows Device Settings as "Virtual Gamepad" or "Xbox 360 Controller".
    - Check if you correctly installed the required dependencies with `pip install -r requirements.txt`.
@@ -145,6 +151,7 @@ No, the clanker did not do the fun part (the actual reverse engineering behind t
 No, I don't feel bad about it.
 
 ### NOTES:
+- **No Force Feedback / Rumble in DirectInput (DInput) Mode:** Force feedback (rumble) is **not supported** in DirectInput mode and likely never will be. Extensive reverse-engineering revealed that controller microcontrollers firmware-gate output reports outside of XInput mode, ignoring haptic motor execution routines entirely. Due to this firmware-level restriction and the extreme proprietary variation across vendors, rumble is strictly supported when operating via the **XInput backend**. For details on the technical reverse-engineering campaign, see the [Rumble Investigation Timeline](technical-stuff/RUMBLE_TIMELINE.md).
 - No, this tool does not disable the hardware L4/R4 remapping. I have no idea how to disable that. 
    - It does let you completely disable or remap the home button to something else though, so there's that!
 - It also does not let you remap special controller buttons like "turbo", a profile/mode switch, pairing button, the one you'd use to remap extra buttons, etc.

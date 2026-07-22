@@ -10,7 +10,8 @@ def validate_hid_map(hid_map_path: str) -> str:
         with open(hid_map_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
     except Exception as e:
-        return f"Error: Invalid JSON.\\n{e}"
+        return f"Error: Invalid JSON.\n{e}"
+
         
     output = []
     output.append(f"Validating HID map: {data.get('name', 'Unknown')} ({hid_map_path})")

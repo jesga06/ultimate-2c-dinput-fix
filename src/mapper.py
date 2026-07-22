@@ -54,6 +54,8 @@ class Mapper:
         self.reload_config(config)
 
     def reload_config(self, config):
+        if logger:
+            logger.debug(f"[ENTER] reload_config() - active_layer={self.active_layer}")
         self.mappings = {'layer_base': {}, 'layer_shift': {}}
         self.chords = []
         
@@ -108,8 +110,24 @@ class Mapper:
             self.macro_executor.execute_or_toggle(macro_name)
 
     def _press(self, mapping):
+        if not mapping:
+            return
+
         if mapping.startswith('macro:'):
             self._execute_macro(mapping.split(':', 1)[1])
+            return
+        elif self.macro_executor and mapping in self.macro_executor.macros:
+            self._execute_macro(mapping)
+            return
+
+        if mapping.startswith('gamepad:'):
+            btn_name = mapping.split(':', 1)[1]
+            if hasattr(self, 'virtual_pad') and self.virtual_pad:
+                self.virtual_pad.press_gamepad_button(btn_name)
+            return
+        elif mapping in ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']:
+            if hasattr(self, 'virtual_pad') and self.virtual_pad:
+                self.virtual_pad.press_gamepad_button(mapping)
             return
 
         if mapping == 'mouse4':
@@ -137,11 +155,37 @@ class Mapper:
                     else:
                         self.keyboard.press(KeyCode.from_char(key_name))
                 except Exception as e:
-                    print(f"Failed to press key {key_name}: {e}")
-                    logger.error(f"Failed to press key {key_name}: {e}")
+                    logger.error(f"Failed to press key {key_name}: {e}", exc_info=True)
+        else:
+            # Fallback for plain key strings without explicit keyboard: prefix
+            keys = mapping.split('+')
+            for key_name in keys:
+                key_name = key_name.strip()
+                try:
+                    if hasattr(Key, key_name):
+                        self.keyboard.press(getattr(Key, key_name))
+                    else:
+                        self.keyboard.press(KeyCode.from_char(key_name))
+                except Exception as e:
+                    logger.error(f"Failed to press key {key_name}: {e}", exc_info=True)
 
     def _release(self, mapping):
+        if not mapping:
+            return
+
         if mapping.startswith('macro:'):
+            return
+        elif self.macro_executor and mapping in self.macro_executor.macros:
+            return
+
+        if mapping.startswith('gamepad:'):
+            btn_name = mapping.split(':', 1)[1]
+            if hasattr(self, 'virtual_pad') and self.virtual_pad:
+                self.virtual_pad.release_gamepad_button(btn_name)
+            return
+        elif mapping in ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']:
+            if hasattr(self, 'virtual_pad') and self.virtual_pad:
+                self.virtual_pad.release_gamepad_button(mapping)
             return
 
         if mapping == 'mouse4':
@@ -164,8 +208,20 @@ class Mapper:
                         self.keyboard.release(getattr(Key, key_name))
                     else:
                         self.keyboard.release(KeyCode.from_char(key_name))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Failed to release key {key_name}: {e}", exc_info=True)
+        else:
+            # Fallback for plain key strings without explicit keyboard: prefix
+            keys = mapping.split('+')
+            for key_name in reversed(keys):
+                key_name = key_name.strip()
+                try:
+                    if hasattr(Key, key_name):
+                        self.keyboard.release(getattr(Key, key_name))
+                    else:
+                        self.keyboard.release(KeyCode.from_char(key_name))
+                except Exception as e:
+                    logger.error(f"Failed to release key {key_name}: {e}", exc_info=True)
 
     def _process_wasd(self, x, y, threshold=0.5):
         now = time.time()
@@ -197,7 +253,20 @@ class Mapper:
             all_buttons[btn_name] = getattr(state, btn_name)
         all_buttons['lt'] = state.lt > 0
         all_buttons['rt'] = state.rt > 0
-        all_buttons.update(state.extra_inputs)
+        
+        # Pre-populate all known extra buttons from mappings and prev_state to False
+        extra_keys = set(self.mappings['layer_base'].keys()) | set(self.mappings['layer_shift'].keys()) | set(self.prev_state.keys())
+        for k in extra_keys:
+            if k not in all_buttons:
+                all_buttons[k] = False
+                
+        # Now update with active extra_inputs (matching lowercase keys)
+        for eb_name, eb_val in state.extra_inputs.items():
+            eb_lower = eb_name.lower()
+            if isinstance(eb_val, (float, int)):
+                all_buttons[eb_lower] = eb_val > 0.1
+            else:
+                all_buttons[eb_lower] = bool(eb_val)
 
         # Handle Shift Transition
         if self.shift_button:
@@ -205,11 +274,14 @@ class Mapper:
             shift_btn_prev = self.prev_state.get(self.shift_button, False)
             
             if shift_is_down != shift_btn_prev:
+                old_layer = self.active_layer
                 if self.shift_mode == 'toggle':
                     if shift_is_down:
                         self.active_layer = 'layer_shift' if self.active_layer == 'layer_base' else 'layer_base'
                 else: # hold
                     self.active_layer = 'layer_shift' if shift_is_down else 'layer_base'
+                if old_layer != self.active_layer and logger:
+                    logger.debug(f"[MAPPER] Shift layer changed: {old_layer} -> {self.active_layer} (button={self.shift_button}, mode={self.shift_mode})")
 
         now = time.time()
         
@@ -327,6 +399,7 @@ class Mapper:
         try:
             interval = float(parts[4]) if len(parts) > 4 else 0.05
         except ValueError:
+            logger.error(f"Invalid special action format: {mapping}", exc_info=True)
             interval = 0.05
 
         return {

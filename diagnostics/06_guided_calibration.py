@@ -1,6 +1,20 @@
 import sys
 import os
 import time
+import argparse
+import traceback
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--debug', '-d', action='store_true')
+args, _ = parser.parse_known_args()
+IS_DEBUG = args.debug
+
+if IS_DEBUG:
+    def debug_excepthook(exc_type, exc_value, exc_traceback):
+        print("[DEBUG TRACE]")
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
+    sys.excepthook = debug_excepthook
+
 import datetime
 import threading
 import hid
@@ -106,7 +120,12 @@ def main():
         vid = dev.get('vendor_id', 0)
         pid = dev.get('product_id', 0)
         iface = dev.get('interface_number', -1)
-        print(f"  [{idx:2d}] VID:{vid:04X} PID:{pid:04X} - {prod} ({mfg}) [Iface {iface}]")
+        
+        rec_str = ""
+        if "controller" in str(prod).lower() or "microsoft" in str(prod).lower() or "microsoft" in str(mfg).lower():
+            rec_str = " (Recommended for XInput)"
+            
+        print(f"  [{idx:2d}] VID:{vid:04X} PID:{pid:04X} - {prod} ({mfg}) [Iface {iface}]{rec_str}")
 
     print("\n[ACTION REQUIRED] Type the number of the controller you want to test and press ENTER.")
     selected_device = None

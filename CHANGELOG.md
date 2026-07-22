@@ -1,10 +1,9 @@
 ## [Planned Features (Sorted by what I want to do next)]
-- **Complete Vibration Implementation:** Finalize the incomplete rumble code.
-- **Vibration Diagnostic Test:** Diagnostic tool `07_vibration_test.py` to test and identify rumble payloads.
 - **HidHide Integration (Double Input Fix)**: Automated integration with Nefarius HidHide to completely hide physical gamepads from other applications. Includes automatic executable whitelisting and dynamic cloaking that cleanly reverts its changes when the wrapper daemon closes.
 - **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and gamepad HID reverse engineering tools.
+- **Profiles Tab Redesign (Validation & Diff):** Redesign and re-implement profile validation and side-by-side HID map diffing in a dedicated GUI view.
 - **Analog-to-Mouse & WASD Mapping:** Support for high-frequency translation of stick deflection to mouse deltas or WASD keystrokes.
-- **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
+- **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature that allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
 - **Windows Startup Integration:** Registry integration to launch the wrapper daemon silently on boot.
 - **Gyroscope Support:** Native support for capturing and translating gyroscope/motion telemetry (will take a while because I don't have a controller with gyro support).
 - **DS4 Emulation:** Support for instantiating `vg.VDS4Gamepad()` for native PlayStation in-game prompts.
@@ -109,7 +108,7 @@ This is a major architectural release (v2.0.0) that breaks backward compatibilit
 - **Fluid Float-based Tester Grid:** Reconfigured the ANSI visual test grid to correctly render the float-based joystick/trigger positions in real time.
 - **Remapping Tab Upgrades:** Added dedicated "Shift Mapping" and "Shift Block" configurations natively next to every base button. Adjusted spacing for readability and added master `[?]` tooltips explaining the quadrants.
 - **Analog Tuning Visuals:** Unclamped the visual joystick bounds, implementing a zoomed-out canvas overlay with a structural 1.0 unit circle. Added live decimal X and Y labels underneath the crosshair to display exact physical inputs.
-- **Chords & Macros Studio:** The Advanced Tab now features a dedicated Macro Studio to record Gamepad trigger inputs and Keyboard/Mouse output sequences directly within the UI, including "Press" (Toggle) and "Hold" modes with stuck key prevention.
+- **Macros Studio:** The Advanced Tab now features a dedicated Macro Studio to record Gamepad trigger inputs and Keyboard/Mouse output sequences directly within the UI, including "Press" (Toggle) and "Hold" modes with stuck key prevention.
 - **Shift Trigger Collision Safeguard:** Automatically warns, clears the base mapping, and blocks XInput if a user selects a Shift Layer trigger that is already mapped elsewhere.
 - **Smooth Tab Transitions & Loading Overlay:** Introduced a polished, animated loading screen overlay when switching between tabs. Features color interpolation fades for backgrounds, text, and a custom Tkinter Canvas-drawn rotating spinner.
 - **Randomized Loading Screen Quotes:** Shows a random and hopefully funny quote on every tab change. Acts like a small visual distraction while the GUI loads.
@@ -213,25 +212,31 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Synchronized HID Map Method Names:** Updated `gui.py`'s Profiles tab utility references to point to `validate_hid_map` and `diff_hid_maps` instead of their deprecated method names.
 - **Commit Commenting:** I actually do commented atomic commits now. Even the commit that adds this line was commented. Learned to do so the hard way.
 
-## [2.2.0] - Unreleased
+## [2.2.0] - 2026-07-22
 ### 🎮 User-Facing Changes
-- **Circularity Calibration & Wizard Enhancements:**
-  - Added a toggleable 45º diagonal reference line on response graphs.
-  - Added a dashed circular bounds guide on crosshair displays mapping the 1.0 boundary in current theme colors (dark/light appearance matched).
-  - Added an information overlay modal explaining circularity math and "Before" vs "After" processing configurations.
-  - Guided wizard now actively tracks clockwise/counter-clockwise spins, requiring 3 full rotations in both directions before unlocking completion.
-  - Integrated real-time velocity checking that flashes a warning ("Too Fast! Slow down.") if rotation speed is too high.
-  - Refactored wizard completion to offer explicit "Apply Changes" and "Discard" options.
-- **Warped Stick Correction:** Added a "Warp Threshold" slider (0-20%) that dynamically stretches weak thumbstick axes to reach 1.0 maximum deflection without hard-clipping.
-- **Proportional Gamepad Test Dashboard:** Added a responsive, auto-scaling gamepad layout dashboard mapping physical and extra buttons based on configured layout resources (Xbox, PlayStation, etc.).
-- **Interactive Recorder Save Targets:** Added explicit "Save Standard" and "Save Shift Map" buttons inside the mapping recorder to assign inputs to standard or shift layers.
-- **Dynamic Color Legends:** tooltips now query the active interface theme (Purple, Red, Blue, etc.) to reference raw/processed indicators dynamically.
-- **Digital Trigger response Graph:** The Tuning tab now displays trigger curves in digital mode as a clean step-function based on deadzone thresholds.
-- **Tuning Graphs & Sensitivity Real-time Updates:** Bind sensitivity sliders to dynamically redraw stick and trigger graphs.
-- **Retroactive Button Name Normalization:** Standardize all button names to uppercase client-side and retroactively across configuration settings.
-- **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
+- **XInput First Dual-Backend Architecture:** Hot-swappable dual-backend engine (`backend_xinput.py`, `backend_dinput.py`) exposing native hardware vibration/rumble and slot management when in XInput mode, alongside an Auto-Detect setup wizard.
+- **Hardware Chords & Macros Engine:** Comprehensive Macros & Hardware Chords system in the Advanced tab. Supports mapping firmware-level chords (e.g. `LB + Start`) with input suppression, name-based macro referencing (`macro:MyMacro`), standalone macro triggers, and combined KBM/gamepad macro outputs. This allows users to synthesize virtual extra buttons for the remapping functionality.
+- **Circularity Calibration & Tuning Enhancements:** Guided circularity calibration with rotation/velocity tracking, 1.0 circular bounds overlay, real-time response curve previewing, digital trigger step-function graphs, and warped thumbstick axis correction sliders.
+- **Proportional Gamepad Test Dashboard & Layout Builder:** Responsive dashboard mapping controller layout resources, plus a standalone drag-and-drop Layout Builder tool (`technical-stuff/interactive_layout_builder.py`) with configurable grid snapping.
+- **Consolidated Batch Launchers & Tools Menu:** Centralized `tools_and_diagnostics.bat` grouping debug launchers, dependency repair, live visualizers, layout builder, and 6 diagnostic routines into a single interactive menu.
+- **Vertically Scrollable GUI Tabs & Global Dark Mode:** Wrapped all GUI tabs in vertical scroll containers for accessibility at any window resolution, enforced global dark mode, and standardized "Shift Key" terminology.
+- **Force Feedback (Rumble) Reverse-Engineering Timeline:** Documented the exhaustive investigation into DirectInput force feedback in `technical-stuff/RUMBLE_TIMELINE.md`, establishing firmware-level gating as the root cause. Updated `README.md` and `FEATURELIST.md` with explicit DInput rumble limitation notes.
+- **Repository Documentation Organization & Standardization:** Consolidated technical documentation, timelines, proof-of-concept code, and the Interactive Layout Builder into `technical-stuff/`. Standardized document headers, formatting, and writing styles across all technical timelines, and uppercased markdown filenames repository-wide.
+
+### 🗑️ Deprecations & Removals
+- **Profiles Tab Removal:** Removed the dedicated "Profiles" tab from the GUI (and associated HID map export/diffing utility screens). HID Map validation has been relocated directly to the Dashboard tab layout panel.
+- **Input Recording & Playback Removal:** Removed the "Input Recording & Playback" utility frame from the Utilities tab, and decommissioned background state recording/playback routines (`src/state_record_play.py`) from the daemon loop (`src/main.py`). These features were returned to `workspace_ideas/TO-DO-LIST.md` for future architectural redesign.
+- **Light Mode Removal:** Removed the Light Mode appearance toggle and enforced Dark Mode globally across the application, canvas drawing routines, and response graphs to prevent rendering bugs and contrast artifacts.
+- **Redundant Standalone Batch Scripts:** Removed standalone `.bat` launchers (`run_wrapper_debug.bat`, `calibrate_debug.bat`, `test_calibration.bat`, `install_requirements.bat`). All diagnostic suites, debug launchers, live input visualizers, dependency installation, and standalone tools are now centrally accessed via `tools_and_diagnostics.bat`.
+- **Obsolete Calibration Prompts:** Removed the "How many extra buttons?" prompt from `src/calibration.py` during device setup and XInput registration, as physical extra buttons in XInput are now managed exclusively via Hardware Chords.
 
 ### ⚙️ Under-the-Hood Changes
-- **Circularity On-Finish Callbacks:** Programmed an `on_finish` callback flow to refresh GUI plots and configuration states immediately when circularity changes are applied.
-- **Diagonal Response Curve Math:** Refactored graph rendering to mathematically evaluate diagonal deflection vectors across warped stick corrections, circularity boundaries (before/after), deadzones, and sensitivities.
-- **Dynamic Extra Button Parsing:** The GUI now parses `extra_buttons` directly from the active HID map dynamically at launch, properly recognizing all supported extra buttons from downloaded community profiles instead of failing to populate them when they aren't yet mapped in the user's config file.
+- **High-Performance 1000Hz Hot-Loop Math Engine:** Optimized core processing loops with zero-allocation closures, pre-cached math evaluation environments (`_SAFE_MATH_DICT`), sub-degree circularity interpolation, and pre-cached metadata lookups (`_STANDARD_FIELDS`) for high-frequency HID polling.
+- **XInput Resilience & Automatic Reconnection:** Fault-tolerant slot binding, automatic reconnection loops, rest-noise snap filters, and UDP telemetry stream priority preventing thread contention between daemon and GUI.
+- **Single-Instance Process Protection:** Port-locked socket guards preventing duplicate instances of the daemon, GUI, or calibration wizard, preserving running processes and log continuity.
+- **Tuned Output Pipeline Fix:** Enforced strict tuned output routing (stick circularity, response curves, deadzones, and digital triggers) to virtual controllers across all backends.
+- **Comprehensive Diagnostic & Test Suite:** Added unit tests for `HardwareChordEngine`, modernized test suites with dynamic `hid` module mocking for DLL-independent test execution, and expanded verbose debug logging.
+- **Cross-Platform UTF-8 & Batch Script Fixes:** Standardized `encoding='utf-8'` across file persistence, macro execution, layout builder, and configuration operations. Standardized `%PYTHON_CMD%` quote escaping in batch scripts.
+
+
+

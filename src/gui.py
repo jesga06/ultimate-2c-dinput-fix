@@ -15,19 +15,18 @@ import time
 import random
 import tkinter as tk
 from logger_setup import setup_logger
+from single_instance import ensure_single_instance
 from hid_reader import HIDReader, RawHIDReport
-from decoder import Decoder
+from decoder import Decoder, ControllerState
 from circularity_modal import CircularityCalibrationModal
 
 logger = None
 
-# Read global config to set UI theme early
 _global_config = configparser.ConfigParser()
 _global_config.read('config.ini')
-_appearance = _global_config.get('UI', 'appearance', fallback="Dark")
 _theme = _global_config.get('UI', 'theme', fallback="purple")
 
-ctk.set_appearance_mode(_appearance)
+ctk.set_appearance_mode("Dark")
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # Check if theme is in themes directory (new) or root (legacy purple)
 theme_path = os.path.join(script_dir, "themes", f"{_theme}_theme.json")
@@ -430,7 +429,6 @@ class App(ctk.CTk):
         self.tabview.pack(padx=20, pady=20, fill="both", expand=True)
 
         self.tab_dashboard = self.tabview.add("Dashboard")
-        self.tab_profile = self.tabview.add("Profile")
         self.tab_remapping = self.tabview.add("Remapping")
         self.tab_analog = self.tabview.add("Tuning")
         self.tab_advanced = self.tabview.add("Advanced")
@@ -438,7 +436,6 @@ class App(ctk.CTk):
         self.tab_customization = self.tabview.add("Customization")
 
         self.setup_dashboard()
-        self.setup_profile()
         self.setup_remapping()
         self.setup_analog_tuning()
         self.setup_advanced()
@@ -497,8 +494,64 @@ class App(ctk.CTk):
         self.resize_timer = None
 
     def start_hid_polling(self):
+        # 1. UDP Broadcast Receiver Thread (Receives live telemetry from daemon)
+        def udp_listener():
+            import socket
+            import json
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("127.0.0.1", 9999))
+            except Exception as e:
+                if logger:
+                    logger.error(f"GUI UDP listener bind failed: {e}")
+                return
+            
+            sock.settimeout(0.5)
+            while True:
+                try:
+                    msg, _ = sock.recvfrom(4096)
+                    data = json.loads(msg.decode('utf-8'))
+                    cs = ControllerState()
+                    for k, v in data.items():
+                        if k == 'extra_inputs' and isinstance(v, dict):
+                            cs.extra_inputs = v
+                        elif hasattr(cs, k):
+                            setattr(cs, k, v)
+                        else:
+                            cs.extra_inputs[k] = v
+                    self.last_udp_time = time.time()
+                    self.current_state = cs
+                except socket.timeout:
+                    continue
+                except Exception:
+                    pass
+
+        t_udp = threading.Thread(target=udp_listener, daemon=True)
+        t_udp.start()
+
+        # 2. Standalone Polling Fallback (when daemon is NOT running)
         def poll_thread():
-            # Scan for devices using the same logic as main.py
+            backend_mode = self.daemon_config.get('backend', 'mode', fallback='auto')
+            if backend_mode in ('xinput', 'auto'):
+                try:
+                    from backend_xinput import XInputBackend
+                    xb = XInputBackend()
+                    if xb.initialize():
+                        def xinput_handler(state):
+                            if time.time() - getattr(self, 'last_udp_time', 0.0) > 1.0:
+                                self.current_state = state
+                        xb.set_callback(xinput_handler)
+                        xb.start_polling_thread()
+                        self.xinput_backend = xb
+                        if logger:
+                            logger.info("GUI started XInput standalone listener.")
+                        return
+                except Exception as e:
+                    if logger:
+                        logger.warning(f"GUI XInput standalone listener failed: {e}")
+
+            # Scan for devices using DInput HID logic as fallback
             devices = HIDReader.get_all_devices()
             selected_vid = None
             selected_pid = None
@@ -554,7 +607,8 @@ class App(ctk.CTk):
 
             # The UI handler for hid reports
             def handler(report: RawHIDReport):
-                self.current_state = self.decoder.decode(report)
+                if time.time() - getattr(self, 'last_udp_time', 0.0) > 1.0:
+                    self.current_state = self.decoder.decode(report)
 
             # Open all matching interfaces, just like main.py
             self.hid_readers = []
@@ -595,28 +649,37 @@ class App(ctk.CTk):
             self.config.add_section('shift_block_xinput')
 
     def save_config(self):
+        if logger:
+            logger.debug("[ENTER] save_config() - Saving controller config and daemon config.")
         self.config.save()
         with open(self.daemon_config_file, 'w') as f:
             self.daemon_config.write(f)
+        if logger:
+            logger.debug("[EXIT] save_config() completed.")
 
     def setup_dashboard(self):
+        for child in self.tab_dashboard.winfo_children():
+            child.destroy()
+        self.dashboard_scroll = ctk.CTkScrollableFrame(self.tab_dashboard, fg_color="transparent", corner_radius=0)
+        self.dashboard_scroll.pack(fill="both", expand=True)
+
         self.status_label = ctk.CTkLabel(
-            self.tab_dashboard,
+            self.dashboard_scroll,
             text="Status: Unknown",
             font=ctk.CTkFont(
                 size=20,
                 weight="bold"))
-        self.status_label.pack(pady=40)
+        self.status_label.pack(pady=(15, 2))
 
         self.device_label = ctk.CTkLabel(
-            self.tab_dashboard,
+            self.dashboard_scroll,
             text="Device: -",
             font=ctk.CTkFont(
                 size=16))
-        self.device_label.pack(pady=10)
+        self.device_label.pack(pady=2)
 
-        layout_frame = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
-        layout_frame.pack(pady=20)
+        layout_frame = ctk.CTkFrame(self.dashboard_scroll, fg_color="transparent")
+        layout_frame.pack(pady=(2, 5))
 
         self.layout_label = ctk.CTkLabel(
             layout_frame,
@@ -625,6 +688,17 @@ class App(ctk.CTk):
                 size=14,
                 weight="bold"))
         self.layout_label.pack(side="left", padx=10)
+
+        backend_mode = "AUTO"
+        if hasattr(self, 'daemon_config') and self.daemon_config.has_option('settings', 'mode'):
+            backend_mode = self.daemon_config.get('settings', 'mode').upper()
+        self.backend_label = ctk.CTkLabel(
+            layout_frame,
+            text=f"Mode: {backend_mode}",
+            font=ctk.CTkFont(
+                size=14,
+                weight="bold"))
+        self.backend_label.pack(side="left", padx=10)
 
         def on_validate():
             import profile_tools
@@ -646,8 +720,21 @@ class App(ctk.CTk):
         )
         self.validate_btn.pack(side="left", padx=10)
         
-        self.layout_canvas = ctk.CTkFrame(self.tab_dashboard, fg_color="transparent")
-        self.layout_canvas.pack(fill="both", expand=True, padx=20, pady=10)
+        # Bottom widgets packed first so they claim space
+        version_lbl = ctk.CTkLabel(
+            self.dashboard_scroll,
+            text="v2.2.0",
+            text_color="gray50",
+            font=ctk.CTkFont(size=11))
+        version_lbl.pack(side="bottom", pady=(2, 10))
+        self.version_lbl = version_lbl
+        
+        self.extra_frame = ctk.CTkFrame(self.dashboard_scroll, fg_color="transparent")
+        # Do not pack extra_frame by default unless extra buttons exist
+
+        # Expanding widget packed last so it takes the remaining cavity
+        self.layout_canvas = ctk.CTkFrame(self.dashboard_scroll, fg_color="transparent", height=320)
+        self.layout_canvas.pack(fill="both", expand=True, padx=20, pady=5)
         
         # Load layout
         import json, os
@@ -665,13 +752,6 @@ class App(ctk.CTk):
         
         self._build_dashboard_layout()
 
-        version_lbl = ctk.CTkLabel(
-            self.tab_dashboard,
-            text="v2.2.0",
-            text_color="gray50",
-            font=ctk.CTkFont(size=11))
-        version_lbl.pack(side="bottom", pady=(0, 20))
-
     def _build_dashboard_layout(self):
         # Clear existing
         for widget in self.layout_canvas.winfo_children():
@@ -684,31 +764,80 @@ class App(ctk.CTk):
             
         layout_dict = self.button_layout_data.get(layout_name, {})
         
+        accent = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
+        if isinstance(accent, list):
+            accent = accent[1] if ctk.get_appearance_mode() == "Dark" else accent[0]
+            
         for btn, pos in layout_dict.items():
-            b = ctk.CTkButton(self.layout_canvas, text=self.get_btn_display_name(btn).upper(), fg_color="#333333", hover_color="#444444")
-            b.place(relx=pos["x"], rely=pos["y"], anchor="center")
-            self.dashboard_btns[btn] = b
+            btn_text = self.get_btn_display_name(btn).upper()
+            if btn.startswith("dpad_"):
+                btn_text = btn.split("_")[1].upper()
+                
+            if btn in ['lt', 'rt']:
+                b = ctk.CTkCanvas(self.layout_canvas, bg="#333333", highlightthickness=0)
+                b.place(relx=pos["x"], rely=pos["y"], anchor="center")
+                self.dashboard_btns[btn] = {"canvas": b, "text": btn_text}
+            else:
+                b = ctk.CTkButton(self.layout_canvas, text=btn_text, fg_color="#333333", hover_color="#444444")
+                b.place(relx=pos["x"], rely=pos["y"], anchor="center")
+                self.dashboard_btns[btn] = b
             
         # Extra buttons grid below
         standard_buttons = set(layout_dict.keys())
+        self._get_extra_buttons(standard_buttons)
+
+    def get_backend_mode(self):
+        if hasattr(self, 'daemon_config') and self.daemon_config:
+            if self.daemon_config.has_option('settings', 'mode'):
+                return self.daemon_config.get('settings', 'mode').lower()
+            if self.daemon_config.has_option('backend', 'mode'):
+                return self.daemon_config.get('backend', 'mode').lower()
+        if hasattr(self, 'config') and self.config:
+            if self.config.has_option('backend', 'mode'):
+                return self.config.get('backend', 'mode').lower()
+        return 'auto'
+
+    def _get_extra_buttons(self, standard_buttons):
         extra_btns = []
-        for k in self.extra_buttons:
-            if k not in standard_buttons:
-                extra_btns.append(k)
-        
-        # Fallback to mapped ones in config if none found in profile
-        if not extra_btns and self.config.has_section('extra_buttons'):
-            for k in self.config.options('extra_buttons'):
-                if k not in standard_buttons:
+        backend_mode = self.get_backend_mode()
+        is_xinput = backend_mode == 'xinput'
+
+        if is_xinput:
+            # In XInput mode, extra buttons are ONLY the hardware chord action targets
+            if self.config.has_section('hardware_chords'):
+                for k, v in self.config.items('hardware_chords'):
+                    parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
+                    if 'action' in parts:
+                        act = parts['action'].strip().lower()
+                        if act and act not in standard_buttons and act not in extra_btns:
+                            extra_btns.append(act)
+        else:
+            # In DInput mode, read from physical profile extra_buttons and config extra_buttons
+            for k in self.extra_buttons:
+                if k not in standard_buttons and k not in extra_btns:
                     extra_btns.append(k)
-                    
-        self.extra_frame = ctk.CTkFrame(self.layout_canvas, fg_color="transparent")
-        self.extra_frame.place(relx=0.5, rely=0.9, anchor="center")
+            
+            if self.config.has_section('extra_buttons'):
+                for k in self.config.options('extra_buttons'):
+                    if k not in standard_buttons and k not in extra_btns:
+                        extra_btns.append(k)
+
+        for widget in self.extra_frame.winfo_children():
+            widget.destroy()
         
-        for i, eb in enumerate(extra_btns):
-            b = ctk.CTkButton(self.extra_frame, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444")
-            b.grid(row=i//4, column=i%4, padx=5, pady=5)
-            self.dashboard_btns[eb] = b
+        if extra_btns:
+            self.extra_frame.pack(fill="x", side="bottom", pady=5, before=self.version_lbl)
+            
+            # Centered sub-container frame
+            inner_extra_f = ctk.CTkFrame(self.extra_frame, fg_color="transparent")
+            inner_extra_f.pack(anchor="center", pady=2)
+            
+            for i, eb in enumerate(extra_btns):
+                b = ctk.CTkButton(inner_extra_f, text=self.get_btn_display_name(eb).upper(), fg_color="#443333", hover_color="#554444", width=80, height=28)
+                b.grid(row=i//6, column=i%6, padx=4, pady=4)
+                self.dashboard_btns[eb] = b
+        else:
+            self.extra_frame.pack_forget()
 
     def on_dashboard_resize(self, event):
         w = event.width
@@ -717,19 +846,30 @@ class App(ctk.CTk):
             return
             
         # Keep buttons square/proportional and prevent overlap
-        base_size = min(w, h) * 0.12  # 12% of the smallest dimension
-        base_size = max(30, min(base_size, 80)) # clamp between 30 and 80 pixels
+        base_size = min(w, h) * 0.14  # 14% of smallest dimension
+        base_size = max(20, min(base_size, 40)) # clamp between 42 and 90 pixels
         
         font_size = max(8, int(base_size * 0.25))
         fnt = ctk.CTkFont(size=font_size, weight="bold")
         
         for btn_name, btn_widget in self.dashboard_btns.items():
-            if btn_widget.winfo_parent() == str(self.layout_canvas):
-                # Standard buttons are directly in layout_canvas
-                btn_widget.configure(width=int(base_size * 1.5), height=int(base_size), font=fnt)
+            if isinstance(btn_widget, dict) and "canvas" in btn_widget:
+                widget = btn_widget["canvas"]
+                w_trig = int(base_size * 0.8)
+                h_trig = int(base_size * 2.2)
+                widget.configure(width=w_trig, height=h_trig)
+                
+                # Draw initial text so it's visible before the first packet
+                widget.delete("all")
+                btn_text = btn_widget.get("text", "")
+                widget.create_text(w_trig/2, h_trig/2, text=btn_text, fill="white", font=("Helvetica", max(8, int(w_trig * 0.3)), "bold"))
             else:
-                # Extra buttons are in extra_frame
-                btn_widget.configure(width=int(base_size * 1.5), height=int(base_size * 0.8), font=fnt)
+                if btn_widget.winfo_parent() == str(self.layout_canvas):
+                    # Standard buttons are directly in layout_canvas
+                    btn_widget.configure(width=int(base_size * 1.5), height=int(base_size), font=fnt)
+                else:
+                    # Extra buttons
+                    btn_widget.configure(width=int(base_size * 1.2), height=int(base_size * 0.8), font=fnt)
 
     def get_layout_labels(self):
         layout = self.hardware_layout
@@ -820,17 +960,22 @@ class App(ctk.CTk):
             self.trig_menu.configure(values=keys)
 
     def setup_remapping(self):
-        # Configure columns and rows in tab_remapping for expansion
-        self.tab_remapping.grid_columnconfigure(0, weight=1)
-        self.tab_remapping.grid_columnconfigure(1, weight=1)
-        self.tab_remapping.grid_rowconfigure(0, weight=1)
-        self.tab_remapping.grid_rowconfigure(1, weight=1)
+        for child in self.tab_remapping.winfo_children():
+            child.destroy()
+        self.remapping_scroll = ctk.CTkScrollableFrame(self.tab_remapping, fg_color="transparent", corner_radius=0)
+        self.remapping_scroll.pack(fill="both", expand=True)
+
+        # Configure columns and rows in remapping_scroll for expansion
+        self.remapping_scroll.grid_columnconfigure(0, weight=1)
+        self.remapping_scroll.grid_columnconfigure(1, weight=1)
+        self.remapping_scroll.grid_rowconfigure(0, weight=1)
+        self.remapping_scroll.grid_rowconfigure(1, weight=1)
 
         # Create 4 quadrants using normal Frames to avoid resize lag
-        self.frame_face = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
-        self.frame_dpad = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
-        self.frame_sticks = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
-        self.frame_system = ctk.CTkFrame(self.tab_remapping, corner_radius=0)
+        self.frame_face = ctk.CTkFrame(self.remapping_scroll, corner_radius=0)
+        self.frame_dpad = ctk.CTkFrame(self.remapping_scroll, corner_radius=0)
+        self.frame_sticks = ctk.CTkFrame(self.remapping_scroll, corner_radius=0)
+        self.frame_system = ctk.CTkFrame(self.remapping_scroll, corner_radius=0)
 
         # Labels for the frames since CTkFrame doesn't have label_text
         for f, title in [(self.frame_face, "Face Buttons"), (self.frame_dpad, "D-Pad"),
@@ -846,12 +991,12 @@ class App(ctk.CTk):
         self.frame_system.grid(row=1, column=1, padx=10, pady=10, sticky="n")
 
         # Info Guide
-        info_frame = ctk.CTkFrame(self.tab_remapping, fg_color="transparent")
+        info_frame = ctk.CTkFrame(self.remapping_scroll, fg_color="transparent")
         info_frame.grid(row=2, column=0, columnspan=2, pady=(10, 20))
         
-        info_btn = ctk.CTkButton(info_frame, text="?  Remapping Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12))
+        info_btn = ctk.CTkButton(info_frame, text="?  Remapping Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12), command=self.open_remapping_guide_modal)
         info_btn.pack(side="top")
-        ToolTip(info_btn, "Mapping: Use the text box to enter a keyboard key or mouse click.\n⏺: Click to record a key combination interactively.\nBlock: Prevent the original controller button from being sent to the game.\nShift Map/S. Blk: Secondary mapping when the shift trigger is held.")
+        ToolTip(info_btn, "Mapping: Enter a keyboard key (e.g. 'h'), mouse click (e.g. 'mouse:left'), or macro name (e.g. 'macro:MyMacro' or 'MyMacro').\n[Rec]: Click to record key combinations or macros interactively.\nBlock: Prevent the original controller button from being sent to the game.\nShift Map/S. Blk: Secondary mapping & block state when the Shift layer trigger is held.\nClick to view full guide window!")
 
         self.entries = {}
         self.label_widgets = {}
@@ -900,7 +1045,7 @@ class App(ctk.CTk):
 
             self.entries[btn] = entry
 
-            rec_btn = ctk.CTkButton(frame, text="⏺", width=25, corner_radius=0, command=lambda b=btn: self.start_recording(b))
+            rec_btn = ctk.CTkButton(frame, text="[R]", width=28, corner_radius=0, command=lambda b=btn: self.start_recording(b))
             rec_btn.grid(row=row_idx, column=2, padx=7, pady=2)
 
             # Checkbox for Block XInput
@@ -959,15 +1104,28 @@ class App(ctk.CTk):
         existing_extras = set()
         standard_buttons = set(face_buttons + dpad_buttons + stick_buttons + system_buttons)
         
-        for k in self.extra_buttons:
-            if k not in standard_buttons:
-                existing_extras.add(k)
-                
-        # Fallback to currently mapped ones in config
-        if self.config.has_section('extra_buttons'):
-            for k in self.config.options('extra_buttons'):
+        backend_mode = self.get_backend_mode()
+        is_xinput = backend_mode == 'xinput'
+
+        if is_xinput:
+            # In XInput mode, extra buttons are ONLY the hardware chord action targets
+            if self.config.has_section('hardware_chords'):
+                for k, v in self.config.items('hardware_chords'):
+                    parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
+                    if 'action' in parts:
+                        act = parts['action'].strip().lower()
+                        if act and act not in standard_buttons:
+                            existing_extras.add(act)
+        else:
+            # In DInput mode, read from physical profile extra_buttons and config extra_buttons
+            for k in self.extra_buttons:
                 if k not in standard_buttons:
                     existing_extras.add(k)
+                    
+            if self.config.has_section('extra_buttons'):
+                for k in self.config.options('extra_buttons'):
+                    if k not in standard_buttons:
+                        existing_extras.add(k)
 
         existing_extras = sorted(list(existing_extras))
 
@@ -1308,8 +1466,14 @@ class App(ctk.CTk):
             f'digital_{btn}',
             'true' if is_digital else 'false')
         self.save_config()
+        if btn == "lt" and hasattr(self, "lt_dz"):
+            self.update_analog_config("trigger_left", self.lt_dz, self.lt_adz, self.lt_rest_dz, self.lt_curve, self.lt_exp, self.lt_sens, self.lt_custom)
+        elif btn == "rt" and hasattr(self, "rt_dz"):
+            self.update_analog_config("trigger_right", self.rt_dz, self.rt_adz, self.rt_rest_dz, self.rt_curve, self.rt_exp, self.rt_sens, self.rt_custom)
 
     def setup_analog_tuning(self):
+        for child in self.tab_analog.winfo_children():
+            child.destroy()
         self.tuning_scroll = ctk.CTkScrollableFrame(self.tab_analog, fg_color="transparent", corner_radius=0)
         self.tuning_scroll.pack(fill="both", expand=True)
         
@@ -1439,7 +1603,7 @@ class App(ctk.CTk):
             ctk.CTkLabel(custom_eq_frame, text="Custom Eq:", width=70, anchor="w").pack(side="left")
             custom_eq_entry = ctk.CTkEntry(custom_eq_frame, textvariable=custom_eq_var)
             custom_eq_entry.pack(side="left", fill="x", expand=True, padx=5)
-            custom_eq_entry.bind("<KeyRelease>", lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var))
+            custom_eq_entry.bind("<KeyRelease>", lambda _: self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var))
             
             dotted_frame = ctk.CTkFrame(controls_frame, fg_color="transparent")
             ctk.CTkLabel(dotted_frame, text="Number of Dots:", width=100, anchor="w").pack(side="left")
@@ -1455,7 +1619,7 @@ class App(ctk.CTk):
                 except:
                     dots = [[i/(n-1), i/(n-1)] for i in range(n)]
                     custom_eq_var.set(json.dumps(dots))
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
 
             dots_str_var = ctk.StringVar(value="3")
             dots_menu = ctk.CTkOptionMenu(dotted_frame, values=["2", "3", "4", "5", "6", "7", "8"], variable=dots_str_var, command=lambda v: [num_dots_var.set(int(v)), update_dots_list()])
@@ -1469,7 +1633,7 @@ class App(ctk.CTk):
                 elif val == "dotted":
                     dotted_frame.pack(fill="x", pady=5, after=row_f)
                     update_dots_list()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
 
             ctk.CTkLabel(row_f, text="Curve Type:", width=90, anchor="w").pack(side="left")
             curve_menu = ctk.CTkOptionMenu(row_f, values=["linear", "exponential", "aggressive", "custom", "dotted", "cubic", "sigmoid", "bezier"], variable=curve_var, command=on_curve_change)
@@ -1525,7 +1689,7 @@ class App(ctk.CTk):
                         new_x = min(new_x, dots[active_dot+1][0])
                     dots[active_dot] = [new_x, new_y]
                     custom_eq_var.set(json.dumps(dots))
-                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var)
+                    self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
                 except: pass
 
             def on_canvas_release(evt):
@@ -1613,6 +1777,7 @@ class App(ctk.CTk):
                     self.config.add_section(section)
                 self.config.set(section, 'circularity_mode', val)
                 self.save_config()
+                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
                 
             circ_menu = ctk.CTkOptionMenu(circ_frame, values=["disabled", "before", "after"], variable=circ_mode_var, command=update_circ_mode)
             circ_menu.pack(side="left", fill="x", expand=True, padx=5)
@@ -1659,23 +1824,12 @@ class App(ctk.CTk):
             circ_btn = ctk.CTkButton(circ_frame, text="Calibrate Circularity", command=open_circ_calib, fg_color="#1f538d")
             circ_btn.pack(side="right", padx=5)
 
-            circ_ref_var = ctk.BooleanVar(value=self.config.getboolean(section, 'show_circ_ref', fallback=True))
-            def update_circ_ref():
-                if not self.config.has_section(section):
-                    self.config.add_section(section)
-                self.config.set(section, 'show_circ_ref', 'true' if circ_ref_var.get() else 'false')
-                self.save_config()
-                self.update_analog_config(section, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, warp_var)
-                
-            circ_ref_cb = ctk.CTkCheckBox(circ_frame, text="45º Line", variable=circ_ref_var, command=update_circ_ref, width=60)
-            circ_ref_cb.pack(side="right", padx=5)
+            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, circ_mode_var, warp_var
 
-            return frame, c_curve, c_pos, dz_var, adz_var, rest_dz_var, curve_var, exp_var, sens_var, custom_eq_var, circ_mode_var, circ_ref_var, warp_var
-
-        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom, self.ls_circ_mode, self.ls_circ_ref, self.ls_warp = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
+        self.f_ls, self.c_ls_curve, self.c_ls_pos, self.ls_dz, self.ls_adz, self.ls_rest_dz, self.ls_curve, self.ls_exp, self.ls_sens, self.ls_custom, self.ls_circ_mode, self.ls_warp = create_stick_frame(self.tuning_scroll, "Left Stick", "analog_left")
         self.f_ls.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         
-        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom, self.rs_circ_mode, self.rs_circ_ref, self.rs_warp = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
+        self.f_rs, self.c_rs_curve, self.c_rs_pos, self.rs_dz, self.rs_adz, self.rs_rest_dz, self.rs_curve, self.rs_exp, self.rs_sens, self.rs_custom, self.rs_circ_mode, self.rs_warp = create_stick_frame(self.tuning_scroll, "Right Stick", "analog_right")
         self.f_rs.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
 
         def create_trigger_frame(parent, title, btn, section):
@@ -1940,13 +2094,12 @@ class App(ctk.CTk):
         self.f_rt.grid(row=2, column=1, padx=10, pady=10, sticky="nsew")
 
         # Initial draw
+        # Initial draw
         ls_cm = self.config.get('analog_left', 'circularity_mode', fallback='disabled')
-        ls_sr = self.config.getboolean('analog_left', 'show_circ_ref', fallback=True)
-        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get(), ls_cm, ls_sr, section="analog_left", warp_threshold=self.ls_warp.get())
+        self.draw_curve(self.c_ls_curve, self.ls_dz.get(), self.ls_adz.get(), self.ls_rest_dz.get(), self.ls_curve.get(), self.ls_exp.get(), self.ls_sens.get(), self.ls_custom.get(), ls_cm, section="analog_left", warp_threshold=self.ls_warp.get())
         
         rs_cm = self.config.get('analog_right', 'circularity_mode', fallback='disabled')
-        rs_sr = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
-        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get(), rs_cm, rs_sr, section="analog_right", warp_threshold=self.rs_warp.get())
+        self.draw_curve(self.c_rs_curve, self.rs_dz.get(), self.rs_adz.get(), self.rs_rest_dz.get(), self.rs_curve.get(), self.rs_exp.get(), self.rs_sens.get(), self.rs_custom.get(), rs_cm, section="analog_right", warp_threshold=self.rs_warp.get())
         
         lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
         self.draw_curve_trigger(self.c_lt_curve, self.lt_dz.get(), self.lt_adz.get(), self.lt_rest_dz.get(), self.lt_curve.get(), self.lt_exp.get(), self.lt_sens.get(), self.lt_custom.get(), digital=lt_dig)
@@ -1973,14 +2126,12 @@ class App(ctk.CTk):
         
         if section == "analog_left":
             circ_mode = self.config.get('analog_left', 'circularity_mode', fallback='disabled')
-            show_ref = self.config.getboolean('analog_left', 'show_circ_ref', fallback=True)
             warp = warp_var.get() if warp_var else 0.0
-            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_left", warp_threshold=warp)
+            self.draw_curve(self.c_ls_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, section="analog_left", warp_threshold=warp)
         elif section == "analog_right":
             circ_mode = self.config.get('analog_right', 'circularity_mode', fallback='disabled')
-            show_ref = self.config.getboolean('analog_right', 'show_circ_ref', fallback=True)
             warp = warp_var.get() if warp_var else 0.0
-            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, show_ref, section="analog_right", warp_threshold=warp)
+            self.draw_curve(self.c_rs_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", circ_mode, section="analog_right", warp_threshold=warp)
         elif section == "trigger_left":
             lt_dig = self.config.get('settings', 'digital_lt', fallback='false').lower() == 'true'
             self.draw_curve_trigger(self.c_lt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=lt_dig)
@@ -1988,7 +2139,7 @@ class App(ctk.CTk):
             rt_dig = self.config.get('settings', 'digital_rt', fallback='false').lower() == 'true'
             self.draw_curve_trigger(self.c_rt_curve, dz_var.get(), adz_var.get(), rest_dz_var.get(), curve_var.get(), exp_var.get(), sens_var.get() if sens_var else 1.0, custom_eq_var.get() if custom_eq_var else "", digital=rt_dig)
 
-    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", circ_mode="disabled", show_ref=True, section="", warp_threshold=0.0):
+    def draw_curve(self, canvas, dz, adz, rest_dz, curve_type, exp_factor, sens, custom_eq="", circ_mode="disabled", section="", warp_threshold=0.0):
         canvas.delete("all")
         width = 180
         height = 180
@@ -1998,43 +2149,6 @@ class App(ctk.CTk):
         
         import math
         import math_utils
-        
-        if show_ref:
-            circ_cx = 0.0
-            circ_cy = 0.0
-            circ_bounds = []
-            if section and circ_mode != "disabled" and self.config.has_section(section):
-                import json
-                circ_cx = float(self.config.get(section, 'circularity_cx', fallback='0.0'))
-                circ_cy = float(self.config.get(section, 'circularity_cy', fallback='0.0'))
-                try:
-                    circ_bounds = json.loads(self.config.get(section, 'circularity_bounds', fallback='[]'))
-                except:
-                    pass
-            
-            points45 = []
-            for x_px in range(width + 1):
-                input_val = x_px / width
-                in_x = input_val * 0.707106
-                in_y = input_val * 0.707106
-                
-                in_x, in_y = math_utils.apply_warped_stick_correction(in_x, in_y, warp_threshold)
-                
-                if circ_mode == 'before':
-                    in_x, in_y = math_utils.apply_circularity_correction(in_x, in_y, circ_cx, circ_cy, circ_bounds)
-                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
-                elif circ_mode == 'after':
-                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
-                    out_x, out_y = math_utils.apply_circularity_correction(out_x, out_y, circ_cx, circ_cy, circ_bounds)
-                else:
-                    out_x, out_y = math_utils.process_analog_stick(in_x, in_y, dz, adz, curve_type, exp_factor, rest_dz, sens, custom_eq)
-                
-                out_mag = min(1.0, math.sqrt(out_x**2 + out_y**2))
-                y_px = height - (out_mag * height)
-                points45.append(x_px)
-                points45.append(y_px)
-            if points45:
-                canvas.create_line(points45, fill="#888888", dash=(4, 4), width=2)
                 
         points = []
         for x_px in range(width + 1):
@@ -2142,14 +2256,22 @@ class App(ctk.CTk):
         if out_h > 0:
             canvas.create_rectangle(33, height - out_h, 55, height, fill=acc, outline="")
 
+    def _get_accent_color(self):
+        try:
+            accent = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
+            return accent[1] if isinstance(accent, (list, tuple)) else accent
+        except:
+            return "#1f538d"
+
     def update_curve_cursor(self, canvas, raw_magnitude, out_magnitude):
-        """Overlays a cyan dot on the response curve canvas at the current input/output."""
+        """Overlays an input cursor dot on the response curve canvas at the current input/output."""
         canvas.delete("cursor")
         width = 180
         height = 180
         x_px = raw_magnitude * width
         y_px = height - (out_magnitude * height)
-        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill="#00D4FF", outline="white", width=1, tags="cursor")
+        _, inv = get_accent_colors()
+        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill=inv, outline="white", width=1, tags="cursor")
 
     def update_trigger_curve_cursor(self, canvas, raw_val, out_val):
         """Overlays a white vertical line + dot on the trigger response curve at current input."""
@@ -2158,10 +2280,11 @@ class App(ctk.CTk):
         height = 180
         x_px = raw_val * width
         y_px = height - (out_val * height)
+        _, inv = get_accent_colors()
         # Vertical guide line from bottom to the curve point
         canvas.create_line(x_px, height, x_px, y_px, fill="#FFFFFF", dash=(2, 2), tags="cursor")
         # Dot at the curve point
-        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill="#FFFFFF", outline="#00D4FF", width=1, tags="cursor")
+        canvas.create_oval(x_px-4, y_px-4, x_px+4, y_px+4, fill=inv, outline="white", width=1, tags="cursor")
 
     def update_position_loop(self):
         # 60fps refresh
@@ -2172,7 +2295,7 @@ class App(ctk.CTk):
             
             # Left Stick
             raw_lx, raw_ly = state.lx, state.ly
-            disp_raw_ly = -raw_ly
+            disp_raw_ly = raw_ly
             
             ls_circ_mode = self.config.get('analog_left', 'circularity_mode', fallback='disabled').lower()
             ls_circ_cx = self.config.getfloat('analog_left', 'circularity_center_x', fallback=0.0)
@@ -2198,7 +2321,7 @@ class App(ctk.CTk):
             self.update_curve_cursor(self.c_ls_curve, min(raw_mag, 1.0), min(out_mag, 1.0))
             
             # Right Stick
-            disp_raw_ry = -state.ry
+            disp_raw_ry = state.ry
             
             rs_circ_mode = self.config.get('analog_right', 'circularity_mode', fallback='disabled').lower()
             rs_circ_cx = self.config.getfloat('analog_right', 'circularity_center_x', fallback=0.0)
@@ -2241,16 +2364,262 @@ class App(ctk.CTk):
             self.draw_trigger_bar(self.c_rt_pos, state.rt, out_rt)
             self.update_trigger_curve_cursor(self.c_rt_curve, state.rt, out_rt)
             
+            if hasattr(self, 'dashboard_btns'):
+                accent = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
+                if isinstance(accent, list):
+                    accent = accent[1] if ctk.get_appearance_mode() == "Dark" else accent[0]
+
+                for btn, widget in self.dashboard_btns.items():
+                    val = 0.0
+                    is_pressed = False
+                    
+                    if btn in ['lt', 'rt']:
+                        val = getattr(state, btn, 0.0)
+                        is_pressed = val > 0.0
+                    elif hasattr(state, btn):
+                        is_pressed = getattr(state, btn)
+                    elif btn in state.extra_inputs or (hasattr(state, 'extra_inputs') and (btn.lower() in state.extra_inputs or btn.upper() in state.extra_inputs)):
+                        val_eb = state.extra_inputs.get(btn) or state.extra_inputs.get(btn.lower()) or state.extra_inputs.get(btn.upper())
+                        if isinstance(val_eb, (float, int)):
+                            is_pressed = val_eb > 0.1
+                        else:
+                            is_pressed = bool(val_eb)
+                        
+                    if isinstance(widget, dict) and "canvas" in widget:
+                        c = widget["canvas"]
+                        c.delete("all")
+                        
+                        cw = int(c.cget("width"))
+                        ch = int(c.cget("height"))
+                        
+                        fill_h = int(val * ch)
+                        if fill_h > 0:
+                            c.create_rectangle(0, ch - fill_h, cw, ch, fill=accent, outline="")
+                            
+                        # Draw text directly on canvas so it has true transparency
+                        btn_text = widget.get("text", self.get_btn_display_name(btn).upper())
+                        c.create_text(cw/2, ch/2, text=btn_text, fill="white", font=("Helvetica", max(8, int(cw * 0.3)), "bold"))
+                    else:
+                        base_color = "#333333" if widget.winfo_parent() == str(self.layout_canvas) else "#443333"
+                        target_color = accent if is_pressed else base_color
+                        if widget.cget("fg_color") != target_color:
+                            widget.configure(fg_color=target_color)
+
         self.after(16, self.update_position_loop)
             
+    def open_chords_guide_modal(self, topic="all"):
+        guide_modal = ctk.CTkToplevel(self)
+        guide_modal.title("Macros & Hardware Chords Master Guide")
+        guide_modal.geometry("660x560")
+        guide_modal.resizable(True, True)
+        guide_modal.attributes("-topmost", True)
+        guide_modal.focus()
+
+        lbl_header = ctk.CTkLabel(guide_modal, text="Macros & Hardware Chords Tutorial", font=ctk.CTkFont(size=18, weight="bold"))
+        lbl_header.pack(pady=(15, 5))
+
+        btn_bar = ctk.CTkFrame(guide_modal, fg_color="transparent")
+        btn_bar.pack(fill="x", padx=15, pady=5)
+
+        txt = ctk.CTkTextbox(guide_modal, wrap="word", font=ctk.CTkFont(size=12))
+        txt.pack(fill="both", expand=True, padx=15, pady=(5, 15))
+
+        def show_topic(t):
+            txt.configure(state="normal")
+            txt.delete("0.0", "end")
+
+            save_warning = (
+                "*** IMPORTANT NOTE: After creating or editing Hardware Chords or Macros, scroll down to the bottom of the section and click 'Save Settings' for your changes to apply! ***\n"
+                "*** CHORD BUTTON DELIMITERS: Buttons in a chord can be separated by commas (,), pluses (+), or spaces. Examples: 'dpad_up, lb', 'dpad_up + lb', 'dpad_up dpad_left dpad_right'. ***\n\n"
+            )
+
+            if t == "hw":
+                content = (
+                    "=== HARDWARE CHORDS (INPUT SUPPRESSION) TUTORIAL ===\n\n"
+                    + save_warning +
+                    "1. WHAT ARE HARDWARE CHORDS?\n"
+                    "Hardware Chords combine physical controller buttons into a single virtual extra button (like M1, M2, L4, or R4).\n\n"
+                    "2. WHAT IS INPUT SUPPRESSION?\n"
+                    "Normally, pressing a button combination sends ALL of those buttons to your game. "
+                    "With Hardware Chords, the physical combination gets CONSUMED by UR-XD (blocked from reaching the game). "
+                    "Instead, the combination becomes a 'virtual' key (like M1 or L4) which you can freely remap to keyboard keys, mouse actions, or macros in the Remapping tab!\n\n"
+                    "3. RECOMMENDED VS. NOT-RECOMMENDED COMBINATIONS:\n"
+                    "* What to look for: Pick physical button combinations that are NOT normally pressed together during normal gameplay so you don't accidentally trigger them.\n"
+                    "* RECOMMENDED:\n"
+                    "  - 'dpad_up + lb' (rarely held simultaneously)\n"
+                    "  - 'dpad_up + start' or 'dpad_left + select'\n"
+                    "  - 'dpad_down + r3' (directional pad + stick click)\n"
+                    "* NOT RECOMMENDED:\n"
+                    "  - 'a + b' or 'x + y' (frequently pressed quickly or together in games)\n"
+                    "  - 'lt + rt' (holding both triggers to aim + shoot is common in FPS games)\n"
+                    "  - 'l3 + r3' (sprinting while meleeing)\n\n"
+                    "4. STEP-BY-STEP SETUP GUIDE:\n"
+                    "* Step 1: Ensure your controller is in XInput mode.\n"
+                    "* Step 2: Under 'Hardware Chords (Input Suppression)', click '+ Add Hardware Chord'.\n"
+                    "* Step 3: 'Chord:' - Enter the controller buttons you press together (example: dpad_up, lb or dpad_up dpad_left dpad_right).\n"
+                    "* Step 4: 'Action:' - Enter the new extra button name you want to trigger (example: M1 or extra_1).\n"
+                    "* Step 5: 'Delayed:' - (Optional) Enter any button that should wait briefly to ensure both buttons are pressed together out-of-sync (example: dpad_up).\n"
+                    "* Step 6: 'Mode:' - Select timing delay: 'auto', '0ms', '50ms', or '100ms'.\n"
+                    "* Step 7: Scroll down and click 'Save Settings' under Hardware Chords or Macros to save your config and update the Remapping tab!"
+                )
+            elif t == "std":
+                content = (
+                    "=== MACROS STUDIO TUTORIAL ===\n\n"
+                    + save_warning +
+                    "1. WHAT ARE MACROS?\n"
+                    "Macros let you trigger keyboard keys, mouse clicks, or multi-step macro sequences by pressing button combinations on your controller.\n\n"
+                    "2. STEP-BY-STEP SETUP GUIDE:\n"
+                    "* Step 1: Under 'Macros', click '+ Add Macro'.\n"
+                    "* Step 2: 'Name:' - Enter a short name for your macro (example: macro1).\n"
+                    "* Step 3: 'Inputs:' - Enter the controller buttons pressed together (example: dpad_down, rb or dpad_up, lb). You can also click '[GP]' to record controller button presses automatically.\n"
+                    "* Step 4: 'Outputs:' - Enter the keys or clicks to trigger (example: keyboard:h, wait:50, mouse:left). You can also click '[KBM]' to record keys, mouse clicks, or wheel scrolls.\n"
+                    "* Step 5: Scroll down and click 'Save Settings' at the bottom of the section to apply your macros!"
+                )
+            else:  # Overview / Both
+                content = (
+                    "=== MACROS  & HARDWARE CHORDS OVERVIEW ===\n\n"
+                    + save_warning +
+                    "Both features let you press button combinations on your controller, but they serve different purposes:\n\n"
+                    "1. HARDWARE CHORDS (INPUT SUPPRESSION)\n"
+                    "* Purpose: Turn button combinations (like dpad_up + lb) into a new extra button (like M1), while BLOCKING the original buttons so they don't trigger in your game.\n"
+                    "* Example: Back paddles mapped to dpad_up + lb will send M1 cleanly without pressing D-Pad Up or LB in-game.\n"
+                    "* Requirements: Requires XInput backend mode.\n\n"
+                    "2. MACROS STUDIO\n"
+                    "* Purpose: Map gamepad combinations (like dpad_down + rb) to automated keyboard keys, mouse clicks, or timed macro sequences.\n"
+                    "* Example: Pressing dpad_down + rb can press 'H', wait 50ms, and click left mouse button.\n\n"
+                    "3. SHIFT LAYER SETTINGS\n"
+                    "* Purpose: Holding or toggling a chosen Trigger Button switches all your other buttons to a secondary set of mappings."
+                )
+
+            txt.insert("0.0", content)
+            txt.configure(state="disabled")
+
+        btn_all = ctk.CTkButton(btn_bar, text="Overview & Comparison", width=160, command=lambda: show_topic("all"), fg_color="#1f538d")
+        btn_all.pack(side="left", padx=5)
+
+        btn_hw = ctk.CTkButton(btn_bar, text="Hardware Chords Guide", width=170, command=lambda: show_topic("hw"), fg_color="#555555")
+        btn_hw.pack(side="left", padx=5)
+
+        btn_std = ctk.CTkButton(btn_bar, text="Macros Guide", width=170, command=lambda: show_topic("std"), fg_color="#555555")
+        btn_std.pack(side="left", padx=5)
+
+        show_topic(topic)
+
+    def open_remapping_guide_modal(self):
+        guide_win = ctk.CTkToplevel(self)
+        guide_win.title("Remapping Guide & Macro Usage")
+        guide_win.geometry("640x520")
+        guide_win.attributes("-topmost", True)
+        guide_win.focus()
+
+        lbl_title = ctk.CTkLabel(guide_win, text="🎮 Remapping & Macro Usage Guide", font=ctk.CTkFont(size=16, weight="bold"))
+        lbl_title.pack(pady=(10, 5))
+
+        txt = ctk.CTkTextbox(guide_win, font=ctk.CTkFont(size=12), wrap="word")
+        txt.pack(fill="both", expand=True, padx=15, pady=10)
+
+        content = (
+            "=== REMAPPING & MACRO USAGE GUIDE ===\n\n"
+            "1. KEYBOARD & MOUSE MAPPING:\n"
+            "* Plain Keyboard Key: Type the key directly (example: 'h', 'space', 'e', 'f1').\n"
+            "* Explicit Keyboard Prefix: Type 'keyboard:key_name' (example: 'keyboard:space', 'keyboard:left_shift').\n"
+            "* Mouse Clicks: Type 'mouse:left', 'mouse:right', 'mouse:middle', 'mouse4', or 'mouse5'.\n"
+            "* Mouse Scroll: Type 'mouse:scroll_up' or 'mouse:scroll_down'.\n\n"
+            "2. REFERENCING MACROS BY NAME (macro:MyMacro):\n"
+            "* You can trigger any macro created in the Advanced tab directly when pressing a controller button!\n"
+            "* Usage: Enter 'macro:MacroName' or simply 'MacroName' into the button's text box (example: 'macro:FireCombo' or 'FireCombo').\n"
+            "* Note: Macros do not require chord trigger inputs in the Advanced tab if you map them directly to a button here.\n\n"
+            "3. BUTTON BLOCKING (Block / S. Blk):\n"
+            "* Check 'Block' to prevent the controller's original native button press from reaching the game (useful when remapping to keyboard/mouse or macros).\n"
+            "* Check 'S. Blk' to block the original button only while holding the Shift key.\n\n"
+            "4. INTERACTIVE RECORDING ([Rec]):\n"
+            "* Click the '[Rec]' button next to any remapping entry to interactively record key combinations or macro steps."
+        )
+        txt.insert("0.0", content)
+        txt.configure(state="disabled")
+
+        ctk.CTkButton(guide_win, text="Close", width=100, command=guide_win.destroy).pack(pady=(0, 10))
+
     def setup_advanced(self):
+        for child in self.tab_advanced.winfo_children():
+            child.destroy()
         if not self.config.has_section('shift_layer'):
             self.config.add_section('shift_layer')
         if not self.config.has_section('chords'):
             self.config.add_section('chords')
+        if not self.config.has_section('hardware_chords'):
+            self.config.add_section('hardware_chords')
+            
+        backend_mode = self.get_backend_mode()
+        
+        self.advanced_scroll = ctk.CTkScrollableFrame(self.tab_advanced, fg_color="transparent", corner_radius=0)
+        self.advanced_scroll.pack(fill="both", expand=True)
+
+        # Prominent Macros & Hardware Chords Guide Box
+        guide_box = ctk.CTkFrame(self.advanced_scroll)
+        guide_box.pack(fill="x", padx=20, pady=(10, 5))
+        
+        guide_hdr = ctk.CTkFrame(guide_box, fg_color="transparent")
+        guide_hdr.pack(fill="x", padx=10, pady=(8, 2))
+        
+        ctk.CTkLabel(guide_hdr, text="Macros & Hardware Chords Tutorial", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
+        
+        btn_open_guide = ctk.CTkButton(
+            guide_hdr,
+            text="? Open Interactive Guide",
+            width=170,
+            height=26,
+            corner_radius=13,
+            fg_color="#1f538d",
+            hover_color="#14375e",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=lambda: self.open_chords_guide_modal("all")
+        )
+        btn_open_guide.pack(side="right")
+        
+        summary_lbl = ctk.CTkLabel(
+            guide_box,
+            text=(
+                "- Hardware Chords (Input Suppression): Map button combinations (e.g. dpad_up+lb -> M1) and block original buttons from triggering in games.\n"
+                "- Macros Studio: Map button combinations (e.g. dpad_down+rb) to keyboard keys, mouse clicks, wait delays, or macro sequences.\n"
+                "- Chord Delimiters: Buttons can be separated by commas (,), pluses (+), or spaces (e.g. 'dpad_up, lb' or 'dpad_up dpad_left dpad_right').\n"
+                "- IMPORTANT: Always scroll down and click 'Save Settings' at the bottom of the section after editing for changes to apply!"
+            ),
+            font=ctk.CTkFont(size=12),
+            justify="left",
+            anchor="w"
+        )
+        summary_lbl.pack(fill="x", padx=15, pady=(0, 10))
+
+        # Hardware Chords Builder
+        self.hw_chords_frame = ctk.CTkFrame(self.advanced_scroll)
+        self.hw_chords_frame.pack(fill="x", padx=20, pady=10)
+        
+        hdr_hw = ctk.CTkFrame(self.hw_chords_frame, fg_color="transparent")
+        hdr_hw.pack(fill="x", padx=5, pady=5)
+        ctk.CTkLabel(hdr_hw, text="Hardware Chords (Input Suppression)", font=ctk.CTkFont(weight="bold")).pack(side="left")
+        
+        info_btn_hw = ctk.CTkButton(hdr_hw, text="? Hardware Chords Guide", width=160, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12), command=lambda: self.open_chords_guide_modal("hw"))
+        info_btn_hw.pack(side="left", padx=(10,0))
+        ToolTip(info_btn_hw, "Click to view full step-by-step tutorial on firmware chord remapping and input suppression.")
+        
+        if backend_mode != "xinput":
+            ctk.CTkLabel(self.hw_chords_frame, text="Hardware Chords are locked because the backend is not in XInput mode.\nPlease use Auto-Detect calibration to switch to XInput mode.", text_color="#ff5555").pack(pady=10)
+        else:
+            self.hw_chord_rows = []
+            hw_list = ctk.CTkScrollableFrame(self.hw_chords_frame, height=120, corner_radius=0)
+            hw_list.pack(fill="both", expand=True, padx=5, pady=5)
+            
+            for k, v in self.config.items('hardware_chords'):
+                parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
+                if 'chord' in parts and 'action' in parts:
+                    self.add_hw_chord_row(hw_list, parts['chord'], parts['action'], parts.get('delayed', ''), parts.get('mode', 'auto'))
+            
+            btn_add_hw = ctk.CTkButton(self.hw_chords_frame, text="+ Add Hardware Chord", command=lambda: self.add_hw_chord_row(hw_list, "", "", "", "auto"))
+            btn_add_hw.pack(pady=5)
             
         # Shift Layer Settings
-        shift_frame = ctk.CTkFrame(self.tab_advanced)
+        shift_frame = ctk.CTkFrame(self.advanced_scroll)
         shift_frame.pack(fill="x", padx=20, pady=10)
         
         ctk.CTkLabel(shift_frame, text="Shift Layer Settings", font=ctk.CTkFont(weight="bold")).pack(pady=5)
@@ -2263,31 +2632,44 @@ class App(ctk.CTk):
         info_btn_trig.pack(side="left", padx=(0,5))
         ToolTip(info_btn_trig, "Select the button that activates the secondary Shift Layer.\nWhen held or toggled, all other buttons will map to their Shift Layer configurations.")
         
-        ctk.CTkLabel(trig_frame, text="Trigger Button:", width=120, anchor="w").pack(side="left")
+        ctk.CTkLabel(trig_frame, text="Shift Key:", width=120, anchor="w").pack(side="left")
         
         self.shift_trig_var = ctk.StringVar(value=self.config.get('shift_layer', 'trigger_button', fallback=''))
         base_buttons = self.get_profile_mapped_keys()
         
-        def on_shift_trig_changed(val):
-            val = val.strip()
-            if val and self.config.has_option('extra_buttons', val):
+        def check_home_hold_warning():
+            trig_val = self.shift_trig_var.get().strip().lower()
+            mode_val = self.shift_mode_var.get().strip().lower()
+            if trig_val in ['home', 'guide'] and mode_val == 'hold':
                 import tkinter.messagebox
                 tkinter.messagebox.showwarning(
-                    "Shift Trigger Conflict",
-                    f"The button '{val}' is currently mapped to an action.\n\n"
-                    "It will be cleared and blocked from XInput so it can act as the Shift Trigger."
+                    "Recommended Setting Notice",
+                    "Holding the Home button for several seconds may force turn off your controller or trigger OS shortcuts.\n\n"
+                    "It is strongly recommended to set the Shift Mode to 'toggle' instead of 'hold' when using the Home button as your Shift Key."
                 )
-                self.config.remove_option('extra_buttons', val)
+
+        def on_shift_trig_changed(val):
+            val_clean = val.strip()
+            if val_clean and self.config.has_option('extra_buttons', val_clean):
+                import tkinter.messagebox
+                tkinter.messagebox.showwarning(
+                    "Shift Key Conflict",
+                    f"The button '{val_clean}' is currently mapped to an action.\n\n"
+                    "It will be cleared and blocked from XInput so it can act as the Shift Key."
+                )
+                self.config.remove_option('extra_buttons', val_clean)
                 if not self.config.has_section('block_xinput'):
                     self.config.add_section('block_xinput')
-                if self.config.has_option('block_xinput', val):
-                    self.config.remove_option('block_xinput', val)
+                if self.config.has_option('block_xinput', val_clean):
+                    self.config.remove_option('block_xinput', val_clean)
                 
                 # Update UI elements in remapping tab if they exist
-                if hasattr(self, 'entries') and val in self.entries:
-                    self.entries[val].delete(0, 'end')
-                    self.block_vars[val].set(True)
-                    self.block_checkboxes[val].configure(state="disabled")
+                if hasattr(self, 'entries') and val_clean in self.entries:
+                    self.entries[val_clean].delete(0, 'end')
+                    self.block_vars[val_clean].set(True)
+                    self.block_checkboxes[val_clean].configure(state="disabled")
+            
+            check_home_hold_warning()
             self.save_advanced()
             
         self.trig_menu = ctk.CTkOptionMenu(trig_frame, values=base_buttons, variable=self.shift_trig_var, command=on_shift_trig_changed)
@@ -2299,31 +2681,36 @@ class App(ctk.CTk):
         
         info_btn_mode = ctk.CTkButton(mode_frame, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
         info_btn_mode.pack(side="left", padx=(0,5))
-        ToolTip(info_btn_mode, "Hold: Shift layer is active only while the trigger button is held down.\nToggle: Pressing the trigger button toggles the Shift layer permanently on or off.")
+        ToolTip(info_btn_mode, "Hold: Shift layer is active only while the shift key is held down.\nToggle: Pressing the shift key toggles the Shift layer permanently on or off.")
         
         ctk.CTkLabel(mode_frame, text="Mode:", width=120, anchor="w").pack(side="left")
         
         self.shift_mode_var = ctk.StringVar(value=self.config.get('shift_layer', 'mode', fallback='hold'))
-        mode_menu = ctk.CTkOptionMenu(mode_frame, values=["hold", "toggle"], variable=self.shift_mode_var, command=lambda _: self.save_advanced())
+        
+        def on_shift_mode_changed(val):
+            check_home_hold_warning()
+            self.save_advanced()
+
+        mode_menu = ctk.CTkOptionMenu(mode_frame, values=["hold", "toggle"], variable=self.shift_mode_var, command=on_shift_mode_changed)
         mode_menu.pack(side="left")
 
         # Chords Setting
-        self.chords_frame = ctk.CTkFrame(self.tab_advanced)
+        self.chords_frame = ctk.CTkFrame(self.advanced_scroll)
         self.chords_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
         header_f = ctk.CTkFrame(self.chords_frame, fg_color="transparent")
         header_f.pack(fill="x", padx=5, pady=5)
         
-        ctk.CTkLabel(header_f, text="Chords & Macros", font=ctk.CTkFont(weight="bold")).pack(side="left")
-        info_btn_chords = ctk.CTkButton(header_f, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
-        info_btn_chords.pack(side="left", padx=(5,0))
-        ToolTip(info_btn_chords, "Map multiple simultaneous button presses (a chord) to a macro sequence.\nExample Outputs: 'keyboard:h, wait:50, mouse:left'")
+        ctk.CTkLabel(header_f, text="Macros", font=ctk.CTkFont(weight="bold")).pack(side="left")
+        info_btn_chords = ctk.CTkButton(header_f, text="? Macros Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12), command=lambda: self.open_chords_guide_modal("std"))
+        info_btn_chords.pack(side="left", padx=(10,0))
+        ToolTip(info_btn_chords, "Click to view full step-by-step tutorial on creating macros and referencing them by name in remapping.")
         
         self.chord_rows = []
         self.chord_list_frame = ctk.CTkScrollableFrame(self.chords_frame, height=250, corner_radius=0)
         self.chord_list_frame.pack(fill="both", expand=True, padx=5, pady=5)
         
-        # Load chords & macros
+        # Load macros (all macros in macros.json, with optional trigger chords from config)
         import os, json
         macros_data = {}
         if os.path.exists('macros.json'):
@@ -2332,27 +2719,29 @@ class App(ctk.CTk):
                     macros_data = json.load(f)
             except Exception:
                 pass
-                
-        for k, v in self.config.items('chords'):
-            if v.startswith('macro:'):
-                m_name = v.split('macro:')[1]
-                m_steps = macros_data.get(m_name, [])
-                # Reconstruct string from steps
-                out_str_parts = []
-                for step in m_steps:
-                    action = step.get('action')
-                    if action == 'wait':
-                        out_str_parts.append(f"wait:{step.get('ms')}")
-                    elif action == 'press':
-                        out_str_parts.append(f"press:{step.get('key')}")
-                    elif action == 'release':
-                        out_str_parts.append(f"release:{step.get('key')}")
-                
-                # Simplify full clicks back to basic binds? Or just keep raw for now
-                out_str = ", ".join(out_str_parts)
-                self.add_chord_row(m_name, k, out_str)
+
+        macro_triggers = {}
+        if self.config.has_section('chords'):
+            for k, v in self.config.items('chords'):
+                if v.startswith('macro:'):
+                    m_name = v.split('macro:', 1)[1]
+                    macro_triggers[m_name] = k
+
+        for m_name, m_steps in macros_data.items():
+            out_str_parts = []
+            for step in m_steps:
+                action = step.get('action')
+                if action == 'wait':
+                    out_str_parts.append(f"wait:{step.get('ms')}")
+                elif action == 'press':
+                    out_str_parts.append(step.get('key'))
+                elif action == 'release':
+                    out_str_parts.append(f"release:{step.get('key')}")
             
-        btn_add = ctk.CTkButton(self.chords_frame, text="+ Add Macro", command=lambda: self.add_chord_row("", "", ""))
+            out_str = ", ".join(out_str_parts)
+            self.add_chord_row(m_name, out_str)
+
+        btn_add = ctk.CTkButton(self.chords_frame, text="+ Add Macro", command=lambda: self.add_chord_row("", ""))
         btn_add.pack(pady=5)
         
         save_btn = ctk.CTkButton(self.chords_frame, text="Save Settings", command=self.save_advanced)
@@ -2361,52 +2750,134 @@ class App(ctk.CTk):
     def start_macro_recording(self, entry_widget, mode):
         # mode: 'inputs' (Gamepad only) or 'outputs' (KBM + Gamepad)
         record_win = ctk.CTkToplevel(self)
-        record_win.title("Record Macro")
-        record_win.geometry("400x200")
+        record_win.title("Record Gamepad Inputs" if mode == 'inputs' else "Record Macro Outputs (KBM + Gamepad)")
+        record_win.geometry("540x380" if mode == 'outputs' else "520x340")
         record_win.attributes("-topmost", True)
         record_win.focus()
         
-        lbl = ctk.CTkLabel(record_win, text=f"Recording {mode}...\nPress buttons to append.\nClick Save when done.")
-        lbl.pack(pady=10)
+        title_text = "Recording Gamepad Inputs...\nPress controller buttons or click quick-add buttons below." if mode == 'inputs' else "Recording Macro Outputs...\nPress keys, click mouse buttons, press controller buttons, or use quick-add buttons below."
+        lbl = ctk.CTkLabel(record_win, text=title_text, font=ctk.CTkFont(size=12))
+        lbl.pack(pady=5)
         
         result_var = ctk.StringVar(value=entry_widget.get())
-        result_lbl = ctk.CTkLabel(record_win, textvariable=result_var, font=ctk.CTkFont(size=12), wraplength=380)
-        result_lbl.pack(pady=10)
-        
-        # Simple implementation: append to string
-        import pynput
+        result_lbl = ctk.CTkLabel(record_win, textvariable=result_var, font=ctk.CTkFont(size=13, weight="bold"), wraplength=500)
+        result_lbl.pack(pady=5)
         
         def append_result(text):
             current = result_var.get().strip()
             if current:
-                result_var.set(f"{current}, {text}")
+                parts = [p.strip() for p in current.split(',')]
+                parts.append(text)
+                result_var.set(", ".join(parts))
             else:
                 result_var.set(text)
                 
-        def on_press(key):
-            try:
-                k_name = key.char
-            except AttributeError:
-                k_name = key.name
-            append_result(f"keyboard:{k_name}")
-            
-        def on_click(x, y, button, pressed):
-            if pressed:
-                if button.name == 'left': return
-                append_result(f"mouse:{button.name}")
-                
+        import pynput
         k_listener = None
         m_listener = None
+        
         if mode == 'outputs':
+            def on_press(key):
+                try:
+                    k_name = key.char
+                except AttributeError:
+                    k_name = key.name
+                append_result(f"keyboard:{k_name}")
+                
+            def on_click(x, y, button, pressed):
+                if pressed:
+                    if button.name == 'left':
+                        return # Ignore left-clicks so UI interaction is not hijacked
+                    if button.name == 'x1': b_name = 'mouse4'
+                    elif button.name == 'x2': b_name = 'mouse5'
+                    else: b_name = button.name
+                    append_result(f"mouse:{b_name}")
+
+            def on_scroll(x, y, dx, dy):
+                if dy > 0:
+                    append_result("mouse:scroll_up")
+                elif dy < 0:
+                    append_result("mouse:scroll_down")
+
             k_listener = pynput.keyboard.Listener(on_press=on_press)
-            m_listener = pynput.mouse.Listener(on_click=on_click)
+            m_listener = pynput.mouse.Listener(on_click=on_click, on_scroll=on_scroll)
             k_listener.start()
             m_listener.start()
+
+            # Quick add buttons frame for outputs
+            quick_f = ctk.CTkFrame(record_win, fg_color="transparent")
+            quick_f.pack(fill="x", padx=10, pady=5)
+
+            ctk.CTkButton(quick_f, text="+ Left Click", width=85, command=lambda: append_result("mouse:left")).grid(row=0, column=0, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Right Click", width=85, command=lambda: append_result("mouse:right")).grid(row=0, column=1, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Mid Click", width=85, command=lambda: append_result("mouse:middle")).grid(row=0, column=2, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Scroll Up", width=85, command=lambda: append_result("mouse:scroll_up")).grid(row=0, column=3, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Scroll Down", width=85, command=lambda: append_result("mouse:scroll_down")).grid(row=0, column=4, padx=2, pady=2)
             
-        # Add a wait button
-        wait_btn = ctk.CTkButton(record_win, text="Add Wait: 50ms", width=120, command=lambda: append_result("wait:50"))
-        wait_btn.pack(pady=5)
-            
+            ctk.CTkButton(quick_f, text="+ Wait 50ms", width=85, command=lambda: append_result("wait:50")).grid(row=1, column=0, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ Wait 100ms", width=85, command=lambda: append_result("wait:100")).grid(row=1, column=1, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: A", width=85, command=lambda: append_result("gamepad:a")).grid(row=1, column=2, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: B", width=85, command=lambda: append_result("gamepad:b")).grid(row=1, column=3, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: X", width=85, command=lambda: append_result("gamepad:x")).grid(row=1, column=4, padx=2, pady=2)
+
+            ctk.CTkButton(quick_f, text="+ GP: Y", width=85, command=lambda: append_result("gamepad:y")).grid(row=2, column=0, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: LB", width=85, command=lambda: append_result("gamepad:lb")).grid(row=2, column=1, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: RB", width=85, command=lambda: append_result("gamepad:rb")).grid(row=2, column=2, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: LT", width=85, command=lambda: append_result("gamepad:lt")).grid(row=2, column=3, padx=2, pady=2)
+            ctk.CTkButton(quick_f, text="+ GP: RT", width=85, command=lambda: append_result("gamepad:rt")).grid(row=2, column=4, padx=2, pady=2)
+
+        # Gamepad live polling listener (for both inputs and outputs)
+        last_pressed_buttons = set()
+
+        def poll_gamepad():
+            if not record_win.winfo_exists():
+                return
+            current_pressed = set()
+            if hasattr(self, 'current_state') and self.current_state:
+                st = self.current_state
+                btn_attrs = ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']
+                for b in btn_attrs:
+                    val = getattr(st, b, False)
+                    if isinstance(val, bool) and val:
+                        current_pressed.add(b)
+                    elif isinstance(val, (int, float)) and val > 0.5:
+                        current_pressed.add(b)
+
+                if hasattr(st, 'extra_inputs') and isinstance(st.extra_inputs, dict):
+                    for eb, ev in st.extra_inputs.items():
+                        if ev:
+                            current_pressed.add(eb)
+
+            newly_pressed = current_pressed - last_pressed_buttons
+            for btn_name in newly_pressed:
+                if mode == 'outputs':
+                    append_result(f"gamepad:{btn_name}")
+                else:
+                    append_result(btn_name)
+
+            last_pressed_buttons.clear()
+            last_pressed_buttons.update(current_pressed)
+            record_win.after(50, poll_gamepad)
+
+        record_win.after(50, poll_gamepad)
+
+        if mode == 'inputs':
+            # Quick add buttons frame for gamepad inputs
+            quick_f = ctk.CTkFrame(record_win, fg_color="transparent")
+            quick_f.pack(fill="x", padx=10, pady=5)
+
+            gp_btns = ['lb', 'rb', 'lt', 'rt', 'a', 'b', 'x', 'y', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'select', 'start', 'home']
+            for i, gb in enumerate(gp_btns):
+                ctk.CTkButton(quick_f, text=f"+ {gb.upper()}", width=70, command=lambda b=gb: append_result(b)).grid(row=i//5, column=i%5, padx=3, pady=3)
+
+        def clear_results():
+            result_var.set("")
+
+        btn_bar = ctk.CTkFrame(record_win, fg_color="transparent")
+        btn_bar.pack(pady=10)
+
+        ctk.CTkButton(btn_bar, text="Clear", width=80, fg_color="#666666", command=clear_results).pack(side="left", padx=5)
+        
         def save_and_close():
             if k_listener: k_listener.stop()
             if m_listener: m_listener.stop()
@@ -2414,9 +2885,9 @@ class App(ctk.CTk):
             entry_widget.insert(0, result_var.get())
             record_win.destroy()
             
-        ctk.CTkButton(record_win, text="Save", command=save_and_close).pack(pady=10)
+        ctk.CTkButton(btn_bar, text="Save", width=100, command=save_and_close).pack(side="left", padx=5)
 
-    def add_chord_row(self, name_val, inputs_val, outputs_val):
+    def add_chord_row(self, name_val, outputs_val):
         row_f = ctk.CTkFrame(self.chord_list_frame)
         row_f.pack(fill="x", pady=2)
         
@@ -2424,21 +2895,15 @@ class App(ctk.CTk):
         row1.pack(fill="x", padx=2, pady=2)
         
         ctk.CTkLabel(row1, text="Name:").pack(side="left", padx=2)
-        ent_name = ctk.CTkEntry(row1, width=80)
-        ent_name.insert(0, name_val)
+        ent_name = ctk.CTkEntry(row1, width=120, placeholder_text="e.g. macro1")
+        if name_val:
+            ent_name.insert(0, name_val)
         ent_name.pack(side="left", padx=2)
-        
-        ctk.CTkLabel(row1, text="Inputs:").pack(side="left", padx=2)
-        ent_in = ctk.CTkEntry(row1, width=100)
-        ent_in.insert(0, inputs_val)
-        ent_in.pack(side="left", padx=2)
-        
-        btn_rec_in = ctk.CTkButton(row1, text="⏺ GP", width=40, command=lambda: self.start_macro_recording(ent_in, 'inputs'))
-        btn_rec_in.pack(side="left", padx=2)
         
         def delete_row():
             row_f.destroy()
-            self.chord_rows.remove(row_data)
+            if row_data in self.chord_rows:
+                self.chord_rows.remove(row_data)
         btn_del = ctk.CTkButton(row1, text="X", width=25, fg_color="#990000", hover_color="#660000", command=delete_row)
         btn_del.pack(side="right", padx=2)
         
@@ -2446,15 +2911,52 @@ class App(ctk.CTk):
         row2.pack(fill="x", padx=2, pady=2)
         
         ctk.CTkLabel(row2, text="Outputs:").pack(side="left", padx=2)
-        ent_out = ctk.CTkEntry(row2)
-        ent_out.insert(0, outputs_val)
+        ent_out = ctk.CTkEntry(row2, placeholder_text="e.g. gamepad:a, wait:50, keyboard:h, mouse:left")
+        if outputs_val:
+            ent_out.insert(0, outputs_val)
         ent_out.pack(side="left", fill="x", expand=True, padx=2)
         
-        btn_rec_out = ctk.CTkButton(row2, text="⏺ KBM", width=40, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
+        btn_rec_out = ctk.CTkButton(row2, text="[Rec]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
         btn_rec_out.pack(side="right", padx=2)
         
-        row_data = {"name": ent_name, "in": ent_in, "out": ent_out, "frame": row_f}
+        row_data = {"name": ent_name, "out": ent_out, "frame": row_f}
         self.chord_rows.append(row_data)
+        
+    def add_hw_chord_row(self, parent_frame, chord_val, action_val, delayed_val, mode_val):
+        row_f = ctk.CTkFrame(parent_frame)
+        row_f.pack(fill="x", pady=2)
+        
+        ctk.CTkLabel(row_f, text="Chord:").pack(side="left", padx=2)
+        ent_chord = ctk.CTkEntry(row_f, width=95, placeholder_text="e.g. dpad_up, lb")
+        if chord_val:
+            ent_chord.insert(0, chord_val)
+        ent_chord.pack(side="left", padx=2)
+        
+        ctk.CTkLabel(row_f, text="Delayed:").pack(side="left", padx=2)
+        ent_delayed = ctk.CTkEntry(row_f, width=75, placeholder_text="e.g. dpad_up")
+        if delayed_val:
+            ent_delayed.insert(0, delayed_val)
+        ent_delayed.pack(side="left", padx=2)
+        
+        ctk.CTkLabel(row_f, text="Action:").pack(side="left", padx=2)
+        ent_action = ctk.CTkEntry(row_f, width=75, placeholder_text="e.g. M1")
+        if action_val:
+            ent_action.insert(0, action_val)
+        ent_action.pack(side="left", padx=2)
+        
+        ctk.CTkLabel(row_f, text="Mode:").pack(side="left", padx=2)
+        mode_var = ctk.StringVar(value=mode_val)
+        opt_mode = ctk.CTkOptionMenu(row_f, values=["auto", "0ms", "50ms", "100ms"], variable=mode_var, width=80)
+        opt_mode.pack(side="left", padx=2)
+        
+        def delete_row():
+            row_f.destroy()
+            self.hw_chord_rows.remove(row_data)
+        btn_del = ctk.CTkButton(row_f, text="X", width=25, fg_color="#990000", hover_color="#660000", command=delete_row)
+        btn_del.pack(side="right", padx=2)
+        
+        row_data = {"chord": ent_chord, "action": ent_action, "delayed": ent_delayed, "mode": mode_var, "frame": row_f}
+        self.hw_chord_rows.append(row_data)
 
     def save_advanced(self):
         # Save Shift Layer
@@ -2467,17 +2969,28 @@ class App(ctk.CTk):
                 
         self.config.set('shift_layer', 'mode', self.shift_mode_var.get())
         
-        # Save Chords & Macros
-        self.config.remove_section('chords')
-        self.config.add_section('chords')
+        # Save Hardware Chords
+        self.config.remove_section('hardware_chords')
+        self.config.add_section('hardware_chords')
         
+        if hasattr(self, 'hw_chord_rows'):
+            for i, row in enumerate(self.hw_chord_rows):
+                chord = row['chord'].get().strip()
+                action = row['action'].get().strip()
+                delayed = row['delayed'].get().strip()
+                mode = row['mode'].get()
+                if chord and action:
+                    val = f"chord={chord}; action={action}; mode={mode}"
+                    if delayed:
+                        val += f"; delayed={delayed}"
+                    self.config.set('hardware_chords', f"hw_{i}", val)
+        
+        # Save Macros
         macros_dict = {}
         for row in self.chord_rows:
             name = row["name"].get().strip()
-            inputs = row["in"].get().strip()
             outputs = row["out"].get().strip()
-            if name and inputs and outputs:
-                self.config.set('chords', inputs, f"macro:{name}")
+            if name and outputs:
                 
                 steps = []
                 # parse outputs like: "press:keyboard:h, wait:50, release:keyboard:h, keyboard:j"
@@ -2506,31 +3019,30 @@ class App(ctk.CTk):
             
         self.save_config()
         
+        # Refresh Remapping tab and Dashboard so newly added hardware chord actions appear immediately
+        if hasattr(self, 'remapping_scroll'):
+            self.setup_remapping()
+        if hasattr(self, 'extra_frame'):
+            self._build_dashboard_layout()
+        
         if logger:
             logger.info("Advanced configuration saved.")
 
     def setup_customization(self):
-        lbl = ctk.CTkLabel(self.tab_customization, text="UI Customization", font=ctk.CTkFont(size=20, weight="bold"))
+        for child in self.tab_customization.winfo_children():
+            child.destroy()
+        self.customization_scroll = ctk.CTkScrollableFrame(self.tab_customization, fg_color="transparent", corner_radius=0)
+        self.customization_scroll.pack(fill="both", expand=True)
+
+        lbl = ctk.CTkLabel(self.customization_scroll, text="UI Customization", font=ctk.CTkFont(size=20, weight="bold"))
         lbl.pack(pady=(20, 10))
 
-        frame = ctk.CTkFrame(self.tab_customization)
+        frame = ctk.CTkFrame(self.customization_scroll)
         frame.pack(padx=20, pady=10, fill="x")
-
-        # Appearance Mode
-        lbl_mode = ctk.CTkLabel(frame, text="Appearance Mode (Light/Dark):")
-        lbl_mode.grid(row=0, column=0, padx=15, pady=10, sticky="w")
-        
-        current_mode = "Dark"
-        if self.daemon_config.has_option('UI', 'appearance'):
-            current_mode = self.daemon_config.get('UI', 'appearance')
-            
-        self.mode_var = ctk.StringVar(value=current_mode)
-        opt_mode = ctk.CTkOptionMenu(frame, variable=self.mode_var, values=["Dark", "Light", "System"], command=self.change_appearance_mode)
-        opt_mode.grid(row=0, column=1, padx=15, pady=10, sticky="ew")
 
         # Theme Color
         lbl_theme = ctk.CTkLabel(frame, text="Accent Theme (Requires Restart):")
-        lbl_theme.grid(row=1, column=0, padx=15, pady=10, sticky="w")
+        lbl_theme.grid(row=0, column=0, padx=15, pady=10, sticky="w")
         
         current_theme = "purple"
         if self.daemon_config.has_option('UI', 'theme'):
@@ -2602,14 +3114,6 @@ class App(ctk.CTk):
 
         frame.columnconfigure(1, weight=1)
 
-    def change_appearance_mode(self, new_mode):
-        ctk.set_appearance_mode(new_mode)
-        if not self.daemon_config.has_section('UI'):
-            self.daemon_config.add_section('UI')
-        self.daemon_config.set('UI', 'appearance', new_mode)
-        with open(self.daemon_config_file, 'w') as f:
-            self.daemon_config.write(f)
-
     def change_theme(self, new_theme):
         if not self.daemon_config.has_section('UI'):
             self.daemon_config.add_section('UI')
@@ -2632,73 +3136,16 @@ class App(ctk.CTk):
         with open(self.daemon_config_file, 'w') as f:
             self.daemon_config.write(f)
 
-    def setup_profile(self):
-        lbl = ctk.CTkLabel(self.tab_profile, text="Profile Validation & Diff", font=ctk.CTkFont(size=20, weight="bold"))
-        lbl.pack(pady=(20, 10))
-        
-        main_frame = ctk.CTkFrame(self.tab_profile, fg_color="transparent")
-        main_frame.pack(fill="both", expand=True, padx=20, pady=10)
-        
-        import os
-        import glob
-        profiles = [os.path.basename(p) for p in glob.glob("profiles/*.json")]
-        if not profiles:
-            profiles = ["No profiles found"]
-            
-        p1_var = ctk.StringVar(value=profiles[0])
-        p2_var = ctk.StringVar(value=profiles[0])
-        
-        # Profile 1 Selection
-        p1_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        p1_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(p1_frame, text="Profile 1 (Base):", width=120, anchor="w").pack(side="left")
-        ctk.CTkOptionMenu(p1_frame, values=profiles, variable=p1_var).pack(side="left", fill="x", expand=True)
-        
-        # Profile 2 Selection
-        p2_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        p2_frame.pack(fill="x", pady=5)
-        ctk.CTkLabel(p2_frame, text="Profile 2 (Compare):", width=120, anchor="w").pack(side="left")
-        ctk.CTkOptionMenu(p2_frame, values=profiles, variable=p2_var).pack(side="left", fill="x", expand=True)
-        
-        # Buttons
-        btn_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        btn_frame.pack(fill="x", pady=10)
-        
-        output_txt = ctk.CTkTextbox(main_frame, height=300)
-        output_txt.pack(fill="both", expand=True, pady=10)
-        
-        def run_validate():
-            import profile_tools
-            p_path = os.path.join("profiles", p1_var.get())
-            res = profile_tools.validate_hid_map(p_path)
-            output_txt.delete("0.0", "end")
-            output_txt.insert("0.0", res)
-            
-        def run_diff():
-            import profile_tools
-            p1_path = os.path.join("profiles", p1_var.get())
-            p2_path = os.path.join("profiles", p2_var.get())
-            res = profile_tools.diff_hid_maps(p1_path, p2_path)
-            output_txt.delete("0.0", "end")
-            output_txt.insert("0.0", res)
-            
-        def export_output():
-            from tkinter import filedialog, messagebox
-            fpath = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text Files", "*.txt")])
-            if fpath:
-                with open(fpath, 'w') as f:
-                    f.write(output_txt.get("0.0", "end"))
-                messagebox.showinfo("Exported", f"Output exported to {fpath}")
-        
-        ctk.CTkButton(btn_frame, text="Validate Profile 1", command=run_validate).pack(side="left", padx=5, expand=True)
-        ctk.CTkButton(btn_frame, text="Diff Profiles (1 vs 2)", command=run_diff).pack(side="left", padx=5, expand=True)
-        ctk.CTkButton(btn_frame, text="Export Output", command=export_output).pack(side="left", padx=5, expand=True)
-
     def setup_utilities(self):
-        lbl = ctk.CTkLabel(self.tab_utilities, text="Utilities & Diagnostics", font=ctk.CTkFont(size=20, weight="bold"))
+        for child in self.tab_utilities.winfo_children():
+            child.destroy()
+        self.utilities_scroll = ctk.CTkScrollableFrame(self.tab_utilities, fg_color="transparent", corner_radius=0)
+        self.utilities_scroll.pack(fill="both", expand=True)
+
+        lbl = ctk.CTkLabel(self.utilities_scroll, text="Utilities & Diagnostics", font=ctk.CTkFont(size=20, weight="bold"))
         lbl.pack(pady=(20, 10))
         
-        main_frame = ctk.CTkFrame(self.tab_utilities, fg_color="transparent")
+        main_frame = ctk.CTkFrame(self.utilities_scroll, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=10)
         
         # Latency Monitor Frame
@@ -2782,27 +3229,6 @@ class App(ctk.CTk):
             
         ctk.CTkButton(comm_frame, text="Update Community HID Maps", command=update_community_hid_maps, fg_color="#005580", hover_color="#00334d").pack(pady=(10, 10))
 
-        # Recording & Playback Frame
-        rec_frame = ctk.CTkFrame(main_frame)
-        rec_frame.pack(fill="x", pady=10)
-        
-        ctk.CTkLabel(rec_frame, text="Input Recording & Playback", font=ctk.CTkFont(size=16, weight="bold")).pack(pady=(10, 5))
-        ctk.CTkLabel(rec_frame, text="Record your controller inputs and play them back perfectly.").pack()
-        
-        rec_btn_frame = ctk.CTkFrame(rec_frame, fg_color="transparent")
-        rec_btn_frame.pack(pady=10)
-        
-        def send_record_cmd(cmd):
-            try:
-                with open("record_cmd.txt", "w") as f:
-                    f.write(cmd)
-            except: pass
-            
-        ctk.CTkButton(rec_btn_frame, text="Start Recording", command=lambda: send_record_cmd("record_start"), fg_color="#8a2020", hover_color="#5a1010").pack(side="left", padx=5)
-        ctk.CTkButton(rec_btn_frame, text="Stop Recording", command=lambda: send_record_cmd("record_stop"), fg_color="#444444").pack(side="left", padx=5)
-        ctk.CTkButton(rec_btn_frame, text="Start Playback", command=lambda: send_record_cmd("play_start"), fg_color="#206a20", hover_color="#104a10").pack(side="left", padx=5)
-        ctk.CTkButton(rec_btn_frame, text="Stop Playback", command=lambda: send_record_cmd("play_stop"), fg_color="#444444").pack(side="left", padx=5)
-
         self.update_utilities_loop()
         
     def update_utilities_loop(self):
@@ -2850,20 +3276,24 @@ class App(ctk.CTk):
 
 
 if __name__ == "__main__":
+    ensure_single_instance('gui', 48125)
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--log',
+        '--debug', '-d',
         action='store_true',
         help='Enable verbose debugging logs')
     parser.add_argument(
         '--append-log',
         action='store_true',
+        default=True,
         help='Append to log file instead of overwriting')
     args = parser.parse_args()
 
-    logger = setup_logger('gui', 'wrapper.log', args.log, args.append_log)
-    if args.log:
+    logger = setup_logger('gui', 'wrapper.log', args.debug, args.append_log)
+    if args.debug:
         logger.info("GUI started in debug mode")
+        logger.debug(f"[INIT] Parsed arguments: {args}")
 
     app = App()
     app.mainloop()

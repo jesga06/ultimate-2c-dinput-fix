@@ -13,6 +13,7 @@ if sys.version_info[:2] not in ((3, 13), (3, 14)):
 import argparse
 import threading
 from logger_setup import setup_logger
+from single_instance import ensure_single_instance
 from hid_reader import HIDReader, HIDReport, RawHIDReport
 from decoder import Decoder
 
@@ -102,9 +103,11 @@ class Calibrator:
     def _data_handler(self, report: HIDReport):
         self.latest_reports[str(report.report_id)] = report
 
-    def scan_devices(self, test_only=False):
+    def scan_devices(self, test_only=False, skip_discovery=False):
+        if logger:
+            logger.debug(f"[ENTER] scan_devices(test_only={test_only}, skip_discovery={skip_discovery})")
         print("==================================================================")
-        print("NOTICE: Please ensure your controller is set to DInput mode (not XInput).")
+        print("NOTICE: Please ensure your controller is connected. If calibrating DInput HID maps, set your controller to DInput mode.")
         print("If you just switched modes, select the option to rescan devices.")
         print("==================================================================\n")
         print("Scanning for HID devices...")
@@ -139,39 +142,45 @@ class Calibrator:
                 continue
 
             dev_list = list(unique_devices.values())
-            print("\nSelect your controller:")
-            for i, d in enumerate(dev_list):
-                print(f"[{i}] VID:{d['vid']:04X} PID:{d['pid']:04X} - {d['name']}")
-            print(f"[{len(dev_list)}] Rescan for devices")
-            print("Choice (or 'q' to quit): ", end="")
-            sys.stdout.flush()
-
-            import msvcrt
-            typed_input = ""
-            selected_group = None
-            while selected_group is None:
-                if msvcrt.kbhit():
-                    char = msvcrt.getwche()
-                    if char == '\r':
-                        if typed_input == 'q': return False
-                        try:
-                            choice = int(typed_input)
-                            if choice == len(dev_list):
-                                break # Rescan
-                            elif 0 <= choice < len(dev_list):
-                                selected_group = dev_list[choice]
-                            else:
-                                print("\nInvalid choice. Try again.")
+            
+            if len(dev_list) == 1:
+                selected_group = dev_list[0]
+                print(f"\nAuto-selected only connected controller: VID:{selected_group['vid']:04X} PID:{selected_group['pid']:04X} - {selected_group['name']}")
+                time.sleep(1.5)
+            else:
+                print("\nSelect your controller:")
+                for i, d in enumerate(dev_list):
+                    print(f"[{i}] VID:{d['vid']:04X} PID:{d['pid']:04X} - {d['name']}")
+                print(f"[{len(dev_list)}] Rescan for devices")
+                print("Choice (or 'q' to quit): ", end="")
+                sys.stdout.flush()
+    
+                import msvcrt
+                typed_input = ""
+                selected_group = None
+                while selected_group is None:
+                    if msvcrt.kbhit():
+                        char = msvcrt.getwche()
+                        if char == '\r':
+                            if typed_input == 'q': return False
+                            try:
+                                choice = int(typed_input)
+                                if choice == len(dev_list):
+                                    break # Rescan
+                                elif 0 <= choice < len(dev_list):
+                                    selected_group = dev_list[choice]
+                                else:
+                                    print("\nInvalid choice. Try again.")
+                                    typed_input = ""
+                            except ValueError:
+                                print("\nInvalid input. Try again.")
                                 typed_input = ""
-                        except ValueError:
-                            print("\nInvalid input. Try again.")
-                            typed_input = ""
-                    else:
-                        typed_input += char
-                time.sleep(0.01)
-
-            if selected_group is None:
-                continue # Rescanning
+                        else:
+                            typed_input += char
+                    time.sleep(0.01)
+    
+                if selected_group is None:
+                    continue # Rescanning
 
             def make_handler(iface_num):
                 def handler(report: RawHIDReport):
@@ -184,9 +193,19 @@ class Calibrator:
 
             self.latest_reports = {}
 
-            if test_only:
+            if test_only or skip_discovery:
                 vid = selected_group['vid']
                 pid = selected_group['pid']
+                
+                if skip_discovery:
+                    self.device = selected_group
+                    self.profile = {
+                        "name": selected_group['name'],
+                        "vid": vid,
+                        "pid": pid,
+                    }
+                    return True
+                    
                 profile_path = f"profiles/{vid:04X}_{pid:04X}.json".lower()
                 
                 if not os.path.exists(profile_path):
@@ -289,7 +308,12 @@ class Calibrator:
                 print("\n--- Stage 2: Manual Interface Selection ---")
                 print("Please select which interfaces to enable for this controller.")
                 for i, (iface_num, r, d) in enumerate(opened_readers):
-                    print(f"[{i}] Interface: {iface_num} | Usage Page: {d.get('usage_page', 'N/A')} | Usage: {d.get('usage', 'N/A')}")
+                    prod = str(d.get('product_string', '')).lower()
+                    mfg = str(d.get('manufacturer_string', '')).lower()
+                    rec_str = ""
+                    if "controller" in prod or "microsoft" in prod or "microsoft" in mfg:
+                        rec_str = " (Recommended for XInput)"
+                    print(f"[{i}] Interface: {iface_num} | Usage Page: {d.get('usage_page', 'N/A')} | Usage: {d.get('usage', 'N/A')}{rec_str}")
                 
                 print("Enter comma-separated choices (e.g. 0,1) or 'q' to quit: ")
                 choices = input("Choices: ").strip().lower()
@@ -343,17 +367,55 @@ class Calibrator:
         # they can press a key on the keyboard.
         pass
 
-    def run(self, test_only=False):
-        if not test_only:
-            print("==================================================================")
-            print("NOTICE: Please disable any 'no dead-zone' (raw/instant) joystick")
-            print("configurations on your controller before starting calibration.")
-            print("Immensely increased joystick sensitivity may disrupt calibration.")
-            print("==================================================================\n")
-        if not self.scan_devices(test_only=test_only):
-            return
+    def setup_auto_detect(self):
+        print("\n\n--- Auto-Detect Mode ---")
+        print("Please press and hold the 'A' and 'B' (or Cross and Circle) buttons together...")
+        
+        try:
+            from backend_xinput import XInputBackend, XINPUT_STATE, XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B
+            import ctypes
+            xbackend = XInputBackend()
+            start_t = time.time()
+            detected = False
+            if xbackend.initialize():
+                get_state_func = xbackend.XInputGetState
+                state = XINPUT_STATE()
+                while time.time() - start_t < 5.0:
+                    if get_state_func(xbackend.connected_slot, ctypes.byref(state)) == 0:
+                        btns = state.Gamepad.wButtons
+                        if (btns & XINPUT_GAMEPAD_A) and (btns & XINPUT_GAMEPAD_B):
+                            detected = True
+                            break
+                    time.sleep(0.1)
+        except Exception as e:
+            detected = False
+            print(f"Error during XInput check: {e}")
 
+        if detected:
+            print("\nSuccessfully detected XInput mode!")
+            return True
+        else:
+            print("\nFailed to detect XInput mode. Falling back to DInput calibration...")
+            time.sleep(2)
+            
+            import configparser
+            config = configparser.ConfigParser()
+            if os.path.exists('config.ini'): config.read('config.ini')
+            if not config.has_section('backend'): config.add_section('backend')
+            config.set('backend', 'mode', 'dinput')
+            with open('config.ini', 'w') as f: config.write(f)
+            
+            if self.scan_devices(test_only=False):
+                self._continue_dinput_calibration()
+            return False
+
+    def run(self, test_only=False):
+        if logger:
+            logger.debug(f"[ENTER] run(test_only={test_only})")
+        cls()
         if test_only:
+            if not self.scan_devices(test_only=True):
+                return
             profile_path = getattr(self, 'profile_path', f"profiles/{self.device.get('vid', 0):04X}_{self.device.get('pid', 0):04X}.json".lower())
             if "layout" in self.profile:
                 self.layout = self.profile["layout"]
@@ -364,6 +426,101 @@ class Calibrator:
                 for _, r in self.readers: r.stop()
             return
 
+        print("==================================================================")
+        print("                       UR-XD SETUP & CALIBRATION")
+        print("==================================================================")
+        print("NOTICE: Please disable any 'no dead-zone' (raw/instant) joystick")
+        print("configurations on your controller before starting calibration.")
+        print("Immensely increased joystick sensitivity may disrupt calibration.")
+        print("==================================================================\n")
+
+        print("Please select the operating mode for your controller:")
+        print("[1] DInput (DirectInput) - Full Calibration (Builds HID Map)")
+        print("[2] XInput - Setup Hardware Chords for XInput Mode")
+        print("[3] Auto-Detect Mode - Automatically checks XInput vs DInput")
+        print("Choice (or 'q' to quit): ", end="")
+        sys.stdout.flush()
+        
+        mode_choice = None
+        import msvcrt
+        typed_input = ""
+        while mode_choice is None:
+            if msvcrt.kbhit():
+                char = msvcrt.getwche()
+                if char == '\r':
+                    if typed_input == 'q':
+                        return
+                    if typed_input in ("1", "2", "3"):
+                        mode_choice = typed_input
+                    else:
+                        print("\nInvalid choice. [1-3] only.")
+                        typed_input = ""
+                else:
+                    typed_input += char
+            time.sleep(0.01)
+
+        def setup_xinput_profile():
+            print("\n--- Registering Device for XInput ---")
+            print("Please select your controller from the list to register it.")
+            if not self.scan_devices(skip_discovery=True):
+                return False
+                
+            basic_hid_map_path = f"profiles/{self.profile['vid']:04X}_{self.profile['pid']:04X}.json".lower()
+            if not os.path.exists(basic_hid_map_path):
+                with open(basic_hid_map_path, 'w') as f:
+                    json.dump(self.profile, f, indent=4)
+                    
+            import re
+            sanitized_name = re.sub(r'[\\/*?:"<>|]', "", self.profile['name'])
+            sanitized_name = sanitized_name.replace(" ", "_")
+            x_profile_path = f"profiles/{sanitized_name}_xinput.json"
+            
+            x_profile = {}
+            if os.path.exists(x_profile_path):
+                try:
+                    with open(x_profile_path, 'r') as f:
+                        x_profile = json.load(f)
+                except:
+                    pass
+                    
+            with open(x_profile_path, 'w') as f:
+                json.dump(x_profile, f, indent=4)
+                
+            import configparser
+            config = configparser.ConfigParser()
+            if os.path.exists('config.ini'): config.read('config.ini')
+            if not config.has_section('backend'): config.add_section('backend')
+            config.set('backend', 'mode', 'xinput')
+            with open('config.ini', 'w') as f: config.write(f)
+            
+            print("\nBackend set to XInput. Please use the GUI to configure your Hardware Chords.")
+            time.sleep(3)
+            return True
+
+        if mode_choice == "2":
+            setup_xinput_profile()
+            return
+        elif mode_choice == "3":
+            if self.setup_auto_detect():
+                setup_xinput_profile()
+            return
+
+        # Option 1: DInput mode selected
+        import configparser
+        config = configparser.ConfigParser()
+        if os.path.exists('config.ini'): config.read('config.ini')
+        if not config.has_section('backend'): config.add_section('backend')
+        config.set('backend', 'mode', 'dinput')
+        with open('config.ini', 'w') as f: config.write(f)
+
+        if not self.scan_devices(test_only=False):
+            return
+
+        self._continue_dinput_calibration()
+
+    def _continue_dinput_calibration(self):
+        if logger:
+            logger.debug("[ENTER] _continue_dinput_calibration()")
         remapping_targets = None
         profile_path = getattr(self, 'profile_path', f"profiles/{self.profile['vid']}_{self.profile['pid']}.json".lower())
         
@@ -508,27 +665,24 @@ class Calibrator:
             ("dpad", "hat", "Press the D-Pad UP (Assuming standard Hat switch)")
         ]
 
-        # Extra buttons
-        if remapping_targets is None:
-            num_extras = -1
-            while num_extras < 0:
-                user_input = input("\nHow many extra buttons (e.g., L4, R4) does this controller have? (or 'q' to quit): ").strip().lower()
-                if user_input == 'q': return
-                try: num_extras = int(user_input)
-                except ValueError: pass
-
-            for i in range(num_extras):
-                name = ""
-                while not name:
-                    name = input(f"Enter a name for extra button {i + 1} (e.g., l4): ").strip().lower()
-                steps.append((name, "buttons", f"Press the '{name}' extra button"))
-        else:
+        # Extra buttons handling for specific remapping targets or full DInput calibration
+        if remapping_targets is not None:
             filtered_steps = [s for s in steps if s[0] in remapping_targets]
             standard_names = {s[0] for s in steps}
             for t in remapping_targets:
                 if t not in standard_names:
                     filtered_steps.append((t, "buttons", f"Press the '{t}' extra button"))
             steps = filtered_steps
+        else:
+            # For full DInput calibration, prompt if user wants to calibrate physical extra buttons
+            try:
+                extra_ans = input("\nDoes your controller have physical extra buttons/paddles to calibrate? (e.g. m1, m2, c, z) [y/N]: ").strip().lower()
+                if extra_ans in ['y', 'yes']:
+                    extra_names = input("Enter extra button names separated by commas (e.g. m1, m2, l4, r4): ").strip().lower()
+                    for name in [x.strip() for x in extra_names.split(',') if x.strip()]:
+                        steps.append((name, "buttons", f"Press the '{name}' extra button"))
+            except Exception:
+                pass
 
         i = 0
         while i < len(steps):
@@ -545,7 +699,7 @@ class Calibrator:
                 if iface not in self.baselines: self.baselines[iface] = {}
                 for rep_id, rep in reps.items():
                     self.baselines[iface][rep_id] = list(rep.data)
-
+            
             done = False
             undo = False
 
@@ -926,10 +1080,8 @@ class Calibrator:
     def save_profile(self):
         try:
             os.makedirs("profiles", exist_ok=True)
-            filename = f"profiles/{
-                self.profile['vid']}_{
-                self.profile['pid']}.json".lower()
-            with open(filename, 'w') as f:
+            filename = f"profiles/{self.profile['vid']}_{self.profile['pid']}.json".lower()
+            with open(filename, 'w', encoding='utf-8') as f:
                 json.dump(self.profile, f, indent=4)
             print(f"\nProfile saved to {filename}")
             if logger: logger.info(f"Profile saved to {filename}")
@@ -1026,6 +1178,8 @@ class Calibrator:
             print("\nRumble setup failed: No motor bytes identified.")
 
     def test_mode(self, is_temp=False, profile_path=None):
+        if logger:
+            logger.debug(f"[ENTER] test_mode(is_temp={is_temp}, profile_path={profile_path})")
         print("\n--- Test Mode ---")
         print("Press Ctrl+C to exit test mode.")
         time.sleep(1.5)
@@ -1038,7 +1192,7 @@ class Calibrator:
             temp_path = "profiles/temp_test.json"
             try:
                 os.makedirs("profiles", exist_ok=True)
-                with open(temp_path, 'w') as f:
+                with open(temp_path, 'w', encoding='utf-8') as f:
                     json.dump(self.profile, f)
             except Exception as e:
                 print(f"Error creating temp profile for test mode: {e}")
@@ -1079,12 +1233,11 @@ class Calibrator:
                     lbl = test_labels.get(b, b.upper())
                     print(f"{lbl}: {'[X]' if val else '[ ]'}", end="  ")
                 print("\n\nD-Pad:")
-                print(
-                    f"UP: {
-                        '[X]' if state.dpad_up else '[ ]'}  DOWN: {
-                        '[X]' if state.dpad_down else '[ ]'}  LEFT: {
-                        '[X]' if state.dpad_left else '[ ]'}  RIGHT: {
-                        '[X]' if state.dpad_right else '[ ]'}")
+                up_str = '[X]' if state.dpad_up else '[ ]'
+                down_str = '[X]' if state.dpad_down else '[ ]'
+                left_str = '[X]' if state.dpad_left else '[ ]'
+                right_str = '[X]' if state.dpad_right else '[ ]'
+                print(f"UP: {up_str}  DOWN: {down_str}  LEFT: {left_str}  RIGHT: {right_str}")
                 print("\nAxes:")
 
                 grid_size = 5
@@ -1130,21 +1283,10 @@ class Calibrator:
                 lt_name = test_labels.get('lt', 'LT')
                 rt_name = test_labels.get('rt', 'RT')
 
-                print(
-                    f"Left Stick (LX:{
-                        state.lx:5.2f}, LY:{
-                        state.ly:5.2f})   Right Stick (RX:{
-                        state.rx:5.2f}, RY:{
-                        state.ry:5.2f})   {lt_name}:{
-                        state.lt:4.2f}   {rt_name}:{
-                            state.rt:4.2f}")
+                print(f"Left Stick (LX:{state.lx:5.2f}, LY:{state.ly:5.2f})   Right Stick (RX:{state.rx:5.2f}, RY:{state.ry:5.2f})   {lt_name}:{state.lt:4.2f}   {rt_name}:{state.rt:4.2f}")
                 for i in range(grid_size):
-                    print(
-                        f"  {
-                            l_grid[i]:<10}                    {
-                            r_grid[i]:<10}                 {
-                            lt_bar[i]}        {
-                            rt_bar[i]}")
+                    print(f"  {l_grid[i]:<10}                    {r_grid[i]:<10}                 {lt_bar[i]}        {rt_bar[i]}")
+
 
                 if state.extra_inputs:
                     print("\nExtra Inputs:")
@@ -1225,9 +1367,10 @@ def select_stdin():
 
 
 if __name__ == "__main__":
+    ensure_single_instance('calibration', 48126)
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--log',
+        '--debug', '-d',
         action='store_true',
         help='Enable verbose debugging logs')
     parser.add_argument(
@@ -1244,11 +1387,12 @@ if __name__ == "__main__":
     logger = setup_logger(
         'calibration',
         'calibration.log',
-        args.log,
+        args.debug,
         append=False)
 
-    if args.log:
+    if args.debug:
         logger.info("Calibration Tool started in debug mode")
+        logger.debug(f"[INIT] Parsed arguments: {args}")
 
     calibrator = Calibrator()
     if args.dump_raw:
