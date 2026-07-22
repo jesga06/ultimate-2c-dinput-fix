@@ -305,3 +305,5 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Added single-instance socket guards across `main.py` (port 48124), `gui.py` (port 48125), and `calibration.py` (port 48126) via `src/single_instance.py`. When a duplicate instance is executed, it notifies the user and exits immediately (`sys.exit(0)`), preserving the oldest running process.
   - Resolved an issue where launching the GUI or a duplicate daemon instance in non-debug mode truncated `wrapper.log` to 0 bytes and left only 2–3 startup log lines.
   - Enforced `--append-log` mode when spawning `gui.py` from `main.py` and set `append=True` as the default in `gui.py`.
+- **Math Utils `clamp_int` Attribute Fix:** Added the missing `clamp_int` helper function to `src/math_utils.py`, resolving an `AttributeError` when scaling normalized float stick/trigger values to integer ranges in `VirtualPad`.
+
