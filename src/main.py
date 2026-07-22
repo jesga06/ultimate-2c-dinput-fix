@@ -14,11 +14,14 @@ if sys.version_info[:2] not in ((3, 13), (3, 14)):
 import os
 import threading
 import json
-from hid_reader import HIDReader, RawHIDReport
-from decoder import Decoder
+from hid_reader import HIDReader
+from decoder import Decoder, ControllerState
 from mapper import Mapper
 from virtual_pad import VirtualPad
 from config_manager import ControllerConfig, get_sanitized_filename
+from hardware_chords import HardwareChordEngine
+from backend_dinput import DInputBackend
+from backend_xinput import XInputBackend
 
 import pystray
 from PIL import Image, ImageDraw
@@ -268,6 +271,9 @@ def main():
         macro_executor = MacroExecutor(mapper)
         mapper.macro_executor = macro_executor
         
+        # Initialize Hardware Chord Engine
+        hardware_chord_engine = HardwareChordEngine(controller_config)
+        
     except Exception as e:
         logger.error(f"Failed to initialize mapper or virtual pad: {e}")
         logger.info("Please ensure ViGEmBus is installed.")
@@ -289,52 +295,39 @@ def main():
     except Exception as e:
         logger.error(f"Failed to parse profile to check interface: {e}")
 
-    readers = []
-    connected_names = []
+    # Determine Backend Mode
+    backend_mode = controller_config.config.get('backend', {}).get('mode', 'auto')
     
-    for d in devices:
-        if d.get('vendor_id', 0) == selected_vid and d.get('product_id', 0) == selected_pid:
-            iface_num = d.get('interface_number', -1)
-            if req_ifaces and iface_num not in req_ifaces:
-                continue
-            reader = HIDReader(device_path=d['path'], interface_number=iface_num)
-            if reader.connect():
-                readers.append(reader)
-                connected_names.append(d.get('product_string', 'Unknown'))
-                
-    if not readers:
-        write_status("Disconnected")
-        show_console()
-        time.sleep(5)
-        sys.exit(1)
+    backend = None
+    if backend_mode in ('xinput', 'auto'):
+        backend = XInputBackend()
+        if not backend.initialize():
+            if backend_mode == 'xinput':
+                logger.error("XInput backend selected but no XInput device found.")
+                write_status("Disconnected")
+                show_console()
+                time.sleep(5)
+                sys.exit(1)
+            else:
+                logger.info("Auto mode: No XInput device found, falling back to DInput.")
+                backend = None
+        else:
+            logger.info("Using XInput Backend.")
 
-    write_status("Connected", connected_names[0] if connected_names else "Unknown")
-
-    decoder = Decoder(hid_map_path)
+    if not backend:
+        backend = DInputBackend(hid_map_path, selected_vid, selected_pid, req_ifaces)
+        if not backend.initialize():
+            logger.error("Failed to initialize DInput backend.")
+            write_status("Disconnected")
+            show_console()
+            time.sleep(5)
+            sys.exit(1)
+        logger.info("Using DInput Backend.")
+        
+    write_status("Connected", device_name)
 
     def rumble_callback(left_motor, right_motor):
-        if not hasattr(decoder, "profile") or "rumble" not in decoder.profile:
-            return
-            
-        rumble_cfg = decoder.profile["rumble"]
-        template = list(rumble_cfg.get("template", []))
-        if not template:
-            return
-            
-        lm_byte = rumble_cfg.get("left_motor_byte", -1)
-        rm_byte = rumble_cfg.get("right_motor_byte", -1)
-        
-        # Scale 0.0-1.0 to 0-255
-        lm_val = int(left_motor * 255)
-        rm_val = int(right_motor * 255)
-        
-        if lm_byte >= 0 and lm_byte < len(template):
-            template[lm_byte] = lm_val
-        if rm_byte >= 0 and rm_byte < len(template):
-            template[rm_byte] = rm_val
-            
-        for r in readers:
-            r.send_output_report(template)
+        backend.set_vibration(left_motor, right_motor)
 
     virtual_pad.set_rumble_callback(rumble_callback)
 
@@ -348,7 +341,7 @@ def main():
     
     last_cmd_check = 0.0
 
-    def data_handler(report: RawHIDReport):
+    def data_handler(state: ControllerState):
         start_t = monitor.record_poll()
         nonlocal last_log_time, last_cmd_check
         current_time = time.time()
@@ -374,28 +367,25 @@ def main():
             playback_state_dict = player.get_current_state()
             if playback_state_dict:
                 state = ControllerState(**playback_state_dict)
-            else:
-                state = decoder.decode(report)
-        else:
-            state = decoder.decode(report)
 
         if recorder.is_recording:
             recorder.record_event(state.__dict__)
 
         if is_debug_mode and (current_time - last_log_time) >= 0.5:
-            logger.debug(f"RAW [{report.report_id:02X}]: {' | '.join(f'{x:02X}' for x in report.payload)}")
             logger.debug(f"DECODED STATE: {state}")
             last_log_time = current_time
 
+        # Pipeline: Hardware Chords -> Mapper -> VirtualPad
+        hardware_chord_engine.record_poll_interval()
+        state = hardware_chord_engine.process(state)
         mapper.process(state)
         virtual_pad.process(state)
         
         monitor.record_process(start_t)
         monitor.broadcast_state(state)
 
-    for r in readers:
-        r.set_callback(data_handler)
-        threading.Thread(target=r.start, daemon=True).start()
+    backend.set_callback(data_handler)
+    threading.Thread(target=backend.poll, daemon=True).start()
 
     logger.info("Running daemon in background...")
     # Background config poller
@@ -413,6 +403,7 @@ def main():
                         last_mtime = current_mtime
                         controller_config.load()
                         mapper.reload_config(controller_config)
+                        hardware_chord_engine.reload_config(controller_config)
                         virtual_pad.reload_config(controller_config)
                         macro_executor.load_macros()
                         logger.info("Controller config reloaded live!")
@@ -421,9 +412,6 @@ def main():
 
     t_poller = threading.Thread(target=config_poller, daemon=True)
     t_poller.start()
-
-    t_reader = threading.Thread(target=reader.start, daemon=True)
-    t_reader.start()
 
     logger.info("App is running in the system tray.")
 
@@ -446,7 +434,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
-        reader.stop()
+        backend.shutdown()
         write_status("Disconnected")
         for p in gui_processes:
             try:
