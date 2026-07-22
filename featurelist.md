@@ -76,6 +76,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Remapping Tab Interactive Guide:** Info button tooltip and interactive modal (`open_remapping_guide_modal`) detailing keyboard/mouse mapping formats, macro referencing by name (`macro:MyMacro`), input blocking, and Shift layer behavior.
 * **Shift Layer Home Button Hold Warning:** Displays a recommendation warning modal when 'HOME' is selected as the Shift trigger in 'hold' mode, advising users to set Shift mode to 'toggle' to prevent controller force turn-off or OS shortcut triggers.
 * **Dashboard Extra Buttons Centering & Telemetry Highlighting:** Centered horizontal extra buttons row on the Dashboard, added real-time active accent color illumination when buttons trigger, and restricted extra buttons in XInput mode exclusively to Hardware Chords to prevent duplicate entries.
+* **Streamlined Calibration Wizard:** Removed obsolete extra button prompts during device calibration and XInput registration in `src/calibration.py`, relying directly on Hardware Chords for extra button definitions.
 
 ---
 
