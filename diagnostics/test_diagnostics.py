@@ -3,12 +3,6 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-# Fallback mock 'hid' module ONLY if native hidapi DLL is missing in environment
-try:
-    import hid
-except ImportError:
-    sys.modules['hid'] = MagicMock()
-
 # Add repo root and diagnostics dir to path
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(REPO_ROOT)
