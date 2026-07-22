@@ -2434,13 +2434,13 @@ class App(ctk.CTk):
             
     def open_chords_guide_modal(self, topic="all"):
         guide_modal = ctk.CTkToplevel(self)
-        guide_modal.title("Chords & Hardware Chords Master Guide")
+        guide_modal.title("Macros & Hardware Chords Master Guide")
         guide_modal.geometry("660x560")
         guide_modal.resizable(True, True)
         guide_modal.attributes("-topmost", True)
         guide_modal.focus()
 
-        lbl_header = ctk.CTkLabel(guide_modal, text="Chords & Hardware Chords Tutorial", font=ctk.CTkFont(size=18, weight="bold"))
+        lbl_header = ctk.CTkLabel(guide_modal, text="Macros & Hardware Chords Tutorial", font=ctk.CTkFont(size=18, weight="bold"))
         lbl_header.pack(pady=(15, 5))
 
         btn_bar = ctk.CTkFrame(guide_modal, fg_color="transparent")
@@ -2454,7 +2454,7 @@ class App(ctk.CTk):
             txt.delete("0.0", "end")
 
             save_warning = (
-                "*** IMPORTANT NOTE: After creating or editing Hardware Chords or Chords & Macros, scroll down to the bottom of the section and click 'Save Settings' for your changes to apply! ***\n"
+                "*** IMPORTANT NOTE: After creating or editing Hardware Chords or Macros, scroll down to the bottom of the section and click 'Save Settings' for your changes to apply! ***\n"
                 "*** CHORD BUTTON DELIMITERS: Buttons in a chord can be separated by commas (,), pluses (+), or spaces. Examples: 'dpad_up, lb', 'dpad_up + lb', 'dpad_up dpad_left dpad_right'. ***\n\n"
             )
 
@@ -2474,16 +2474,16 @@ class App(ctk.CTk):
                     "* Step 4: 'Action:' - Enter the new extra button name you want to trigger (example: M1 or extra_1).\n"
                     "* Step 5: 'Delayed:' - (Optional) Enter any button that should wait briefly to ensure both buttons are pressed together out-of-sync (example: dpad_up).\n"
                     "* Step 6: 'Mode:' - Select timing delay: 'auto', '0ms', '50ms', or '100ms'.\n"
-                    "* Step 7: Scroll down and click 'Save Settings' under Hardware Chords or Chords & Macros to save your config and update the Remapping tab!"
+                    "* Step 7: Scroll down and click 'Save Settings' under Hardware Chords or Macros to save your config and update the Remapping tab!"
                 )
             elif t == "std":
                 content = (
-                    "=== CHORDS & MACROS STUDIO TUTORIAL ===\n\n"
+                    "=== MACROS STUDIO TUTORIAL ===\n\n"
                     + save_warning +
-                    "1. WHAT ARE CHORDS & MACROS?\n"
-                    "Chords & Macros let you trigger keyboard keys, mouse clicks, or multi-step macro sequences by pressing button combinations on your controller.\n\n"
+                    "1. WHAT ARE MACROS?\n"
+                    "Macros let you trigger keyboard keys, mouse clicks, or multi-step macro sequences by pressing button combinations on your controller.\n\n"
                     "2. STEP-BY-STEP SETUP GUIDE:\n"
-                    "* Step 1: Under 'Chords & Macros', click '+ Add Macro'.\n"
+                    "* Step 1: Under 'Macros', click '+ Add Macro'.\n"
                     "* Step 2: 'Name:' - Enter a short name for your macro (example: macro1).\n"
                     "* Step 3: 'Inputs:' - Enter the controller buttons pressed together (example: dpad_down, rb or dpad_up, lb). You can also click '[GP]' to record controller button presses automatically.\n"
                     "* Step 4: 'Outputs:' - Enter the keys or clicks to trigger (example: keyboard:h, wait:50, mouse:left). You can also click '[KBM]' to record keys, mouse clicks, or wheel scrolls.\n"
@@ -2491,14 +2491,14 @@ class App(ctk.CTk):
                 )
             else:  # Overview / Both
                 content = (
-                    "=== CHORDS & HARDWARE CHORDS OVERVIEW ===\n\n"
+                    "=== MACROS  & HARDWARE CHORDS OVERVIEW ===\n\n"
                     + save_warning +
                     "Both features let you press button combinations on your controller, but they serve different purposes:\n\n"
                     "1. HARDWARE CHORDS (INPUT SUPPRESSION)\n"
                     "* Purpose: Turn button combinations (like dpad_up + lb) into a new extra button (like M1), while BLOCKING the original buttons so they don't trigger in your game.\n"
                     "* Example: Back paddles mapped to dpad_up + lb will send M1 cleanly without pressing D-Pad Up or LB in-game.\n"
                     "* Requirements: Requires XInput backend mode.\n\n"
-                    "2. CHORDS & MACROS STUDIO\n"
+                    "2. MACROS STUDIO\n"
                     "* Purpose: Map gamepad combinations (like dpad_down + rb) to automated keyboard keys, mouse clicks, or timed macro sequences.\n"
                     "* Example: Pressing dpad_down + rb can press 'H', wait 50ms, and click left mouse button.\n\n"
                     "3. SHIFT LAYER SETTINGS\n"
@@ -2514,7 +2514,7 @@ class App(ctk.CTk):
         btn_hw = ctk.CTkButton(btn_bar, text="Hardware Chords Guide", width=170, command=lambda: show_topic("hw"), fg_color="#555555")
         btn_hw.pack(side="left", padx=5)
 
-        btn_std = ctk.CTkButton(btn_bar, text="Chords & Macros Guide", width=170, command=lambda: show_topic("std"), fg_color="#555555")
+        btn_std = ctk.CTkButton(btn_bar, text="Macros Guide", width=170, command=lambda: show_topic("std"), fg_color="#555555")
         btn_std.pack(side="left", padx=5)
 
         show_topic(topic)
@@ -2569,14 +2569,14 @@ class App(ctk.CTk):
         self.advanced_scroll = ctk.CTkScrollableFrame(self.tab_advanced, fg_color="transparent", corner_radius=0)
         self.advanced_scroll.pack(fill="both", expand=True)
 
-        # Prominent Chords & Hardware Chords Guide Box
+        # Prominent Macros & Hardware Chords Guide Box
         guide_box = ctk.CTkFrame(self.advanced_scroll)
         guide_box.pack(fill="x", padx=20, pady=(10, 5))
         
         guide_hdr = ctk.CTkFrame(guide_box, fg_color="transparent")
         guide_hdr.pack(fill="x", padx=10, pady=(8, 2))
         
-        ctk.CTkLabel(guide_hdr, text="Chords & Hardware Chords Tutorial", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
+        ctk.CTkLabel(guide_hdr, text="Macros & Hardware Chords Tutorial", font=ctk.CTkFont(size=15, weight="bold")).pack(side="left")
         
         btn_open_guide = ctk.CTkButton(
             guide_hdr,
@@ -2595,7 +2595,7 @@ class App(ctk.CTk):
             guide_box,
             text=(
                 "- Hardware Chords (Input Suppression): Map button combinations (e.g. dpad_up+lb -> M1) and block original buttons from triggering in games.\n"
-                "- Chords & Macros Studio: Map button combinations (e.g. dpad_down+rb) to keyboard keys, mouse clicks, wait delays, or macro sequences.\n"
+                "- Macros Studio: Map button combinations (e.g. dpad_down+rb) to keyboard keys, mouse clicks, wait delays, or macro sequences.\n"
                 "- Chord Delimiters: Buttons can be separated by commas (,), pluses (+), or spaces (e.g. 'dpad_up, lb' or 'dpad_up dpad_left dpad_right').\n"
                 "- IMPORTANT: Always scroll down and click 'Save Settings' at the bottom of the section after editing for changes to apply!"
             ),

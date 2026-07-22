@@ -37,7 +37,7 @@ For a detailed list of recent updates, architectural changes, and bug fixes, see
    - Cannot remap some hardware specific buttons, like Turbo.
    - Default config sets L4-R4 as Mouse4-Mouse 5, respectively. Home/Guide is set as ALT+UP
 - **Shift Layer Remapping:** Configure alternate mapping profiles toggled dynamically by a customizable modifier key.
-- **Chords & Macros Studio:** Record keyboard, mouse, and trigger macros directly in the GUI with support for press/hold states and stuck-key prevention.
+- **Macros Studio:** Record keyboard, mouse, and trigger macros directly in the GUI with support for press/hold states and stuck-key prevention.
 - **Automated Diagnostic Suite:** Built-in 6-step diagnostic tests and reporting wizard (`generate_issue_report.bat`) to inspect environments, raw byte packages, exclusive locks, and topology.
 - **Composite HID Interface Merging:** Concurrently monitors and merges inputs from controllers that split telemetry onto separate HID endpoints (such as the Machenike G5 Pro).
 - **Smart Reconnection:** Recover connection automatically if your physical controller gets disconnected, actively scanning for 20 seconds before closing safely.
