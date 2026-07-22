@@ -71,7 +71,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Button Name Normalization:** Standardizes and forces all client-side button names to uppercase across all configurations and UI elements.
 * **Dynamic Color Legends:** Tooltips and legends automatically reference color schemes based on the active GUI theme.
 * **Vertically Scrollable GUI Tabs:** All tabs (Dashboard, Profile, Remapping, Tuning, Advanced, Utilities, Customization) are wrapped in `CTkScrollableFrame` containers, guaranteeing that all UI options and diagnostic tools remain visible and scrollable vertically regardless of window dimensions.
-* **Interactive Chords & Hardware Chords Tutorial:** Prominent tutorial banner card and interactive modal guide (`open_chords_guide_modal`) providing step-by-step tutorials, execution modes, clear comparisons matching exact GUI element names with zero emoji formatting, and native gray ghost template placeholder text in all entry boxes.
+* **Interactive Chords & Hardware Chords Tutorial & Recording:** Prominent tutorial banner card and interactive modal guide (`open_chords_guide_modal`) providing step-by-step tutorials, execution modes, Save Settings warnings, D-Pad ghost text templates, automatic extra button population in the Remapping tab, and a live gamepad/KBM macro recorder.
 
 ---
 
