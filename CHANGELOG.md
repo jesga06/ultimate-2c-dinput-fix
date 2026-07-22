@@ -254,6 +254,7 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Removed the dedicated Profiles tab from the GUI and the "Input Recording & Playback" utility frame from the Utilities tab.
   - Decommissioned background state recording/playback routines from the daemon loop (`src/main.py`) and removed `src/state_record_play.py`.
   - These features were removed because they did not turn out as initially planned. They have been re-added to `workspace_ideas/to-do-list.md` for future architectural redesign and re-implementation.
+- **Dashboard Extra Buttons Centering & Hardware Chord Telemetry Highlighting:** Centered the extra buttons row on the Dashboard tab within an anchored sub-container frame. Added real-time telemetry illumination for Hardware Chord action buttons when triggered in XInput mode, lighting up the active button chip in vibrant accent color.
 - **Macros Engine Upgrades (Name-Based Remapping, Gamepad Outputs & Optional Triggers):**
   - Renamed standard chords to "Macros Engine" across the GUI, tutorials, and configuration labels.
   - Added support for referencing macros by name directly in the Remapping tab (e.g. `macro:MyMacro` or `MyMacro`).

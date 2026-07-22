@@ -73,6 +73,7 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
 * **Vertically Scrollable GUI Tabs:** All tabs (Dashboard, Remapping, Tuning, Advanced, Utilities, Customization) are wrapped in `CTkScrollableFrame` containers, guaranteeing that all UI options and diagnostic tools remain visible and scrollable vertically regardless of window dimensions.
   * **Single-Container Latching & Cleanup:** Enforces clean container destruction (`winfo_children().destroy()`) before re-initializing tab scrollframes, preventing duplicate tab instances or split scrollbars.
 * **Macros Engine & Tutorial:** Prominent tutorial banner card and interactive modal guide (`open_chords_guide_modal`) providing step-by-step tutorials, execution modes, Save Settings warnings, multi-delimiter support, D-Pad ghost text templates, optional chord triggers, name-based macro referencing in Remapping (`macro:MyMacro` or `MyMacro`), gamepad/KBM output execution, and an upgraded live macro recorder modal.
+* **Dashboard Extra Buttons Centering & Telemetry Highlighting:** Centered horizontal extra buttons row on the Dashboard and added real-time active accent color illumination when Hardware Chords trigger in XInput mode.
 
 ---
 
