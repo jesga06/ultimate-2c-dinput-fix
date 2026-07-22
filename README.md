@@ -149,6 +149,7 @@ No, the clanker did not do the fun part (the actual reverse engineering behind t
 No, I don't feel bad about it.
 
 ### NOTES:
+- **No Force Feedback / Rumble in DirectInput (DInput) Mode:** Force feedback (rumble) is **not supported** in DirectInput mode and likely never will be. Extensive reverse-engineering revealed that controller microcontrollers firmware-gate output reports outside of XInput mode, ignoring haptic motor execution routines entirely. Due to this firmware-level restriction and the extreme proprietary variation across vendors, rumble is strictly supported when operating via the **XInput backend**. For details on the technical reverse-engineering campaign, see the [Rumble Investigation Timeline](technical-stuff/RUMBLE_TIMELINE.md).
 - No, this tool does not disable the hardware L4/R4 remapping. I have no idea how to disable that. 
    - It does let you completely disable or remap the home button to something else though, so there's that!
 - It also does not let you remap special controller buttons like "turbo", a profile/mode switch, pairing button, the one you'd use to remap extra buttons, etc.

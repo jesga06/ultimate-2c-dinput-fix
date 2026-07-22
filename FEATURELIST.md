@@ -130,11 +130,8 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
   - Multi-byte inputs (e.g., 16-bit little-endian values).
   - Signedness, inversion, scaling, deadzones, and bit shifting/masking.
 * **Persistent State Engine:** Ensures `ControllerState` persists previously received values when the device transmits partial packets or alternate report IDs.
-* **Experimental Force Feedback (Vibration) Architecture:** 
-  - **Rumble Interception:** Callback notifications bound to `vgamepad` to capture incoming vibration instructions.
-  - **Output Report Blaster:** `send_output_report()` wrapper utilizing `hidapi.write()` to communicate directly with physical gamepad rumble motors.
-  - **Data-Driven Injection:** Dynamic replacement of intensity bytes inside a profile-configured rumble payload template.
-  - **Interactive Rumble Probing:** Command-line procedure to identify rumble motor byte locations by pulsing each index (currently disabled by default).
+* **Native Force Feedback (XInput Backend):** Direct haptic vibration passthrough using XInput backend bindings for physical gamepads.
+* **DirectInput Rumble Investigation & Firmware Gating:** Extensive reverse-engineering confirmed that controller microcontrollers firmware-gate DInput output reports, disabling vibration on DInput endpoints. For full details, see [RUMBLE_TIMELINE.md](technical-stuff/RUMBLE_TIMELINE.md).
 
 ---
 
