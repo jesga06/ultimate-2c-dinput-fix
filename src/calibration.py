@@ -377,7 +377,6 @@ class Calibrator:
             with open('config.ini', 'w') as f: config.write(f)
             print("Backend set to XInput. Please use the GUI to configure your Hardware Chords.")
             time.sleep(3)
-            for _, r in getattr(self, 'readers', []): r.stop()
         else:
             print("\nFailed to detect XInput mode. Falling back to DInput calibration...")
             time.sleep(2)
@@ -389,23 +388,14 @@ class Calibrator:
             config.set('backend', 'mode', 'dinput')
             with open('config.ini', 'w') as f: config.write(f)
             
-            self._continue_dinput_calibration()
+            if self.scan_devices(test_only=False):
+                self._continue_dinput_calibration()
 
     def run(self, test_only=False):
         cls()
-        if not test_only:
-            print("==================================================================")
-            print("                       UR-XD SETUP & CALIBRATION")
-            print("==================================================================")
-            print("NOTICE: Please disable any 'no dead-zone' (raw/instant) joystick")
-            print("configurations on your controller before starting calibration.")
-            print("Immensely increased joystick sensitivity may disrupt calibration.")
-            print("==================================================================\n")
-
-        if not self.scan_devices(test_only=test_only):
-            return
-
         if test_only:
+            if not self.scan_devices(test_only=True):
+                return
             profile_path = getattr(self, 'profile_path', f"profiles/{self.device.get('vid', 0):04X}_{self.device.get('pid', 0):04X}.json".lower())
             if "layout" in self.profile:
                 self.layout = self.profile["layout"]
@@ -416,10 +406,15 @@ class Calibrator:
                 for _, r in self.readers: r.stop()
             return
 
-        print("\n==================================================================")
-        print(f"Device Selected: {self.profile.get('name', 'Gamepad')} (VID:{self.profile['vid']:04X} PID:{self.profile['pid']:04X})")
         print("==================================================================")
-        print("\nPlease select the operating mode for your controller:")
+        print("                       UR-XD SETUP & CALIBRATION")
+        print("==================================================================")
+        print("NOTICE: Please disable any 'no dead-zone' (raw/instant) joystick")
+        print("configurations on your controller before starting calibration.")
+        print("Immensely increased joystick sensitivity may disrupt calibration.")
+        print("==================================================================\n")
+
+        print("Please select the operating mode for your controller:")
         print("[1] DInput (DirectInput) - Full Calibration (Builds HID Map)")
         print("[2] XInput - Setup Hardware Chords for XInput Mode")
         print("[3] Auto-Detect Mode - Automatically checks XInput vs DInput")
@@ -434,7 +429,6 @@ class Calibrator:
                 char = msvcrt.getwche()
                 if char == '\r':
                     if typed_input == 'q':
-                        for _, r in getattr(self, 'readers', []): r.stop()
                         return
                     if typed_input in ("1", "2", "3"):
                         mode_choice = typed_input
@@ -455,7 +449,6 @@ class Calibrator:
             with open('config.ini', 'w') as f: config.write(f)
             print("Backend set to XInput. Please use the GUI to configure your Hardware Chords.")
             time.sleep(3)
-            for _, r in getattr(self, 'readers', []): r.stop()
             return
         elif mode_choice == "3":
             self.setup_auto_detect()
@@ -468,6 +461,9 @@ class Calibrator:
         if not config.has_section('backend'): config.add_section('backend')
         config.set('backend', 'mode', 'dinput')
         with open('config.ini', 'w') as f: config.write(f)
+
+        if not self.scan_devices(test_only=False):
+            return
 
         self._continue_dinput_calibration()
 
