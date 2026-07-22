@@ -523,6 +523,7 @@ class App(ctk.CTk):
                             setattr(cs, k, v)
                         else:
                             cs.extra_inputs[k] = v
+                    self.last_udp_time = time.time()
                     self.current_state = cs
                 except socket.timeout:
                     continue
@@ -541,7 +542,8 @@ class App(ctk.CTk):
                     xb = XInputBackend()
                     if xb.initialize():
                         def xinput_handler(state):
-                            self.current_state = state
+                            if time.time() - getattr(self, 'last_udp_time', 0.0) > 1.0:
+                                self.current_state = state
                         xb.set_callback(xinput_handler)
                         xb.start_polling_thread()
                         self.xinput_backend = xb
@@ -608,7 +610,8 @@ class App(ctk.CTk):
 
             # The UI handler for hid reports
             def handler(report: RawHIDReport):
-                self.current_state = self.decoder.decode(report)
+                if time.time() - getattr(self, 'last_udp_time', 0.0) > 1.0:
+                    self.current_state = self.decoder.decode(report)
 
             # Open all matching interfaces, just like main.py
             self.hid_readers = []
