@@ -48,7 +48,7 @@ class DInputBackend(BaseInputBackend):
                 logger.info(f"DInput backend initialized with {len(self.readers)} reader(s).")
                 return True
         except Exception as e:
-            logger.error(f"Failed to initialize DInput backend: {e}")
+            logger.error(f"Failed to initialize DInput backend: {e}", exc_info=True)
             
         return False
 
@@ -66,6 +66,8 @@ class DInputBackend(BaseInputBackend):
         pass
 
     def poll(self):
+        if logger:
+            logger.debug("[ENTER] backend_dinput poll loop started")
         if not self.readers:
             logger.warning("Cannot start polling without connected readers.")
             return

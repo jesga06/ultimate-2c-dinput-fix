@@ -39,7 +39,7 @@ class VirtualPad:
             self.gamepad.register_notification(self._vgamepad_notification_handler)
         except Exception as e:
             print(f"Warning: Could not register vgamepad notifications: {e}")
-            logger.warning(f"Could not register vgamepad notifications: {e}")
+            logger.warning(f"Could not register vgamepad notifications: {e}", exc_info=True)
 
         if config:
             self.reload_config(config)
@@ -54,6 +54,8 @@ class VirtualPad:
             self.rumble_callback(large_motor, small_motor)
 
     def reload_config(self, config):
+        if logger:
+            logger.debug("[ENTER] virtual_pad reload_config()")
         self.home_mapping = 'guide'
         self.blocked_buttons.clear()
 

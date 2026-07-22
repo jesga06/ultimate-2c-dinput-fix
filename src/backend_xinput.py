@@ -142,6 +142,8 @@ class XInputBackend(BaseInputBackend):
         return value / 32767.0
 
     def poll(self):
+        if logger:
+            logger.debug("[ENTER] backend_xinput poll loop started")
         if not self.initialize():
             logger.warning("No XInput controller connected.")
             return

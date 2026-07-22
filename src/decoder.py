@@ -80,10 +80,10 @@ class Decoder:
                     self.use_length_as_id = self.profile.get('use_length_as_id', False)
             except json.JSONDecodeError as e:
                 print(f"Error: HID map {hid_map_path} is not valid JSON: {e}")
-                logger.error(f"Error: HID map {hid_map_path} is not valid JSON: {e}")
+                logger.error(f"Error: HID map {hid_map_path} is not valid JSON: {e}", exc_info=True)
             except Exception as e:
                 print(f"Error loading HID map {hid_map_path}: {e}")
-                logger.error(f"Error loading HID map {hid_map_path}: {e}")
+                logger.error(f"Error loading HID map {hid_map_path}: {e}", exc_info=True)
         else:
             print(f"Warning: HID map {hid_map_path} not found. Inputs will be ignored.")
             logger.warning(f"HID map {hid_map_path} not found. Inputs will be ignored.")

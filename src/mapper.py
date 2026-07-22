@@ -54,6 +54,8 @@ class Mapper:
         self.reload_config(config)
 
     def reload_config(self, config):
+        if logger:
+            logger.debug(f"[ENTER] reload_config() - active_layer={self.active_layer}")
         self.mappings = {'layer_base': {}, 'layer_shift': {}}
         self.chords = []
         
@@ -137,8 +139,7 @@ class Mapper:
                     else:
                         self.keyboard.press(KeyCode.from_char(key_name))
                 except Exception as e:
-                    print(f"Failed to press key {key_name}: {e}")
-                    logger.error(f"Failed to press key {key_name}: {e}")
+                    logger.error(f"Failed to press key {key_name}: {e}", exc_info=True)
 
     def _release(self, mapping):
         if mapping.startswith('macro:'):
@@ -164,8 +165,8 @@ class Mapper:
                         self.keyboard.release(getattr(Key, key_name))
                     else:
                         self.keyboard.release(KeyCode.from_char(key_name))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Failed to release key {key_name}: {e}", exc_info=True)
 
     def _process_wasd(self, x, y, threshold=0.5):
         now = time.time()
@@ -205,11 +206,14 @@ class Mapper:
             shift_btn_prev = self.prev_state.get(self.shift_button, False)
             
             if shift_is_down != shift_btn_prev:
+                old_layer = self.active_layer
                 if self.shift_mode == 'toggle':
                     if shift_is_down:
                         self.active_layer = 'layer_shift' if self.active_layer == 'layer_base' else 'layer_base'
                 else: # hold
                     self.active_layer = 'layer_shift' if shift_is_down else 'layer_base'
+                if old_layer != self.active_layer and logger:
+                    logger.debug(f"[MAPPER] Shift layer changed: {old_layer} -> {self.active_layer} (button={self.shift_button}, mode={self.shift_mode})")
 
         now = time.time()
         
@@ -327,6 +331,7 @@ class Mapper:
         try:
             interval = float(parts[4]) if len(parts) > 4 else 0.05
         except ValueError:
+            logger.error(f"Invalid special action format: {mapping}", exc_info=True)
             interval = 0.05
 
         return {

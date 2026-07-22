@@ -43,6 +43,8 @@ class HardwareChordEngine:
                     try:
                         manual_delay = float(delay_mode.replace('ms', '')) / 1000.0 if delay_mode != 'auto' else 0.0
                     except ValueError:
+                        if logger:
+                            logger.error(f"Invalid delay format: {delay_mode}", exc_info=True)
                         manual_delay = 0.0
                         
                     self.chords.append({
