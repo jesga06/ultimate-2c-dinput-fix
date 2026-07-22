@@ -745,7 +745,7 @@ class App(ctk.CTk):
             
         # Keep buttons square/proportional and prevent overlap
         base_size = min(w, h) * 0.14  # 14% of smallest dimension
-        base_size = max(42, min(base_size, 90)) # clamp between 42 and 90 pixels
+        base_size = max(20, min(base_size, 40)) # clamp between 42 and 90 pixels
         
         font_size = max(8, int(base_size * 0.25))
         fnt = ctk.CTkFont(size=font_size, weight="bold")
