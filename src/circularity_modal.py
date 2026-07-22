@@ -61,9 +61,9 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
             return 0.0, 0.0
         
         if self.is_left:
-            return state.lx, -state.ly
+            return state.lx, state.ly
         else:
-            return state.rx, -state.ry
+            return state.rx, state.ry
             
     def update_loop(self):
         if not self.winfo_exists():
