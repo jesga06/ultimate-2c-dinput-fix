@@ -49,8 +49,8 @@ if exist "calibrate.bat" (
     call calibrate.bat
 ) else (
     set PYTHON_CMD=python
-    if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-    %PYTHON_CMD% src\calibration.py
+    if exist "venv\Scripts\python.exe" set PYTHON_CMD=venv\Scripts\python.exe
+    "%PYTHON_CMD%" src\calibration.py
     pause
 )
 goto MENU
@@ -59,8 +59,8 @@ goto MENU
 cls
 echo Starting Live Input Test Visualizer...
 set PYTHON_CMD=python
-if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-%PYTHON_CMD% src\calibration.py --test-only
+if exist "venv\Scripts\python.exe" set PYTHON_CMD=venv\Scripts\python.exe
+"%PYTHON_CMD%" src\calibration.py --test-only
 pause
 goto MENU
 
@@ -78,9 +78,9 @@ goto MENU
 cls
 echo Installing / repairing dependencies from requirements.txt...
 set PYTHON_CMD=python
-if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
+if exist "venv\Scripts\python.exe" set PYTHON_CMD=venv\Scripts\python.exe
 
-%PYTHON_CMD% -m pip install -r requirements.txt
+"%PYTHON_CMD%" -m pip install -r requirements.txt
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo Installation failed! Please check your Python environment.
@@ -95,8 +95,8 @@ goto MENU
 cls
 echo Starting Wrapper in Debug Mode...
 set PYTHON_CMD=python
-if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-%PYTHON_CMD% src\main.py --debug
+if exist "venv\Scripts\python.exe" set PYTHON_CMD=venv\Scripts\python.exe
+"%PYTHON_CMD%" src\main.py --debug
 pause
 goto MENU
 
@@ -104,8 +104,8 @@ goto MENU
 cls
 echo Starting Calibration in Debug Mode...
 set PYTHON_CMD=python
-if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
-%PYTHON_CMD% src\calibration.py --debug
+if exist "venv\Scripts\python.exe" set PYTHON_CMD=venv\Scripts\python.exe
+"%PYTHON_CMD%" src\calibration.py --debug
 pause
 goto MENU
 
@@ -113,9 +113,9 @@ goto MENU
 cls
 echo Starting Interactive Layout Builder...
 set PYTHON_CMD=python
-if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
+if exist "venv\Scripts\python.exe" set PYTHON_CMD=venv\Scripts\python.exe
 if exist "technical-stuff\interactive_layout_builder.py" (
-    %PYTHON_CMD% technical-stuff\interactive_layout_builder.py
+    "%PYTHON_CMD%" technical-stuff\interactive_layout_builder.py
 ) else (
     echo [ERROR] technical-stuff\interactive_layout_builder.py not found.
 )
@@ -138,16 +138,17 @@ echo ======================================================================
 set /p DIAG_CHOICE="Select a script to run [0-6]: "
 
 set PYTHON_CMD=python
-if exist "venv\Scripts\python.exe" set PYTHON_CMD="venv\Scripts\python.exe"
+if exist "venv\Scripts\python.exe" set PYTHON_CMD=venv\Scripts\python.exe
 
-if "%DIAG_CHOICE%"=="1" %PYTHON_CMD% diagnostics\01_environment_audit.py & pause & goto INDIVIDUAL_DIAG
-if "%DIAG_CHOICE%"=="2" %PYTHON_CMD% diagnostics\02_device_enumeration.py & pause & goto INDIVIDUAL_DIAG
-if "%DIAG_CHOICE%"=="3" %PYTHON_CMD% diagnostics\03_raw_transport.py & pause & goto INDIVIDUAL_DIAG
-if "%DIAG_CHOICE%"=="4" %PYTHON_CMD% diagnostics\04_report_id_scanner.py & pause & goto INDIVIDUAL_DIAG
-if "%DIAG_CHOICE%"=="5" %PYTHON_CMD% diagnostics\05_baseline_logic_test.py & pause & goto INDIVIDUAL_DIAG
-if "%DIAG_CHOICE%"=="6" %PYTHON_CMD% diagnostics\06_guided_calibration.py & pause & goto INDIVIDUAL_DIAG
+if "%DIAG_CHOICE%"=="1" "%PYTHON_CMD%" diagnostics\01_environment_audit.py & pause & goto INDIVIDUAL_DIAG
+if "%DIAG_CHOICE%"=="2" "%PYTHON_CMD%" diagnostics\02_device_enumeration.py & pause & goto INDIVIDUAL_DIAG
+if "%DIAG_CHOICE%"=="3" "%PYTHON_CMD%" diagnostics\03_raw_transport.py & pause & goto INDIVIDUAL_DIAG
+if "%DIAG_CHOICE%"=="4" "%PYTHON_CMD%" diagnostics\04_report_id_scanner.py & pause & goto INDIVIDUAL_DIAG
+if "%DIAG_CHOICE%"=="5" "%PYTHON_CMD%" diagnostics\05_baseline_logic_test.py & pause & goto INDIVIDUAL_DIAG
+if "%DIAG_CHOICE%"=="6" "%PYTHON_CMD%" diagnostics\06_guided_calibration.py & pause & goto INDIVIDUAL_DIAG
 if "%DIAG_CHOICE%"=="0" goto MENU
 
 echo Invalid choice.
 timeout /t 2 >nul
 goto INDIVIDUAL_DIAG
+
