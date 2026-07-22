@@ -2512,7 +2512,7 @@ class App(ctk.CTk):
             "* Note: Macros do not require chord trigger inputs in the Advanced tab if you map them directly to a button here.\n\n"
             "3. BUTTON BLOCKING (Block / S. Blk):\n"
             "* Check 'Block' to prevent the controller's original native button press from reaching the game (useful when remapping to keyboard/mouse or macros).\n"
-            "* Check 'S. Blk' to block the original button only while holding the Shift trigger.\n\n"
+            "* Check 'S. Blk' to block the original button only while holding the Shift key.\n\n"
             "4. INTERACTIVE RECORDING ([Rec]):\n"
             "* Click the '[Rec]' button next to any remapping entry to interactively record key combinations or macro steps."
         )
@@ -2613,7 +2613,7 @@ class App(ctk.CTk):
         info_btn_trig.pack(side="left", padx=(0,5))
         ToolTip(info_btn_trig, "Select the button that activates the secondary Shift Layer.\nWhen held or toggled, all other buttons will map to their Shift Layer configurations.")
         
-        ctk.CTkLabel(trig_frame, text="Trigger Button:", width=120, anchor="w").pack(side="left")
+        ctk.CTkLabel(trig_frame, text="Shift Key:", width=120, anchor="w").pack(side="left")
         
         self.shift_trig_var = ctk.StringVar(value=self.config.get('shift_layer', 'trigger_button', fallback=''))
         base_buttons = self.get_profile_mapped_keys()
@@ -2626,7 +2626,7 @@ class App(ctk.CTk):
                 tkinter.messagebox.showwarning(
                     "Recommended Setting Notice",
                     "Holding the Home button for several seconds may force turn off your controller or trigger OS shortcuts.\n\n"
-                    "It is strongly recommended to set the Shift Mode to 'toggle' instead of 'hold' when using the Home button as your Shift Trigger."
+                    "It is strongly recommended to set the Shift Mode to 'toggle' instead of 'hold' when using the Home button as your Shift Key."
                 )
 
         def on_shift_trig_changed(val):
@@ -2634,9 +2634,9 @@ class App(ctk.CTk):
             if val_clean and self.config.has_option('extra_buttons', val_clean):
                 import tkinter.messagebox
                 tkinter.messagebox.showwarning(
-                    "Shift Trigger Conflict",
+                    "Shift Key Conflict",
                     f"The button '{val_clean}' is currently mapped to an action.\n\n"
-                    "It will be cleared and blocked from XInput so it can act as the Shift Trigger."
+                    "It will be cleared and blocked from XInput so it can act as the Shift Key."
                 )
                 self.config.remove_option('extra_buttons', val_clean)
                 if not self.config.has_section('block_xinput'):
@@ -2662,7 +2662,7 @@ class App(ctk.CTk):
         
         info_btn_mode = ctk.CTkButton(mode_frame, text="?", width=20, height=20, corner_radius=10, fg_color="#555555")
         info_btn_mode.pack(side="left", padx=(0,5))
-        ToolTip(info_btn_mode, "Hold: Shift layer is active only while the trigger button is held down.\nToggle: Pressing the trigger button toggles the Shift layer permanently on or off.")
+        ToolTip(info_btn_mode, "Hold: Shift layer is active only while the shift key is held down.\nToggle: Pressing the shift key toggles the Shift layer permanently on or off.")
         
         ctk.CTkLabel(mode_frame, text="Mode:", width=120, anchor="w").pack(side="left")
         
