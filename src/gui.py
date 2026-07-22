@@ -595,9 +595,13 @@ class App(ctk.CTk):
             self.config.add_section('shift_block_xinput')
 
     def save_config(self):
+        if logger:
+            logger.debug("[ENTER] save_config() - Saving controller config and daemon config.")
         self.config.save()
         with open(self.daemon_config_file, 'w') as f:
             self.daemon_config.write(f)
+        if logger:
+            logger.debug("[EXIT] save_config() completed.")
 
     def setup_dashboard(self):
         self.status_label = ctk.CTkLabel(
@@ -2993,7 +2997,7 @@ class App(ctk.CTk):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--log',
+        '--debug', '-d',
         action='store_true',
         help='Enable verbose debugging logs')
     parser.add_argument(
@@ -3002,9 +3006,10 @@ if __name__ == "__main__":
         help='Append to log file instead of overwriting')
     args = parser.parse_args()
 
-    logger = setup_logger('gui', 'wrapper.log', args.log, args.append_log)
-    if args.log:
+    logger = setup_logger('gui', 'wrapper.log', args.debug, args.append_log)
+    if args.debug:
         logger.info("GUI started in debug mode")
+        logger.debug(f"[INIT] Parsed arguments: {args}")
 
     app = App()
     app.mainloop()
