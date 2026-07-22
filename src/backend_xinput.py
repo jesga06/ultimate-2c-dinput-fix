@@ -145,6 +145,9 @@ class XInputBackend(BaseInputBackend):
             self.XInputSetState(self.connected_slot, ctypes.byref(vib))
 
     def _normalize_axis(self, value):
+        # Snap tiny hardware resting noise near center (+/- 128 raw units out of 32767 = ~0.39%)
+        if abs(value) <= 128:
+            return 0.0
         if value < 0:
             return value / 32768.0
         return value / 32767.0
