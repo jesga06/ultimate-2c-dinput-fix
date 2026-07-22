@@ -6,11 +6,12 @@ using a flexible metadata-driven HID map ({VID}_{PID}.json).
 import json
 import os
 import logging
+from dataclasses import dataclass, field, fields
+from typing import Dict, Any, Optional
+
+from hid_reader import RawHIDReport
 
 logger = logging.getLogger('decoder')
-from dataclasses import dataclass, field
-from typing import Dict, Any
-from hid_reader import RawHIDReport
 
 
 @dataclass
@@ -55,6 +56,10 @@ class ControllerState:
     extra_inputs: Dict[str, Any] = field(default_factory=dict)
 
 
+# Set of standard field names for fast state lookup without hasattr overhead
+_STANDARD_FIELDS = {f.name for f in fields(ControllerState)}
+
+
 class Decoder:
     """
     Decodes raw byte buffers into a ControllerState object based on
@@ -64,16 +69,14 @@ class Decoder:
 
     def __init__(self, hid_map_path: str):
         # 'profile' is kept as the internal attribute name for backwards-compatibility
-        # with other code that reads self.profile; the file itself is called the HID map.
-        self.profile = {}
-        self.reports_config = {}
-        self.has_report_ids = True
-
-        self.use_length_as_id = False
+        self.profile: Dict[str, Any] = {}
+        self.reports_config: Dict[str, Any] = {}
+        self.has_report_ids: bool = True
+        self.use_length_as_id: bool = False
 
         if os.path.exists(hid_map_path):
             try:
-                with open(hid_map_path, 'r') as f:
+                with open(hid_map_path, 'r', encoding='utf-8') as f:
                     self.profile = json.load(f)
                     self.reports_config = self.profile.get('reports', {})
                     self.has_report_ids = self.profile.get('has_report_id', True)
@@ -88,7 +91,7 @@ class Decoder:
             print(f"Warning: HID map {hid_map_path} not found. Inputs will be ignored.")
             logger.warning(f"HID map {hid_map_path} not found. Inputs will be ignored.")
 
-        # Persistent state: fields are updated in place, retaining their state between reports
+        # Persistent state: fields are updated in place, retaining state between reports
         self.state = ControllerState()
 
     def decode(self, report: RawHIDReport) -> ControllerState:
@@ -113,11 +116,6 @@ class Decoder:
         config = self.reports_config[report_id_str]
         inputs = config.get('inputs', {})
 
-        # If report IDs are used, data[0] is the report ID, payload starts at data[1].
-        # However, to be fully generic, the JSON profile author determines the byte index
-        # knowing that byte 0 is the report ID. Thus, we don't apply an offset here.
-        # The user's calibration tool will generate the correct absolute byte indices into the payload array.
-
         for input_name, cfg in inputs.items():
             input_type = cfg.get('type')
             byte_idx = cfg.get('byte')
@@ -133,10 +131,10 @@ class Decoder:
             if length == 1:
                 raw_val = data[byte_idx]
             elif length == 2:
-                # Assuming little-endian which is standard for USB HID
+                # Little-endian (USB HID standard)
                 raw_val = data[byte_idx] | (data[byte_idx + 1] << 8)
             else:
-                continue # Unsupported length
+                continue
 
             if input_type == 'button':
                 bitmask = cfg.get('bitmask', 1)
@@ -144,36 +142,28 @@ class Decoder:
                 self._set_state(input_name, pressed)
 
             elif input_type == 'axis':
-                # Axis processing (scaling, deadzones, normalization)
                 bitmask = cfg.get('bitmask', (1 << (length * 8)) - 1)
                 masked_val = raw_val & bitmask
                 bitshift = cfg.get('bitshift', 0)
                 shifted_val = masked_val >> bitshift
 
-                # Signedness
                 is_signed = cfg.get('signed', False)
-                max_val = (1 << ( (length * 8) - bitshift))
+                max_val = 1 << ((length * 8) - bitshift)
                 if is_signed:
                     half_val = max_val // 2
                     if shifted_val >= half_val:
                         shifted_val -= max_val
-                    # Normalize -1.0 to 1.0
                     norm_val = shifted_val / float(half_val)
                 else:
-                    # Normalize 0.0 to 1.0, then scale to -1.0 to 1.0 if it's a joystick
                     norm_val = shifted_val / float(max_val - 1)
-                    if cfg.get('center', False):  # e.g., lx, ly usually center at 0
+                    if cfg.get('center', False):
                         norm_val = (norm_val * 2.0) - 1.0
-                        # Standard HID Y-axis decreases when moving UP (0 at top, 255 at bottom).
-                        # Invert Y by default for ly/ry so positive is UP (+1.0), matching XInput.
                         if input_name in ('ly', 'ry'):
                             norm_val = -norm_val
 
-                # Inversion override
                 if cfg.get('invert', False):
                     norm_val = -norm_val
 
-                # Deadzone
                 deadzone = cfg.get('deadzone', 0.0)
                 if abs(norm_val) < deadzone:
                     norm_val = 0.0
@@ -182,17 +172,15 @@ class Decoder:
                 else:
                     norm_val = (norm_val + deadzone) / (1.0 - deadzone)
 
-                # Clamp
                 norm_val = max(-1.0, min(1.0, norm_val))
                 self._set_state(input_name, float(norm_val))
 
             elif input_type == 'trigger':
-                # Similar to axis but strictly 0.0 to 1.0
                 bitmask = cfg.get('bitmask', (1 << (length * 8)) - 1)
                 masked_val = raw_val & bitmask
                 bitshift = cfg.get('bitshift', 0)
                 shifted_val = masked_val >> bitshift
-                max_val = (1 << ( (length * 8) - bitshift)) - 1
+                max_val = (1 << ((length * 8) - bitshift)) - 1
                 
                 norm_val = shifted_val / float(max_val) if max_val > 0 else 0.0
                 
@@ -206,7 +194,6 @@ class Decoder:
                 self._set_state(input_name, float(norm_val))
 
             elif input_type == 'hat':
-                # Standard 8-way hat switch
                 hat = raw_val & 0x0F
                 self._set_state('dpad_up', hat in (7, 0, 1))
                 self._set_state('dpad_right', hat in (1, 2, 3))
@@ -215,8 +202,9 @@ class Decoder:
 
         return self.state
 
-    def _set_state(self, key: str, value: Any):
-        if hasattr(self.state, key):
+    def _set_state(self, key: str, value: Any) -> None:
+        if key in _STANDARD_FIELDS:
             setattr(self.state, key, value)
         else:
             self.state.extra_inputs[key] = value
+
