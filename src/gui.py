@@ -1070,6 +1070,15 @@ class App(ctk.CTk):
                 if k not in standard_buttons:
                     existing_extras.add(k)
 
+        # Include synthetic action buttons from hardware_chords
+        if self.config.has_section('hardware_chords'):
+            for k, v in self.config.items('hardware_chords'):
+                parts = dict(p.strip().split('=') for p in v.split(';') if '=' in p)
+                if 'action' in parts:
+                    act = parts['action'].strip()
+                    if act and act not in standard_buttons:
+                        existing_extras.add(act)
+
         existing_extras = sorted(list(existing_extras))
 
         # Populate quadrants
@@ -2384,7 +2393,7 @@ class App(ctk.CTk):
     def open_chords_guide_modal(self, topic="all"):
         guide_modal = ctk.CTkToplevel(self)
         guide_modal.title("Chords & Hardware Chords Master Guide")
-        guide_modal.geometry("640x540")
+        guide_modal.geometry("660x560")
         guide_modal.resizable(True, True)
         guide_modal.attributes("-topmost", True)
         guide_modal.focus()
@@ -2402,9 +2411,12 @@ class App(ctk.CTk):
             txt.configure(state="normal")
             txt.delete("0.0", "end")
 
+            save_warning = "*** IMPORTANT NOTE: After creating or editing Hardware Chords or Chords & Macros, scroll down to the bottom of the section and click 'Save Settings' for your changes to apply! ***\n\n"
+
             if t == "hw":
                 content = (
                     "=== HARDWARE CHORDS (INPUT SUPPRESSION) TUTORIAL ===\n\n"
+                    + save_warning +
                     "1. WHAT ARE HARDWARE CHORDS?\n"
                     "Hardware Chords combine physical controller buttons into a single virtual extra button (like M1, M2, L4, or R4).\n\n"
                     "2. WHAT IS INPUT SUPPRESSION?\n"
@@ -2413,35 +2425,37 @@ class App(ctk.CTk):
                     "3. STEP-BY-STEP SETUP GUIDE:\n"
                     "* Step 1: Ensure your controller is in XInput mode.\n"
                     "* Step 2: Under 'Hardware Chords (Input Suppression)', click '+ Add Hardware Chord'.\n"
-                    "* Step 3: 'Chord:' - Enter the controller buttons you press together (example: lb, start).\n"
+                    "* Step 3: 'Chord:' - Enter the controller buttons you press together (example: dpad_up, lb).\n"
                     "* Step 4: 'Action:' - Enter the new extra button name you want to trigger (example: M1 or extra_1).\n"
-                    "* Step 5: 'Delayed:' - (Optional) Enter any button that should wait briefly to ensure both buttons are pressed together out-of-sync.\n"
+                    "* Step 5: 'Delayed:' - (Optional) Enter any button that should wait briefly to ensure both buttons are pressed together out-of-sync (example: dpad_up).\n"
                     "* Step 6: 'Mode:' - Select timing delay: 'auto', '0ms', '50ms', or '100ms'.\n"
-                    "* Step 7: Click 'Save Settings' under Shift Layer Settings or Chords & Macros to save your config."
+                    "* Step 7: Scroll down and click 'Save Settings' under Hardware Chords or Chords & Macros to save your config and update the Remapping tab!"
                 )
             elif t == "std":
                 content = (
                     "=== CHORDS & MACROS STUDIO TUTORIAL ===\n\n"
+                    + save_warning +
                     "1. WHAT ARE CHORDS & MACROS?\n"
                     "Chords & Macros let you trigger keyboard keys, mouse clicks, or multi-step macro sequences by pressing button combinations on your controller.\n\n"
                     "2. STEP-BY-STEP SETUP GUIDE:\n"
                     "* Step 1: Under 'Chords & Macros', click '+ Add Macro'.\n"
                     "* Step 2: 'Name:' - Enter a short name for your macro (example: macro1).\n"
-                    "* Step 3: 'Inputs:' - Enter the controller buttons pressed together (example: lb, rb). You can also click '[GP]' to record buttons interactively.\n"
-                    "* Step 4: 'Outputs:' - Enter the keys or clicks to trigger (example: keyboard:h, wait:50, mouse:left). You can also click '[KBM]' to record keys and mouse clicks.\n"
-                    "* Step 5: Click 'Save Settings' to apply your macros."
+                    "* Step 3: 'Inputs:' - Enter the controller buttons pressed together (example: dpad_down, rb). You can also click '[GP]' to record controller button presses automatically.\n"
+                    "* Step 4: 'Outputs:' - Enter the keys or clicks to trigger (example: keyboard:h, wait:50, mouse:left). You can also click '[KBM]' to record keys, mouse clicks, or wheel scrolls.\n"
+                    "* Step 5: Scroll down and click 'Save Settings' at the bottom of the section to apply your macros!"
                 )
             else:  # Overview / Both
                 content = (
                     "=== CHORDS & HARDWARE CHORDS OVERVIEW ===\n\n"
+                    + save_warning +
                     "Both features let you press button combinations on your controller, but they serve different purposes:\n\n"
                     "1. HARDWARE CHORDS (INPUT SUPPRESSION)\n"
-                    "* Purpose: Turn button combinations (like LB + Start) into a new extra button (like M1), while BLOCKING the original buttons so they don't trigger in your game.\n"
-                    "* Example: Back paddles mapped to LB + Start will send M1 cleanly without pressing LB or Start in-game.\n"
+                    "* Purpose: Turn button combinations (like dpad_up + lb) into a new extra button (like M1), while BLOCKING the original buttons so they don't trigger in your game.\n"
+                    "* Example: Back paddles mapped to dpad_up + lb will send M1 cleanly without pressing D-Pad Up or LB in-game.\n"
                     "* Requirements: Requires XInput backend mode.\n\n"
                     "2. CHORDS & MACROS STUDIO\n"
-                    "* Purpose: Map gamepad combinations (like LB + RB) to automated keyboard keys, mouse clicks, or timed macro sequences.\n"
-                    "* Example: Pressing LB + RB can press 'H', wait 50ms, and click left mouse button.\n\n"
+                    "* Purpose: Map gamepad combinations (like dpad_down + rb) to automated keyboard keys, mouse clicks, or timed macro sequences.\n"
+                    "* Example: Pressing dpad_down + rb can press 'H', wait 50ms, and click left mouse button.\n\n"
                     "3. SHIFT LAYER SETTINGS\n"
                     "* Purpose: Holding or toggling a chosen Trigger Button switches all your other buttons to a secondary set of mappings."
                 )
@@ -2498,8 +2512,9 @@ class App(ctk.CTk):
         summary_lbl = ctk.CTkLabel(
             guide_box,
             text=(
-                "- Hardware Chords (Input Suppression): Map button combinations (e.g. LB+Start -> M1) and block the original buttons from triggering in games.\n"
-                "- Chords & Macros Studio: Map button combinations (e.g. LB+RB) to keyboard keys, mouse clicks, wait delays, or macro sequences."
+                "- Hardware Chords (Input Suppression): Map button combinations (e.g. dpad_up+lb -> M1) and block original buttons from triggering in games.\n"
+                "- Chords & Macros Studio: Map button combinations (e.g. dpad_down+rb) to keyboard keys, mouse clicks, wait delays, or macro sequences.\n"
+                "- IMPORTANT: Always scroll down and click 'Save Settings' at the bottom of the section after editing for changes to apply!"
             ),
             font=ctk.CTkFont(size=12),
             justify="left",
@@ -2646,52 +2661,119 @@ class App(ctk.CTk):
     def start_macro_recording(self, entry_widget, mode):
         # mode: 'inputs' (Gamepad only) or 'outputs' (KBM + Gamepad)
         record_win = ctk.CTkToplevel(self)
-        record_win.title("Record Macro")
-        record_win.geometry("400x200")
+        record_win.title("Record Gamepad Inputs" if mode == 'inputs' else "Record Outputs (KBM)")
+        record_win.geometry("520x340" if mode == 'inputs' else "520x320")
         record_win.attributes("-topmost", True)
         record_win.focus()
         
-        lbl = ctk.CTkLabel(record_win, text=f"Recording {mode}...\nPress buttons to append.\nClick Save when done.")
-        lbl.pack(pady=10)
+        title_text = "Recording Gamepad Inputs...\nPress controller buttons or click quick-add buttons below." if mode == 'inputs' else "Recording Outputs (KBM)...\nPress keys, click mouse buttons, scroll, or use quick-add buttons below."
+        lbl = ctk.CTkLabel(record_win, text=title_text, font=ctk.CTkFont(size=12))
+        lbl.pack(pady=5)
         
         result_var = ctk.StringVar(value=entry_widget.get())
-        result_lbl = ctk.CTkLabel(record_win, textvariable=result_var, font=ctk.CTkFont(size=12), wraplength=380)
-        result_lbl.pack(pady=10)
-        
-        # Simple implementation: append to string
-        import pynput
+        result_lbl = ctk.CTkLabel(record_win, textvariable=result_var, font=ctk.CTkFont(size=13, weight="bold"), wraplength=480)
+        result_lbl.pack(pady=5)
         
         def append_result(text):
             current = result_var.get().strip()
             if current:
-                result_var.set(f"{current}, {text}")
+                parts = [p.strip() for p in current.split(',')]
+                parts.append(text)
+                result_var.set(", ".join(parts))
             else:
                 result_var.set(text)
                 
-        def on_press(key):
-            try:
-                k_name = key.char
-            except AttributeError:
-                k_name = key.name
-            append_result(f"keyboard:{k_name}")
-            
-        def on_click(x, y, button, pressed):
-            if pressed:
-                if button.name == 'left': return
-                append_result(f"mouse:{button.name}")
-                
+        import pynput
         k_listener = None
         m_listener = None
+        
         if mode == 'outputs':
+            def on_press(key):
+                try:
+                    k_name = key.char
+                except AttributeError:
+                    k_name = key.name
+                append_result(f"keyboard:{k_name}")
+                
+            def on_click(x, y, button, pressed):
+                if pressed:
+                    if button.name == 'x1': b_name = 'mouse4'
+                    elif button.name == 'x2': b_name = 'mouse5'
+                    else: b_name = button.name
+                    append_result(f"mouse:{b_name}")
+
+            def on_scroll(x, y, dx, dy):
+                if dy > 0:
+                    append_result("mouse:scroll_up")
+                elif dy < 0:
+                    append_result("mouse:scroll_down")
+
             k_listener = pynput.keyboard.Listener(on_press=on_press)
-            m_listener = pynput.mouse.Listener(on_click=on_click)
+            m_listener = pynput.mouse.Listener(on_click=on_click, on_scroll=on_scroll)
             k_listener.start()
             m_listener.start()
-            
-        # Add a wait button
-        wait_btn = ctk.CTkButton(record_win, text="Add Wait: 50ms", width=120, command=lambda: append_result("wait:50"))
-        wait_btn.pack(pady=5)
-            
+
+            # Quick add buttons frame for outputs
+            quick_f = ctk.CTkFrame(record_win, fg_color="transparent")
+            quick_f.pack(fill="x", padx=10, pady=5)
+
+            ctk.CTkButton(quick_f, text="+ Left Click", width=90, command=lambda: append_result("mouse:left")).grid(row=0, column=0, padx=3, pady=3)
+            ctk.CTkButton(quick_f, text="+ Right Click", width=90, command=lambda: append_result("mouse:right")).grid(row=0, column=1, padx=3, pady=3)
+            ctk.CTkButton(quick_f, text="+ Mid Click", width=90, command=lambda: append_result("mouse:middle")).grid(row=0, column=2, padx=3, pady=3)
+            ctk.CTkButton(quick_f, text="+ Scroll Up", width=90, command=lambda: append_result("mouse:scroll_up")).grid(row=0, column=3, padx=3, pady=3)
+            ctk.CTkButton(quick_f, text="+ Scroll Down", width=90, command=lambda: append_result("mouse:scroll_down")).grid(row=0, column=4, padx=3, pady=3)
+            ctk.CTkButton(quick_f, text="+ Wait 50ms", width=90, command=lambda: append_result("wait:50")).grid(row=1, column=0, padx=3, pady=3)
+
+        else:
+            # Gamepad live polling listener
+            last_pressed_buttons = set()
+
+            def poll_gamepad():
+                if not record_win.winfo_exists():
+                    return
+                current_pressed = set()
+                if hasattr(self, 'current_state') and self.current_state:
+                    st = self.current_state
+                    btn_attrs = ['a', 'b', 'x', 'y', 'lb', 'rb', 'lt', 'rt', 'l3', 'r3', 'select', 'start', 'home', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right']
+                    for b in btn_attrs:
+                        val = getattr(st, b, False)
+                        if isinstance(val, bool) and val:
+                            current_pressed.add(b)
+                        elif isinstance(val, (int, float)) and val > 0.5:
+                            current_pressed.add(b)
+
+                    if hasattr(st, 'extra_inputs') and isinstance(st.extra_inputs, dict):
+                        for eb, ev in st.extra_inputs.items():
+                            if ev:
+                                current_pressed.add(eb)
+
+                # Newly pressed buttons this frame
+                newly_pressed = current_pressed - last_pressed_buttons
+                for btn_name in newly_pressed:
+                    append_result(btn_name)
+
+                last_pressed_buttons.clear()
+                last_pressed_buttons.update(current_pressed)
+                record_win.after(50, poll_gamepad)
+
+            record_win.after(50, poll_gamepad)
+
+            # Quick add buttons frame for gamepad inputs
+            quick_f = ctk.CTkFrame(record_win, fg_color="transparent")
+            quick_f.pack(fill="x", padx=10, pady=5)
+
+            gp_btns = ['lb', 'rb', 'lt', 'rt', 'a', 'b', 'x', 'y', 'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right', 'select', 'start', 'home']
+            for i, gb in enumerate(gp_btns):
+                ctk.CTkButton(quick_f, text=f"+ {gb.upper()}", width=70, command=lambda b=gb: append_result(b)).grid(row=i//5, column=i%5, padx=3, pady=3)
+
+        def clear_results():
+            result_var.set("")
+
+        btn_bar = ctk.CTkFrame(record_win, fg_color="transparent")
+        btn_bar.pack(pady=10)
+
+        ctk.CTkButton(btn_bar, text="Clear", width=80, fg_color="#666666", command=clear_results).pack(side="left", padx=5)
+        
         def save_and_close():
             if k_listener: k_listener.stop()
             if m_listener: m_listener.stop()
@@ -2699,7 +2781,7 @@ class App(ctk.CTk):
             entry_widget.insert(0, result_var.get())
             record_win.destroy()
             
-        ctk.CTkButton(record_win, text="Save", command=save_and_close).pack(pady=10)
+        ctk.CTkButton(btn_bar, text="Save", width=100, command=save_and_close).pack(side="left", padx=5)
 
     def add_chord_row(self, name_val, inputs_val, outputs_val):
         row_f = ctk.CTkFrame(self.chord_list_frame)
@@ -2741,6 +2823,49 @@ class App(ctk.CTk):
         btn_rec_out = ctk.CTkButton(row2, text="[KBM]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
         btn_rec_out.pack(side="right", padx=2)
         
+        row_data = {"chord": ent_chord, "action": ent_action, "delayed": ent_delayed, "mode": mode_var, "frame": row_f}
+        self.hw_chord_rows.append(row_data)
+
+    def add_chord_row(self, name_val, inputs_val, outputs_val):
+        row_f = ctk.CTkFrame(self.chord_list_frame)
+        row_f.pack(fill="x", pady=2)
+        
+        row1 = ctk.CTkFrame(row_f, fg_color="transparent")
+        row1.pack(fill="x", padx=2, pady=2)
+        
+        ctk.CTkLabel(row1, text="Name:").pack(side="left", padx=2)
+        ent_name = ctk.CTkEntry(row1, width=90, placeholder_text="e.g. macro1")
+        if name_val:
+            ent_name.insert(0, name_val)
+        ent_name.pack(side="left", padx=2)
+        
+        ctk.CTkLabel(row1, text="Inputs:").pack(side="left", padx=2)
+        ent_in = ctk.CTkEntry(row1, width=110, placeholder_text="e.g. dpad_down, rb")
+        if inputs_val:
+            ent_in.insert(0, inputs_val)
+        ent_in.pack(side="left", padx=2)
+        
+        btn_rec_in = ctk.CTkButton(row1, text="[GP]", width=45, command=lambda: self.start_macro_recording(ent_in, 'inputs'))
+        btn_rec_in.pack(side="left", padx=2)
+        
+        def delete_row():
+            row_f.destroy()
+            self.chord_rows.remove(row_data)
+        btn_del = ctk.CTkButton(row1, text="X", width=25, fg_color="#990000", hover_color="#660000", command=delete_row)
+        btn_del.pack(side="right", padx=2)
+        
+        row2 = ctk.CTkFrame(row_f, fg_color="transparent")
+        row2.pack(fill="x", padx=2, pady=2)
+        
+        ctk.CTkLabel(row2, text="Outputs:").pack(side="left", padx=2)
+        ent_out = ctk.CTkEntry(row2, placeholder_text="e.g. keyboard:h, wait:50, mouse:left")
+        if outputs_val:
+            ent_out.insert(0, outputs_val)
+        ent_out.pack(side="left", fill="x", expand=True, padx=2)
+        
+        btn_rec_out = ctk.CTkButton(row2, text="[KBM]", width=50, command=lambda: self.start_macro_recording(ent_out, 'outputs'))
+        btn_rec_out.pack(side="right", padx=2)
+        
         row_data = {"name": ent_name, "in": ent_in, "out": ent_out, "frame": row_f}
         self.chord_rows.append(row_data)
         
@@ -2749,13 +2874,13 @@ class App(ctk.CTk):
         row_f.pack(fill="x", pady=2)
         
         ctk.CTkLabel(row_f, text="Chord:").pack(side="left", padx=2)
-        ent_chord = ctk.CTkEntry(row_f, width=95, placeholder_text="e.g. lb, start")
+        ent_chord = ctk.CTkEntry(row_f, width=95, placeholder_text="e.g. dpad_up, lb")
         if chord_val:
             ent_chord.insert(0, chord_val)
         ent_chord.pack(side="left", padx=2)
         
         ctk.CTkLabel(row_f, text="Delayed:").pack(side="left", padx=2)
-        ent_delayed = ctk.CTkEntry(row_f, width=75, placeholder_text="e.g. start")
+        ent_delayed = ctk.CTkEntry(row_f, width=75, placeholder_text="e.g. dpad_up")
         if delayed_val:
             ent_delayed.insert(0, delayed_val)
         ent_delayed.pack(side="left", padx=2)
@@ -2845,6 +2970,10 @@ class App(ctk.CTk):
             json.dump(macros_dict, f, indent=2)
             
         self.save_config()
+        
+        # Refresh Remapping tab so newly added hardware chord actions appear in System & Extras
+        if hasattr(self, 'remapping_scroll'):
+            self.setup_remapping()
         
         if logger:
             logger.info("Advanced configuration saved.")
