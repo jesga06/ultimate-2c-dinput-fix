@@ -1,11 +1,9 @@
 ## [Planned Features (Sorted by what I want to do next)]
-- **Complete Vibration Implementation:** Finalize the incomplete rumble code.
-- **Vibration Diagnostic Test:** Diagnostic tool `07_vibration_test.py` to test and identify rumble payloads.
 - **HidHide Integration (Double Input Fix)**: Automated integration with Nefarius HidHide to completely hide physical gamepads from other applications. Includes automatic executable whitelisting and dynamic cloaking that cleanly reverts its changes when the wrapper daemon closes.
 - **Advanced Features & Ecosystem**: Input recording/playback, multi-controller sync, plugin system, and gamepad HID reverse engineering tools.
 - **Profiles Tab Redesign (Validation & Diff):** Redesign and re-implement profile validation and side-by-side HID map diffing in a dedicated GUI view.
 - **Analog-to-Mouse & WASD Mapping:** Support for high-frequency translation of stick deflection to mouse deltas or WASD keystrokes.
-- **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature mimicking our custom rumble setup. This allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
+- **"Magic Packet" Initialization Handshakes:** Designing an optional, power-user feature that allows users to inject custom USB Output or Feature reports upon connection, forcing restrictive controllers (e.g. DualSense Edge, Switch Pro) to wake up out of "Compatibility Mode" and expose their raw extra buttons and high-frequency telemetry.
 - **Windows Startup Integration:** Registry integration to launch the wrapper daemon silently on boot.
 - **Gyroscope Support:** Native support for capturing and translating gyroscope/motion telemetry (will take a while because I don't have a controller with gyro support).
 - **DS4 Emulation:** Support for instantiating `vg.VDS4Gamepad()` for native PlayStation in-game prompts.
@@ -214,106 +212,24 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
 - **Synchronized HID Map Method Names:** Updated `gui.py`'s Profiles tab utility references to point to `validate_hid_map` and `diff_hid_maps` instead of their deprecated method names.
 - **Commit Commenting:** I actually do commented atomic commits now. Even the commit that adds this line was commented. Learned to do so the hard way.
 
-## [2.2.0] - Unreleased
+## [2.2.0] - 2026-07-22
 ### 🎮 User-Facing Changes
-- **Circularity Calibration & Wizard Enhancements:**
-  - Removed 45º diagonal reference line (causes too many issues and decreases curve readability).
-  - Added a dashed circular bounds guide on crosshair displays mapping the 1.0 boundary in current theme colors (dark/light appearance matched).
-  - Added an information overlay modal explaining circularity math and "Before" vs "After" processing configurations.
-  - Guided wizard now actively tracks clockwise/counter-clockwise spins, requiring 3 full rotations in both directions before unlocking completion.
-  - Integrated real-time velocity checking that flashes a warning ("Too Fast! Slow down.") if rotation speed is too high.
-  - Refactored wizard completion to offer explicit "Apply Changes" and "Discard" options.
-- **Hardware Chords & Input Suppression:**
-  - Added a comprehensive Hardware Chords Builder to the Advanced Tab in the GUI. This allows mapping your controller's firmware chords (e.g. `LB + Start`) to synthesize virtual extra buttons upstream in the pipeline.
-  - Implemented Input Suppression logic to prevent temporal bleeding. Constituent buttons used in chords are suppressed/consumed automatically, so the base action (e.g. `LB`) is not executed when a chord is triggered.
-  - Integrated adjustable timing margins (0ms, 50ms, 100ms) for reliable chord execution.
-- **XInput First Dual-Backend Architecture:**
-  - Expanded the daemon to utilize a hot-swappable dual-backend abstraction (`backend_base.py`, `backend_xinput.py`, `backend_dinput.py`).
-  - Implemented an XInput backend using `ctypes` bindings for `xinput1_4.dll` to natively read gamepads in XInput mode. This exposes hardware vibration/rumble directly without vendor-specific undocumented protocols.
-  - Revamped the calibration wizard to offer a choice between "DInput (Full Calibration)", "XInput Setup", and an "Auto-Detect Mode".
-  - Auto-Detect Mode seamlessly queries XInput states for specific simultaneous button presses (like `A + B`) to verify the operating mode.
-  - When XInput is selected or auto-detected, the wizard explicitly prompts for extra buttons to save a profile rather than instantly terminating.
-  - The wizard now intelligently auto-selects your controller and bypasses the device menu if only one HID device is connected.
-  - Conditional GUI locking: Hardware Chords are actively editable when the controller is in XInput mode, but explicitly locked out when in DInput mode where physical extra buttons are normally available natively.
-- **Warped Stick Correction:** Added a "Warp Threshold" slider (0-20%) that dynamically stretches weak thumbstick axes to reach 1.0 maximum deflection without hard-clipping.
-- **Proportional Gamepad Test Dashboard & Layout Builder:** Added a responsive, auto-scaling gamepad layout dashboard mapping physical and extra buttons based on configured layout resources (Xbox, PlayStation, etc.). Includes an interactive drag-and-drop Layout Builder tool (`scratch/interactive_layout_builder.py`) equipped with a configurable background grid slider (5px to 20px) and automatic snap-to-grid alignment.
-- **Interactive Recorder Save Targets:** Added explicit "Save Standard" and "Save Shift Map" buttons inside the mapping recorder to assign inputs to standard or shift layers.
-- **Dynamic Color Legends:** tooltips now query the active interface theme (Purple, Red, Blue, etc.) to reference raw/processed indicators dynamically.
-- **Digital Trigger response Graph:** The Tuning tab now displays trigger curves in digital mode as a clean step-function based on deadzone thresholds.
-- **Tuning Graphs & Sensitivity Real-time Updates:** Bind sensitivity sliders to dynamically redraw stick and trigger graphs.
-- **Retroactive Button Name Normalization:** Standardize all button names to uppercase client-side and retroactively across configuration settings.
-- **Consolidated Batch Launchers & Tools Menu:**
-  - Added absolute path locking (`cd /d "%~dp0"`) to `run_wrapper.bat` and `calibrate.bat` so end users can launch them via shortcuts or double-clicks without terminal errors.
-  - Added an interactive `tools_and_diagnostics.bat` entry point grouping all auxiliary tools, debug launchers, live input visualizer (`src/calibration.py --test-only`), standalone Python utilities (such as the Interactive Layout Builder), dependency installation scripts, and individual diagnostic steps in a clean menu.
-  - Cleaned up redundant standalone `.bat` files (`run_wrapper_debug.bat`, `calibrate_debug.bat`, `test_calibration.bat`, `install_requirements.bat`).
-- **Community HID Map Name Clean-up:** Fixed an issue where the string " (Community HID Map)" was incorrectly appended to the device name when creating a new user profile.
-- **Vertically Scrollable GUI Tabs:** Wrapped all GUI tabs (Dashboard, Profile, Remapping, Tuning, Advanced, Utilities, Customization) in vertical `CTkScrollableFrame` containers, ensuring all controls and diagnostics remain fully accessible and visible via scrolling regardless of window size.
-- **Macros & Hardware Chords Master Tutorial, Ghost Text & Recording Fixes:** Refined the Advanced Tab tutorial card and interactive modal guide (`open_chords_guide_modal`) with clear descriptions, exact GUI field names, D-Pad placeholder text (`dpad_up`, `dpad_down`), and explicit Save Settings warnings. Fixed Hardware Chord action buttons not appearing in the Remapping tab, and upgraded the macro recorder modal with live gamepad polling, mouse click/scroll listeners, and quick-add buttons.
-- **Hardware Chords Multi-Delimiter & Extra Button Release Tracking Fixes:** Fixed multi-button hardware chords (e.g. 3 D-Pad inputs) failing to match by supporting comma (`,`), plus (`+`), and space delimiters in `HardwareChordEngine`. Fixed extra button remap execution in `Mapper` by pre-populating all extra keys to `False` in `process()` so released extra buttons trigger `_release()` and clear `prev_state`. Added raw key string fallback handling to `_press()` and `_release()` and updated guide modals to document all available split delimiters.
-- **Removal of Profiles Tab & Input Recording Utility:**
-  - Removed the dedicated Profiles tab from the GUI and the "Input Recording & Playback" utility frame from the Utilities tab.
-  - Decommissioned background state recording/playback routines from the daemon loop (`src/main.py`) and removed `src/state_record_play.py`.
-  - These features were removed because they did not turn out as initially planned. They have been re-added to `workspace_ideas/to-do-list.md` for future architectural redesign and re-implementation.
-- **Dashboard Extra Buttons Centering, Visual Telemetry & XInput Deduplication Fixes:** Centered the extra buttons row on the Dashboard tab within an anchored sub-container frame. Restored standard controller button state evaluation in `update_position_loop()`, fixing visual telemetry highlighting so all standard and extra buttons light up in active accent color on press. Restricted extra button loading in XInput mode exclusively to Hardware Chords (`[hardware_chords]`), eliminating duplicate button entries.
-- **Macros Engine Upgrades (Name-Based Remapping, Gamepad Outputs & Optional Triggers):**
-  - Renamed standard chords to "Macros Engine" across the GUI, tutorials, and configuration labels.
-  - Added support for referencing macros by name directly in the Remapping tab (e.g. `macro:MyMacro` or `MyMacro`).
-  - Made input trigger chords optional for macros, allowing users to define standalone macros triggered solely via button remapping.
-  - Expanded macro outputs to support gamepad button presses (`gamepad:a`, `gamepad:lb`, etc.) alongside KBM actions and delays.
-  - Upgraded the macro recording modal (`[Rec]`) to record gamepad button presses and provide gamepad quick-add buttons when recording macro outputs.
-  - Updated the Remapping tab info tooltip and added an interactive modal guide (`open_remapping_guide_modal`) documenting keyboard/mouse syntax, macro referencing (`macro:MyMacro`), input blocking, and Shift layer usage.
-- **Home Button Shift Layer Hold Warning:** Added a popup recommendation notice when selecting the Home button as the Shift Trigger while in 'hold' mode, warning that long-pressing Home may force turn off the controller or trigger OS shortcuts and advising to switch to 'toggle' mode instead.
-- **Calibration Extra Buttons Prompt Cleanup:** Removed the obsolete "How many extra buttons?" prompt from `src/calibration.py` across the calibration wizard loop and XInput device registration since XInput extra buttons are managed exclusively via Hardware Chords.
-- **Post-Testing Bug Fixes & Refinements:**
-  - **Light Mode Removal:** Removed light mode toggle and enforced Dark mode globally to prevent rendering bugs.
-  - **Dynamic Theme Cursor Dots & Dashboard Mode Indicator:** Response curve cursor dots now dynamically match the active accent color. Dashboard layout now displays the active backend mode (`Mode: XINPUT / DINPUT / AUTO`).
-  - **Shift Key Terminology:** Standardized all UI labels, tooltips, and modals from "Shift Trigger" to "Shift Key".
-  - **Hardware Chords & Macro Engine:** Updated guidance text for hardware chords, added combination recommendations, isolated hardware chords from DInput mode, removed standalone macro input fields, fixed macro left-click recording, and enabled native gamepad macro outputs in `VirtualPad`.
-  - **DInput Y-Axis & XInput Reconnection:** Fixed DInput Y-axis stick polarity globally (positive-UP alignment) and resolved XInput backend slot-latching during automatic reconnection.
+- **XInput First Dual-Backend Architecture:** Hot-swappable dual-backend engine (`backend_xinput.py`, `backend_dinput.py`) exposing native hardware vibration/rumble and slot management when in XInput mode, alongside an Auto-Detect setup wizard.
+- **Hardware Chords & Macros Engine:** Comprehensive Macros & Hardware Chords system in the Advanced tab. Supports mapping firmware-level chords (e.g. `LB + Start`) with input suppression, name-based macro referencing (`macro:MyMacro`), standalone macro triggers, and combined KBM/gamepad macro outputs. This allows users to synthesize virtual extra buttons for the remapping functionality.
+- **Circularity Calibration & Tuning Enhancements:** Guided circularity calibration with rotation/velocity tracking, 1.0 circular bounds overlay, real-time response curve previewing, digital trigger step-function graphs, and warped thumbstick axis correction sliders.
+- **Proportional Gamepad Test Dashboard & Layout Builder:** Responsive dashboard mapping controller layout resources, plus a standalone drag-and-drop Layout Builder tool (`technical-stuff/interactive_layout_builder.py`) with configurable grid snapping.
+- **Consolidated Batch Launchers & Tools Menu:** Centralized `tools_and_diagnostics.bat` grouping debug launchers, dependency repair, live visualizers, layout builder, and 6 diagnostic routines into a single interactive menu.
+- **Vertically Scrollable GUI Tabs & Global Dark Mode:** Wrapped all GUI tabs in vertical scroll containers for accessibility at any window resolution, enforced global dark mode, and standardized "Shift Key" terminology.
+- **Force Feedback (Rumble) Reverse-Engineering Timeline:** Documented the exhaustive investigation into DirectInput force feedback in `technical-stuff/RUMBLE_TIMELINE.md`, establishing firmware-level gating as the root cause. Updated `README.md` and `FEATURELIST.md` with explicit DInput rumble limitation notes.
+- **Repository Documentation Organization & Standardization:** Consolidated technical documentation, timelines, proof-of-concept code, and the Interactive Layout Builder into `technical-stuff/`. Standardized document headers, formatting, and writing styles across all technical timelines, and uppercased markdown filenames repository-wide.
 
 ### ⚙️ Under-the-Hood Changes
-- **Unified Verbose Debug Logging Expansion:** Expanded the `--debug` argument parsing and granular `logger.debug` tracing across all core processing scripts (`mapper.py`, `decoder.py`, `virtual_pad.py`, `hardware_chords.py`), backend scripts (`backend_dinput.py`, `backend_xinput.py`), and all 6 automated diagnostic scripts. Added full `sys.excepthook` stack trace injection for diagnostic scripts in debug mode.
-- **Circularity On-Finish Callbacks:** Programmed an `on_finish` callback flow to refresh GUI plots and configuration states immediately when circularity changes are applied.
-- **Hardware Chords Engine Unification:** Re-architected `main.py` pipeline sequence to `HardwareChordEngine -> Mapper -> VirtualPad`, ensuring synthesized extra buttons seamlessly enter the mapper as standard input vectors.
-- **XInput API Ordinal Fetch:** Resolved a ctypes `AttributeError` by correctly loading the undocumented XInput guide button state via ordinal `#100` rather than passing an integer to `getattr`.
-- **Diagnostic Test Coverage:** Implemented unit tests for the newly added `HardwareChordEngine` and modernized the `test_diagnostics.py` suite to correctly mock Cython `hidapi` imports across environments without drivers installed.
-- **Profile Mode Specificity:** Upgraded `config_manager.py` to route backend-specific configurations automatically (e.g. loading `{device}_xinput.json` or `{device}_dinput.json` based on the active backend mode).
-- **Diagonal Response Curve Math:** Refactored graph rendering to mathematically evaluate diagonal deflection vectors across warped stick corrections, circularity boundaries (before/after), deadzones, and sensitivities.
-- **Dynamic Extra Button Parsing:** The GUI now parses `extra_buttons` directly from the active HID map dynamically at launch, properly recognizing all supported extra buttons from downloaded community profiles instead of failing to populate them when they aren't yet mapped in the user's config file.
-- **Config Attribute Error Fix:** Fixed an `AttributeError` in `main.py` caused by accessing the `.config` attribute of `ControllerConfig` instead of `.data` when determining backend mode.
-- **Console Spam Reduction:** Silenced the expected "Read failed instantly" print statements in `hid_reader.py` that occurred when gracefully ignoring locked system composite interfaces (like keyboards) during device discovery.
-- **Dashboard Button Flickering:** Fixed an issue where the GUI dashboard buttons would continuously redraw and flicker as gray boxes due to constant fg_color updates.
-- **UDP Button Broadcasting:** Fixed a bug in utilities_backend.py where live button state was excluded from the UDP payload, preventing the GUI from visually reflecting button presses.
-- **Diagnostic Tool Arguments:** Changed the incorrect --debug parameter to the supported --log parameter in tools_and_diagnostics.bat, restoring functionality for the debug wrappers.
-- **XInput Calibration Priority:** Updated the calibration wizards and diagnostic tools to highlight interfaces containing 'microsoft' or 'controller' in their name as the recommended endpoints to select for retrieving button data from XInput controllers.
-- **Static Gray Box Fix:** Fixed a UI overlapping issue in CustomTkinter where `extra_frame` created a static gray box overlaying the dashboard buttons by packing it outside the main layout canvas.
-- **XInput Controller Latching & Polling Resilience:**
-  - Resolved a critical bug where `XInputGetStateEx` (ordinal 100) failures would break out of the polling thread on frame 1, causing XInput controllers to report connected while reading zero inputs. Added fallback to standard `XInputGetState` and failure thresholding before marking disconnected.
-  - Implemented an automatic reconnection loop in `backend_xinput.py` that continuously retries slot binding when a controller drops instead of terminating the thread.
-  - Locked slot initialization to prevent the daemon from latching onto the virtual Xbox 360 controller created by `vgamepad`.
-  - Updated `VirtualPad` button blocking to check `layer_base` and `layer_shift` in addition to legacy `extra_buttons`.
-  - Standardized stick Y-axis polarity across backends to positive-UP, preventing inverted stick input on virtual controllers.
-  - Added `lt` and `rt` trigger support to `HardwareChordEngine`.
-- **GUI Real-Time Telemetry Listener & Flickering Resolution:**
-  - Added a UDP broadcast receiver thread to `gui.py` listening on port 9999 (plus standalone `XInputBackend` fallback), ensuring the dashboard buttons, tuning bars, and response curve cursors update in real time when XInput controllers are connected.
-  - Eliminated GUI input flickering caused by concurrent thread contention between the daemon's UDP broadcast and the GUI's standalone background listener by introducing daemon stream priority.
-  - Added a 0.39% (+/- 128 raw units) hardware rest noise snap in `backend_xinput.py` so untouched XInput sticks report clean `0.0` center alignment rather than uncentered noise (`0.00317`).
-- **Circularity Calibration Y-Axis Fix:** Corrected inverted Y stick directions in `circularity_modal.py` by removing unnecessary Y-axis negation in `get_raw_input()`, ensuring raw inputs, center sampling, bounds calculation, and canvas rendering use positive-UP Y polarity consistent with standard controller telemetry.
-- **GUI Tab Widget Duplication Fix:** Resolved a bug where refreshing tab layouts (e.g. calling `setup_remapping()` when updating hardware chords or shift triggers) packed duplicate `CTkScrollableFrame` containers into the tab without destroying previous instances. Added a child widget cleanup loop (`winfo_children().destroy()`) across all tab setup routines to eliminate split scrollbars and tab layout duplication.
-- **Instant Response Curve Graph Redraws:** Fixed an issue where toggling "Digital Trigger Mode" or changing "Circularity Mode" in the Tuning tab did not visually update the response curve graph canvas unless the Reset button was pressed. Redraw callbacks now execute immediately upon toggling digital triggers or changing stick circularity options, while preserving custom stick warp thresholds.
-- **Single-Instance Process Protection & Log Clearing Fix:**
-  - Added single-instance socket guards across `main.py` (port 48124), `gui.py` (port 48125), and `calibration.py` (port 48126) via `src/single_instance.py`. When a duplicate instance is executed, it notifies the user and exits immediately (`sys.exit(0)`), preserving the oldest running process.
-  - Resolved an issue where launching the GUI or a duplicate daemon instance in non-debug mode truncated `wrapper.log` to 0 bytes and left only 2–3 startup log lines.
-  - Enforced `--append-log` mode when spawning `gui.py` from `main.py` and set `append=True` as the default in `gui.py`.
-- **Math Utils `clamp_int` Attribute Fix:** Added the missing `clamp_int` helper function to `src/math_utils.py`, resolving an `AttributeError` when scaling normalized float stick/trigger values to integer ranges in `VirtualPad`.
-- **Dashboard Extra Buttons Grid Restoration:** Fixed an issue in `src/gui.py` where `_build_dashboard_layout` omitted calling `_get_extra_buttons`, causing physical DInput extra buttons and Hardware Chord targets to be omitted from the Dashboard tab while still appearing in Remapping.
-- **VirtualPad Macro State Initialization:** Initialized `self.macro_pressed_buttons` set in `VirtualPad.__init__` and cleared it in `reload_config()`, fixing an `AttributeError` when evaluating trigger and button states during real-time input processing.
-- **Virtual Controller Tuned Output Pipeline:** Fixed a bug in `VirtualPad.process()` where calculated tuned outputs (stick circularity correction, response curves, deadzones, and digital triggers) were being overwritten by raw input values (`state.lx`, `state.ly`, `state.rx`, `state.ry`, `state.lt`, `state.rt`) before being sent to `vgamepad`. Completed right stick (`rs`) circularity and response curve calculation branches matching `ls`.
-- **Response Curve Input Dot Color Alignment:** Updated `update_curve_cursor` and `update_trigger_curve_cursor` in `src/gui.py` to use `inv` from `get_accent_colors()`, ensuring the raw input dot color on stick and trigger response curve graphs matches the input dot color rendered on the current position graph.
-- **Repository-Wide Core & Diagnostic Architecture Audit Pass:**
-  - **Core Runtime & Math Engine (Phase 1):** Lifted `curves` import out of high-rate stick/trigger processing loops in `math_utils.py` and extracted `_scale_warped_axis` helper out of closure body to eliminate per-frame allocations in 1000Hz hot loops. Added sub-degree linear interpolation to circularity correction math. Pre-cached `_SAFE_MATH_DICT` in `curves.py` for $O(1)$ custom curve evaluation. Replaced runtime `hasattr` reflection in `decoder.py` with pre-cached `_STANDARD_FIELDS` set lookup. Added logger tracing, directory validation, and dictionary type checks in `config_manager.py`. Fixed multi-line f-strings in `calibration.py`. Prevented unrequested background logging on import in `utilities_backend.py`. Added complete type annotations across core runtime modules.
-  - **Batch Scripts & Diagnostic Tooling (Phase 2):** Standardized `%PYTHON_CMD%` variable definitions and execution quoting across `calibrate.bat`, `run_wrapper.bat`, and `tools_and_diagnostics.bat` to prevent syntax errors when paths contain spaces. Refactored `diagnostics/test_diagnostics.py` with dynamic `hid` module mocking for DLL-independent test execution. Added `encoding='utf-8'` to `technical-stuff/interactive_layout_builder.py`.
-  - **Application Layer & Test Suite (Phase 3):** Standardized default attribute initialization in `VirtualPad` to prevent `AttributeError` when instantiated without a config object. Added module logger, type annotations, and `encoding='utf-8'` to `macro_executor.py`. Fixed literal `\\n` string escaping in `profile_tools.py` error formatting. Added explicit `encoding='utf-8'` across file I/O operations in `main.py`. Added dynamic `hid` mocking across `test_virtual_pad.py`, `test_hardware_chords.py`, and `test_backend_xinput.py`, enabling 100% test suite execution without native DLL dependencies.
+- **High-Performance 1000Hz Hot-Loop Math Engine:** Optimized core processing loops with zero-allocation closures, pre-cached math evaluation environments (`_SAFE_MATH_DICT`), sub-degree circularity interpolation, and pre-cached metadata lookups (`_STANDARD_FIELDS`) for high-frequency HID polling.
+- **XInput Resilience & Automatic Reconnection:** Fault-tolerant slot binding, automatic reconnection loops, rest-noise snap filters, and UDP telemetry stream priority preventing thread contention between daemon and GUI.
+- **Single-Instance Process Protection:** Port-locked socket guards preventing duplicate instances of the daemon, GUI, or calibration wizard, preserving running processes and log continuity.
+- **Tuned Output Pipeline Fix:** Enforced strict tuned output routing (stick circularity, response curves, deadzones, and digital triggers) to virtual controllers across all backends.
+- **Comprehensive Diagnostic & Test Suite:** Added unit tests for `HardwareChordEngine`, modernized test suites with dynamic `hid` module mocking for DLL-independent test execution, and expanded verbose debug logging.
+- **Cross-Platform UTF-8 & Batch Script Fixes:** Standardized `encoding='utf-8'` across file persistence, macro execution, layout builder, and configuration operations. Standardized `%PYTHON_CMD%` quote escaping in batch scripts.
 
 
 
