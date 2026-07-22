@@ -243,12 +243,18 @@ def main():
             break
 
     if not hid_map_path:
-        logger.warning("No connected devices with a saved HID map found.")
-        logger.info(
-            "Please run calibration.py to generate a HID map for your controller.")
-        show_console()
-        time.sleep(5)
-        sys.exit(1)
+        # Check if XInput backend can initialize an XInput device directly
+        test_xinput = XInputBackend()
+        if test_xinput.initialize():
+            logger.info(f"XInput controller detected on slot {test_xinput.connected_slot} (no DInput HID map required).")
+            device_name = "XInput Gamepad"
+            hid_map_path = "profiles/default_xinput.json"
+        else:
+            logger.warning("No connected devices with a saved HID map or XInput slot found.")
+            logger.info("Please run calibration.py to generate a HID map for your controller.")
+            show_console()
+            time.sleep(5)
+            sys.exit(1)
 
     logger.info(f"Found matching HID map: {hid_map_path} ({device_name})")
 
