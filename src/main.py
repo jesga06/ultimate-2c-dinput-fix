@@ -296,7 +296,7 @@ def main():
         logger.error(f"Failed to parse profile to check interface: {e}")
 
     # Determine Backend Mode
-    backend_mode = controller_config.config.get('backend', {}).get('mode', 'auto')
+    backend_mode = controller_config.data.get('backend', {}).get('mode', 'auto')
     
     backend = None
     if backend_mode in ('xinput', 'auto'):
