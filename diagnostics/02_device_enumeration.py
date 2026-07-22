@@ -1,6 +1,20 @@
 import sys
 import os
 import time
+import argparse
+import traceback
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--debug', '-d', action='store_true')
+args, _ = parser.parse_known_args()
+IS_DEBUG = args.debug
+
+if IS_DEBUG:
+    def debug_excepthook(exc_type, exc_value, exc_traceback):
+        print("[DEBUG TRACE]")
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
+    sys.excepthook = debug_excepthook
+
 import platform
 import hid
 
