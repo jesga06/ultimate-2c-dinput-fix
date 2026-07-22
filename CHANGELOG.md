@@ -264,6 +264,12 @@ This release introduces major UI Customizations, Utilities, and Core Profile fea
   - Updated the Remapping tab info tooltip and added an interactive modal guide (`open_remapping_guide_modal`) documenting keyboard/mouse syntax, macro referencing (`macro:MyMacro`), input blocking, and Shift layer usage.
 - **Home Button Shift Layer Hold Warning:** Added a popup recommendation notice when selecting the Home button as the Shift Trigger while in 'hold' mode, warning that long-pressing Home may force turn off the controller or trigger OS shortcuts and advising to switch to 'toggle' mode instead.
 - **Calibration Extra Buttons Prompt Cleanup:** Removed the obsolete "How many extra buttons?" prompt from `src/calibration.py` across the calibration wizard loop and XInput device registration since XInput extra buttons are managed exclusively via Hardware Chords.
+- **Post-Testing Bug Fixes & Refinements:**
+  - **Light Mode Removal:** Removed light mode toggle and enforced Dark mode globally to prevent rendering bugs.
+  - **Dynamic Theme Cursor Dots & Dashboard Mode Indicator:** Response curve cursor dots now dynamically match the active accent color. Dashboard layout now displays the active backend mode (`Mode: XINPUT / DINPUT / AUTO`).
+  - **Shift Key Terminology:** Standardized all UI labels, tooltips, and modals from "Shift Trigger" to "Shift Key".
+  - **Hardware Chords & Macro Engine:** Updated guidance text for hardware chords, added combination recommendations, isolated hardware chords from DInput mode, removed standalone macro input fields, fixed macro left-click recording, and enabled native gamepad macro outputs in `VirtualPad`.
+  - **DInput Y-Axis & XInput Reconnection:** Fixed DInput Y-axis stick polarity globally (positive-UP alignment) and resolved XInput backend slot-latching during automatic reconnection.
 
 ### ⚙️ Under-the-Hood Changes
 - **Unified Verbose Debug Logging Expansion:** Expanded the `--debug` argument parsing and granular `logger.debug` tracing across all core processing scripts (`mapper.py`, `decoder.py`, `virtual_pad.py`, `hardware_chords.py`), backend scripts (`backend_dinput.py`, `backend_xinput.py`), and all 6 automated diagnostic scripts. Added full `sys.excepthook` stack trace injection for diagnostic scripts in debug mode.
