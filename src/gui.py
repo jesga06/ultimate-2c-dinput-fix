@@ -659,6 +659,8 @@ class App(ctk.CTk):
             logger.debug("[EXIT] save_config() completed.")
 
     def setup_dashboard(self):
+        for child in self.tab_dashboard.winfo_children():
+            child.destroy()
         self.dashboard_scroll = ctk.CTkScrollableFrame(self.tab_dashboard, fg_color="transparent", corner_radius=0)
         self.dashboard_scroll.pack(fill="both", expand=True)
 
@@ -916,6 +918,8 @@ class App(ctk.CTk):
             self.trig_menu.configure(values=keys)
 
     def setup_remapping(self):
+        for child in self.tab_remapping.winfo_children():
+            child.destroy()
         self.remapping_scroll = ctk.CTkScrollableFrame(self.tab_remapping, fg_color="transparent", corner_radius=0)
         self.remapping_scroll.pack(fill="both", expand=True)
 
@@ -1422,6 +1426,8 @@ class App(ctk.CTk):
             self.update_analog_config("trigger_right", self.rt_dz, self.rt_adz, self.rt_rest_dz, self.rt_curve, self.rt_exp, self.rt_sens, self.rt_custom)
 
     def setup_analog_tuning(self):
+        for child in self.tab_analog.winfo_children():
+            child.destroy()
         self.tuning_scroll = ctk.CTkScrollableFrame(self.tab_analog, fg_color="transparent", corner_radius=0)
         self.tuning_scroll.pack(fill="both", expand=True)
         
