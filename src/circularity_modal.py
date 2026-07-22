@@ -79,7 +79,7 @@ class CircularityCalibrationModal(ctk.CTkToplevel):
                 self.center_x = sum(self.center_samples_x) / len(self.center_samples_x)
                 self.center_y = sum(self.center_samples_y) / len(self.center_samples_y)
                 self.calib_state = "WAIT_SWEEP"
-                self.lbl_instruct.configure(text="Step 2: Push the stick fully outward and slowly rotate it\n360 degrees 3 times clockwise, then 3 times counter-clockwise.")
+                self.lbl_instruct.configure(text="Step 2: Push the stick fully outward and slowly rotate it\n360 degrees 3 times clockwise, then 3 times counter-clockwise.\nNOTE: do NOT press your joystick while doing this.")
                 self.btn_action.configure(text="Start Sweep", state="normal", command=self.start_sweep)
                 
         elif self.calib_state == "SWEEP":
