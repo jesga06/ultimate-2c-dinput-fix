@@ -21,13 +21,11 @@ from circularity_modal import CircularityCalibrationModal
 
 logger = None
 
-# Read global config to set UI theme early
 _global_config = configparser.ConfigParser()
 _global_config.read('config.ini')
-_appearance = _global_config.get('UI', 'appearance', fallback="Dark")
 _theme = _global_config.get('UI', 'theme', fallback="purple")
 
-ctk.set_appearance_mode(_appearance)
+ctk.set_appearance_mode("Dark")
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # Check if theme is in themes directory (new) or root (legacy purple)
 theme_path = os.path.join(script_dir, "themes", f"{_theme}_theme.json")
@@ -3066,21 +3064,9 @@ class App(ctk.CTk):
         frame = ctk.CTkFrame(self.customization_scroll)
         frame.pack(padx=20, pady=10, fill="x")
 
-        # Appearance Mode
-        lbl_mode = ctk.CTkLabel(frame, text="Appearance Mode (Light/Dark):")
-        lbl_mode.grid(row=0, column=0, padx=15, pady=10, sticky="w")
-        
-        current_mode = "Dark"
-        if self.daemon_config.has_option('UI', 'appearance'):
-            current_mode = self.daemon_config.get('UI', 'appearance')
-            
-        self.mode_var = ctk.StringVar(value=current_mode)
-        opt_mode = ctk.CTkOptionMenu(frame, variable=self.mode_var, values=["Dark", "Light", "System"], command=self.change_appearance_mode)
-        opt_mode.grid(row=0, column=1, padx=15, pady=10, sticky="ew")
-
         # Theme Color
         lbl_theme = ctk.CTkLabel(frame, text="Accent Theme (Requires Restart):")
-        lbl_theme.grid(row=1, column=0, padx=15, pady=10, sticky="w")
+        lbl_theme.grid(row=0, column=0, padx=15, pady=10, sticky="w")
         
         current_theme = "purple"
         if self.daemon_config.has_option('UI', 'theme'):
@@ -3151,14 +3137,6 @@ class App(ctk.CTk):
         ctk.CTkButton(comm_status_frame, text="Force Update Now", command=force_db_update, width=140).pack(side="left")
 
         frame.columnconfigure(1, weight=1)
-
-    def change_appearance_mode(self, new_mode):
-        ctk.set_appearance_mode(new_mode)
-        if not self.daemon_config.has_section('UI'):
-            self.daemon_config.add_section('UI')
-        self.daemon_config.set('UI', 'appearance', new_mode)
-        with open(self.daemon_config_file, 'w') as f:
-            self.daemon_config.write(f)
 
     def change_theme(self, new_theme):
         if not self.daemon_config.has_section('UI'):
