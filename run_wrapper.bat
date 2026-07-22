@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 title "Universal Remapper & XInput from DInput Wrapper"
 echo Starting UR-XD...
 

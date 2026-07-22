@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 title Gamepad Calibration Wizard
 echo Starting Gamepad Calibration Wizard...
 
