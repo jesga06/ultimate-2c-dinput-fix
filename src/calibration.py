@@ -102,7 +102,7 @@ class Calibrator:
     def _data_handler(self, report: HIDReport):
         self.latest_reports[str(report.report_id)] = report
 
-    def scan_devices(self, test_only=False):
+    def scan_devices(self, test_only=False, skip_discovery=False):
         print("==================================================================")
         print("NOTICE: Please ensure your controller is connected. If calibrating DInput HID maps, set your controller to DInput mode.")
         print("If you just switched modes, select the option to rescan devices.")
@@ -184,9 +184,19 @@ class Calibrator:
 
             self.latest_reports = {}
 
-            if test_only:
+            if test_only or skip_discovery:
                 vid = selected_group['vid']
                 pid = selected_group['pid']
+                
+                if skip_discovery:
+                    self.device = selected_group
+                    self.profile = {
+                        "name": selected_group['name'],
+                        "vid": vid,
+                        "pid": pid,
+                    }
+                    return True
+                    
                 profile_path = f"profiles/{vid:04X}_{pid:04X}.json".lower()
                 
                 if not os.path.exists(profile_path):
@@ -369,14 +379,7 @@ class Calibrator:
 
         if detected:
             print("\nSuccessfully detected XInput mode!")
-            import configparser
-            config = configparser.ConfigParser()
-            if os.path.exists('config.ini'): config.read('config.ini')
-            if not config.has_section('backend'): config.add_section('backend')
-            config.set('backend', 'mode', 'xinput')
-            with open('config.ini', 'w') as f: config.write(f)
-            print("Backend set to XInput. Please use the GUI to configure your Hardware Chords.")
-            time.sleep(3)
+            return True
         else:
             print("\nFailed to detect XInput mode. Falling back to DInput calibration...")
             time.sleep(2)
@@ -390,6 +393,7 @@ class Calibrator:
             
             if self.scan_devices(test_only=False):
                 self._continue_dinput_calibration()
+            return False
 
     def run(self, test_only=False):
         cls()
@@ -439,19 +443,57 @@ class Calibrator:
                     typed_input += char
             time.sleep(0.01)
 
-        if mode_choice == "2":
-            print("\n\n--- XInput Mode Setup ---")
+        def setup_xinput_profile():
+            print("\n--- Registering Device for XInput ---")
+            print("Please select your controller from the list to register it.")
+            if not self.scan_devices(skip_discovery=True):
+                return False
+                
+            print(f"\nDoes your {self.profile['name']} have physical extra buttons (e.g. L4, R4, L5, R5)?")
+            print("Enter the names of the extra buttons separated by commas (or leave blank for none).")
+            extra_btns = input("Extra buttons: ").strip().lower()
+            
+            basic_hid_map_path = f"profiles/{self.profile['vid']:04X}_{self.profile['pid']:04X}.json".lower()
+            if not os.path.exists(basic_hid_map_path):
+                with open(basic_hid_map_path, 'w') as f:
+                    json.dump(self.profile, f, indent=4)
+                    
+            import re
+            sanitized_name = re.sub(r'[\\/*?:"<>|]', "", self.profile['name'])
+            sanitized_name = sanitized_name.replace(" ", "_")
+            x_profile_path = f"profiles/{sanitized_name}_xinput.json"
+            
+            x_profile = {}
+            if os.path.exists(x_profile_path):
+                try:
+                    with open(x_profile_path, 'r') as f:
+                        x_profile = json.load(f)
+                except:
+                    pass
+                    
+            if extra_btns:
+                x_profile["extra_buttons"] = [b.strip() for b in extra_btns.split(',') if b.strip()]
+                
+            with open(x_profile_path, 'w') as f:
+                json.dump(x_profile, f, indent=4)
+                
             import configparser
             config = configparser.ConfigParser()
             if os.path.exists('config.ini'): config.read('config.ini')
             if not config.has_section('backend'): config.add_section('backend')
             config.set('backend', 'mode', 'xinput')
             with open('config.ini', 'w') as f: config.write(f)
-            print("Backend set to XInput. Please use the GUI to configure your Hardware Chords.")
+            
+            print("\nBackend set to XInput. Please use the GUI to configure your Hardware Chords.")
             time.sleep(3)
+            return True
+
+        if mode_choice == "2":
+            setup_xinput_profile()
             return
         elif mode_choice == "3":
-            self.setup_auto_detect()
+            if self.setup_auto_detect():
+                setup_xinput_profile()
             return
 
         # Option 1: DInput mode selected

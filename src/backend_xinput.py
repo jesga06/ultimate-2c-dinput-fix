@@ -81,10 +81,12 @@ class XInputBackend(BaseInputBackend):
                 self.XInputGetState.restype = DWORD
             
             # XInputGetStateEx (ordinal 100) gets the Guide button
-            self.XInputGetStateEx = getattr(self.xinput, (b"#100" if isinstance("#100", bytes) else 100), None)
-            if self.XInputGetStateEx:
+            try:
+                self.XInputGetStateEx = self.xinput[100]
                 self.XInputGetStateEx.argtypes = [DWORD, ctypes.POINTER(XINPUT_STATE)]
                 self.XInputGetStateEx.restype = DWORD
+            except AttributeError:
+                self.XInputGetStateEx = None
 
             self.XInputSetState = getattr(self.xinput, "XInputSetState", None)
             if self.XInputSetState:
