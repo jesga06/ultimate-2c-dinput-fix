@@ -464,10 +464,6 @@ class Calibrator:
             if not self.scan_devices(skip_discovery=True):
                 return False
                 
-            print(f"\nDoes your {self.profile['name']} have physical extra buttons (e.g. L4, R4, L5, R5)?")
-            print("Enter the names of the extra buttons separated by commas (or leave blank for none).")
-            extra_btns = input("Extra buttons: ").strip().lower()
-            
             basic_hid_map_path = f"profiles/{self.profile['vid']:04X}_{self.profile['pid']:04X}.json".lower()
             if not os.path.exists(basic_hid_map_path):
                 with open(basic_hid_map_path, 'w') as f:
@@ -486,9 +482,6 @@ class Calibrator:
                 except:
                     pass
                     
-            if extra_btns:
-                x_profile["extra_buttons"] = [b.strip() for b in extra_btns.split(',') if b.strip()]
-                
             with open(x_profile_path, 'w') as f:
                 json.dump(x_profile, f, indent=4)
                 
@@ -671,21 +664,8 @@ class Calibrator:
             ("dpad", "hat", "Press the D-Pad UP (Assuming standard Hat switch)")
         ]
 
-        # Extra buttons
-        if remapping_targets is None:
-            num_extras = -1
-            while num_extras < 0:
-                user_input = input("\nHow many extra buttons (e.g., L4, R4) does this controller have? (or 'q' to quit): ").strip().lower()
-                if user_input == 'q': return
-                try: num_extras = int(user_input)
-                except ValueError: pass
-
-            for i in range(num_extras):
-                name = ""
-                while not name:
-                    name = input(f"Enter a name for extra button {i + 1} (e.g., l4): ").strip().lower()
-                steps.append((name, "buttons", f"Press the '{name}' extra button"))
-        else:
+        # Extra buttons handling for specific remapping targets
+        if remapping_targets is not None:
             filtered_steps = [s for s in steps if s[0] in remapping_targets]
             standard_names = {s[0] for s in steps}
             for t in remapping_targets:
