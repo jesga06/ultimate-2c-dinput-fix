@@ -966,9 +966,9 @@ class App(ctk.CTk):
         info_frame = ctk.CTkFrame(self.remapping_scroll, fg_color="transparent")
         info_frame.grid(row=2, column=0, columnspan=2, pady=(10, 20))
         
-        info_btn = ctk.CTkButton(info_frame, text="?  Remapping Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12))
+        info_btn = ctk.CTkButton(info_frame, text="?  Remapping Guide", width=140, height=24, corner_radius=12, fg_color="#555555", hover_color="#666666", font=ctk.CTkFont(size=12), command=self.open_remapping_guide_modal)
         info_btn.pack(side="top")
-        ToolTip(info_btn, "Mapping: Use the text box to enter a keyboard key or mouse click.\n[Rec]: Click to record a key combination interactively.\nBlock: Prevent the original controller button from being sent to the game.\nShift Map/S. Blk: Secondary mapping when the shift trigger is held.")
+        ToolTip(info_btn, "Mapping: Enter a keyboard key (e.g. 'h'), mouse click (e.g. 'mouse:left'), or macro name (e.g. 'macro:MyMacro' or 'MyMacro').\n[Rec]: Click to record key combinations or macros interactively.\nBlock: Prevent the original controller button from being sent to the game.\nShift Map/S. Blk: Secondary mapping & block state when the Shift layer trigger is held.\nClick to view full guide window!")
 
         self.entries = {}
         self.label_widgets = {}
@@ -2501,6 +2501,41 @@ class App(ctk.CTk):
         btn_std.pack(side="left", padx=5)
 
         show_topic(topic)
+
+    def open_remapping_guide_modal(self):
+        guide_win = ctk.CTkToplevel(self)
+        guide_win.title("Remapping Guide & Macro Usage")
+        guide_win.geometry("640x520")
+        guide_win.attributes("-topmost", True)
+        guide_win.focus()
+
+        lbl_title = ctk.CTkLabel(guide_win, text="🎮 Remapping & Macro Usage Guide", font=ctk.CTkFont(size=16, weight="bold"))
+        lbl_title.pack(pady=(10, 5))
+
+        txt = ctk.CTkTextbox(guide_win, font=ctk.CTkFont(size=12), wrap="word")
+        txt.pack(fill="both", expand=True, padx=15, pady=10)
+
+        content = (
+            "=== REMAPPING & MACRO USAGE GUIDE ===\n\n"
+            "1. KEYBOARD & MOUSE MAPPING:\n"
+            "* Plain Keyboard Key: Type the key directly (example: 'h', 'space', 'e', 'f1').\n"
+            "* Explicit Keyboard Prefix: Type 'keyboard:key_name' (example: 'keyboard:space', 'keyboard:left_shift').\n"
+            "* Mouse Clicks: Type 'mouse:left', 'mouse:right', 'mouse:middle', 'mouse4', or 'mouse5'.\n"
+            "* Mouse Scroll: Type 'mouse:scroll_up' or 'mouse:scroll_down'.\n\n"
+            "2. REFERENCING MACROS BY NAME (macro:MyMacro):\n"
+            "* You can trigger any macro created in the Advanced tab directly when pressing a controller button!\n"
+            "* Usage: Enter 'macro:MacroName' or simply 'MacroName' into the button's text box (example: 'macro:FireCombo' or 'FireCombo').\n"
+            "* Note: Macros do not require chord trigger inputs in the Advanced tab if you map them directly to a button here.\n\n"
+            "3. BUTTON BLOCKING (Block / S. Blk):\n"
+            "* Check 'Block' to prevent the controller's original native button press from reaching the game (useful when remapping to keyboard/mouse or macros).\n"
+            "* Check 'S. Blk' to block the original button only while holding the Shift trigger.\n\n"
+            "4. INTERACTIVE RECORDING ([Rec]):\n"
+            "* Click the '[Rec]' button next to any remapping entry to interactively record key combinations or macro steps."
+        )
+        txt.insert("0.0", content)
+        txt.configure(state="disabled")
+
+        ctk.CTkButton(guide_win, text="Close", width=100, command=guide_win.destroy).pack(pady=(0, 10))
 
     def setup_advanced(self):
         for child in self.tab_advanced.winfo_children():
