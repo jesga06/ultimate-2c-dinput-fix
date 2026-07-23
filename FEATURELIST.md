@@ -3,7 +3,6 @@
 
 ## 🎮 Interactive Calibration Wizard (`src/calibration.py`)
 Run calibration using `calibrate.bat` (or via `tools_and_diagnostics.bat`) to configure and profile a new gamepad.
-* **Auto-Device Detection:** Detects and highlights physical gamepads automatically as soon as you press a button or move a stick.
 * **Guided Step-by-Step Profiling:** Walks you through mapping buttons, bump triggers, analog stick axis offsets, and the D-Pad Hat switch. Includes robust fallback detection for digital triggers.
 * **Custom Extra Buttons:** Supports profiling a custom number of additional buttons (e.g. L4, R4, M1, M2 back paddles) with personalized names.
 * **Profile Generation:** Automatically creates a device-specific JSON profile under the `profiles/` directory named after the device's Vendor ID (VID) and Product ID (PID).
@@ -13,7 +12,6 @@ Run calibration using `calibrate.bat` (or via `tools_and_diagnostics.bat`) to co
 * **Cross-Contamination Rejection:** Employs a multi-axis movement rejection heuristic (0.7 threshold) to avoid mapping digital trigger clicks as axis movement.
 * **Robust Hat Switch Detection:** Filters neutral-to-direction transitions to map D-Pad inputs cleanly.
 * **Gyro/Motion Sensor Filter:** Prompts users to identify if the controller streams telemetry continuously to filter out sensor drift.
-* **Vibration/Rumble Probing:** Guided wizard (`_calibrate_rumble()`) to cycle through output bytes to detect rumble motor indices (currently disabled by default).
 * **XInput API Modes:** Choose between full DInput HID discovery, XInput configuration, or Auto-Detect mode.
 * **Auto-Select Gamepad:** Skips the manual device menu in the calibration process if only one controller is detected on the system.
 * **XInput Setup Flow:** Intelligently registers extra physical buttons without interfering with standardized XInput protocols.
@@ -30,7 +28,6 @@ Run `tools_and_diagnostics.bat` for an interactive CLI menu covering developer u
 * **Quick-Launch Test:** Launches directly into the testing panel for your calibrated controller, bypassing the setup wizard using the `--test-only` argument.
 * **2D ASCII Thumbstick Visualizers:** Displays a 5x5 ASCII coordinate grid for the Left Stick (LS) and Right Stick (RS) in real-time, showing range, deadzones, and stick coordinates.
 * **Analog Trigger Level-Bars:** Fills vertical meters (`█` / `▒`) showing trigger press pressure instead of simple integer readouts.
-* **ANSI Zero-Flicker Updates:** Utilizes Windows Console Virtual Terminal Processing (ANSI escape codes) to update lines in-place, eliminating screen flashing.
 * **Dynamic Button Prompts:** Test UI changes standard A/B/X/Y labels dynamically to fit the profile layout.
 
 ---
@@ -56,27 +53,17 @@ Run the settings panel using `run_wrapper.bat` (and select "Open Config" in the 
   * **Trigger Sensitivity:** Modify the sensitivity of analog triggers directly using sliders (values from 0.1 to 3.0) to fine-tune actuation limits.
   * **Digital Triggers Mode:** A "Digital Trigger Mode" checkbox forces analog trigger values to act as binary buttons (0 or 255) on the virtual pad immediately upon input. Replaces standard curve display with a clean step-function in real time upon toggling.
   * **Warped Stick Correction:** "Warp Threshold" slider (0-20%) to independently scale weak stick axes to reach 1.0 maximum throw without hard-clipping.
-  * **Analog Tuning Visualizer:** Displays real-time coordinate plotting with a 1.0 unit circular bounds grid and exact decimal labels for thumbsticks.
   * **Circularity Calibrator:** A calibration wizard in the Tuning tab that records the maximum range of your stick and applies correction math to ensure a perfect 1.0 circular output.
     * **Rotation Monitoring:** Tracks and requires 3 CW + 3 CCW rotations.
     * **Speed Checks:** Real-time velocity warnings if spinning too fast.
     * **Apply/Discard Flow:** Lets the user preview error percentage and center offset before choosing to Apply or Discard.
     * **Circularity Info Modal:** Info popup detailing forced circularity calculations and before vs. after routing options.
-    * **Standardized Y Polarity:** Native positive-UP Y stick polarity alignment across raw sampling, wizard visualization, and bounds calculation.
 * **Live Connection Status:** Displays whether the background daemon is currently "Connected" or "Disconnected", along with the active controller's name.
 * **Macros Studio (Advanced Tab):** Record sequences of gamepad inputs and output key/mouse events, choose between toggle (press) and hold execution, with integrated stuck-key protection.
 * **Hardware Chords Builder (Advanced Tab):** Safely remap firmware-level hardware chords (e.g. `LB + Start`) using input suppression. Synthesizes virtual extra buttons without leaking base inputs into the game. (Only available in XInput mode).
 * **Shift Layer Remapping:** Configure dynamic shift mappings and shift blocking for every button, expanding total layout mapping possibilities. Shift trigger keys dynamically adapt to your controller's profile.
-* **Transition Screen Overlay:** Smooth color-interpolated canvas fades (250ms in/out, 900ms hold) with randomized community quotes and a rotating vector loading spinner.
-* **Button Name Normalization:** Standardizes and forces all client-side button names to uppercase across all configurations and UI elements.
-* **Dynamic Color Legends:** Tooltips and legends automatically reference color schemes based on the active GUI theme.
-* **Vertically Scrollable GUI Tabs:** All tabs (Dashboard, Remapping, Tuning, Advanced, Utilities, Customization) are wrapped in `CTkScrollableFrame` containers, guaranteeing that all UI options and diagnostic tools remain visible and scrollable vertically regardless of window dimensions.
-  * **Single-Container Latching & Cleanup:** Enforces clean container destruction (`winfo_children().destroy()`) before re-initializing tab scrollframes, preventing duplicate tab instances or split scrollbars.
 * **Macros Engine & Tutorial:** Prominent tutorial banner card and interactive modal guide (`open_chords_guide_modal`) providing step-by-step tutorials, execution modes, Save Settings warnings, multi-delimiter support, D-Pad ghost text templates, optional chord triggers, name-based macro referencing in Remapping (`macro:MyMacro` or `MyMacro`), gamepad/KBM output execution, and an upgraded live macro recorder modal.
 * **Remapping Tab Interactive Guide:** Info button tooltip and interactive modal (`open_remapping_guide_modal`) detailing keyboard/mouse mapping formats, macro referencing by name (`macro:MyMacro`), input blocking, and Shift layer behavior.
-* **Shift Layer Home Button Hold Warning:** Displays a recommendation warning modal when 'HOME' is selected as the Shift Key in 'hold' mode, advising users to set Shift mode to 'toggle' to prevent controller force turn-off or OS shortcut triggers.
-* **Dashboard Extra Buttons Centering & Telemetry Highlighting:** Centered horizontal extra buttons row on the Dashboard, added real-time active accent color illumination when buttons trigger, and restricted extra buttons in XInput mode exclusively to Hardware Chords to prevent duplicate entries.
-* **Streamlined Calibration Wizard:** Removed obsolete extra button prompts during device calibration and XInput registration in `src/calibration.py`, relying directly on Hardware Chords for extra button definitions.
 
 ---
 
@@ -141,26 +128,18 @@ A completely generic, foolproof, and automated diagnostic suite to troubleshoot 
 
 ---
 
-
 ## 🎨 UI & Customization Features
-* **Theme Manager:** Dynamically switch the entire application's color palette (White, Orange, Red, Yellow, Green, Blue, Purple) and immediately preview changes.
+* **Theme Manager:** Dynamically switch the entire application's color palette (White, Orange, Red, Yellow, Green, Blue, Purple).
 * **System Font Override:** Supports overriding the default CustomTkinter font with any built-in system font (e.g. Arial, Consolas).
-* **Enforced Global Dark Mode:** Global dark mode enforcement to prevent rendering artifacts and ensure optimal canvas contrast.
 
 ---
 
 ## 🔬 Calibration & Profile Hub
-* **Calibration Confidence Engine:** Post-calibration, the wizard evaluates your hardware's resting exactness, deadzone thresholds, and perfect circularity, grading it as Excellent, Good, or Poor.
 * **Dashboard HID Map Validation:** Validate active custom HID maps against system schemas or community maps directly from the Dashboard layout panel.
 
 ---
 
 ## 📊 Hardware Utilities & Diagnostics
 * **Latency Estimator:** Dynamically calculates the round-trip latency of the Python daemon's processing pipeline in milliseconds.
-* **Polling Rate Monitor:** Continuously measures your physical gamepad's USB polling rate, calculating 1% lows and average Hertz.
+* **Polling Rate Monitor:** Continuously measures your physical gamepad's USB polling rate.
 * **Synthetic Wrapper Benchmark:** Floods the translation pipeline with artificial HID packets to measure the maximum theoretical throughput of the software without hardware bottlenecks.
-* **Dashboard Fidelity:** Solved rendering bugs causing dashboard buttons to flicker and fail to display live UDP button data.
-* **XInput Calibration Safety:** Implemented string matching to safely recommend the correct endpoint interface for XInput controllers during calibration.
-* **Static Gray Box Fix:** Resolved a UI overlapping issue in CustomTkinter where `extra_frame` created a static gray box overlaying the dashboard buttons by packing it outside the main layout canvas.
-* **Virtual Controller Latching Fix:** Resolved a critical bug where the wrapper daemon would accidentally latch onto the virtual Xbox 360 controller spawned by `vgamepad` instead of the physical controller, causing inputs to fail silently.
-* **Virtual Controller Tuned Output Pipeline:** Fixed raw input override in `VirtualPad.process()`, ensuring all configured stick circularity corrections, response curves, deadzones, and digital triggers properly pass to the virtual controller.
